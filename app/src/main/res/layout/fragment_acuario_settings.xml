@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Placeholder screen for the Acuario effect's settings. Replace with the real
-    controls (card selectors, sliders, etc.) once the effect's configurable knobs
-    are designed — see SunnySettingsFragment/fragment_sunny_settings.xml in the
-    "wallpaper" reference project for the established card-selector pattern.
+    Settings for the Acuario effect. Only the environment (theme) selector exists so far -
+    add sliders/switches/card selectors here (see SunnySettingsFragment/fragment_sunny_settings.xml
+    in the "wallpaper" reference project for the established patterns) as new knobs are
+    designed: bubble density, fish count, background, etc.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -13,16 +13,40 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center"
-        android:padding="24dp">
+        android:padding="4dp">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_section_environment"
+            android:textColor="?attr/colorOnSurface"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:requiresFadingEdge="horizontal"
+            android:fadingEdgeLength="24dp">
+
+            <LinearLayout
+                android:id="@+id/containerAcuarioTheme"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingBottom="8dp"
+                android:paddingTop="4dp" />
+        </HorizontalScrollView>
+
+        <TextView
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/settings_placeholder"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="15sp"
-            android:gravity="center" />
+            android:textSize="13sp"
+            android:layout_marginTop="16dp" />
 
     </LinearLayout>
 </ScrollView>

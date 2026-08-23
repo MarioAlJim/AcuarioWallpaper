@@ -7,4 +7,14 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Settings screen card-selector tokens (light palette), used by SettingsCardSelectorHelper -->
+    <color name="settings_card_bg_alt">#EDEEF2</color>
+    <color name="settings_card_bg_alt2">#E3E5EA</color>
+    <color name="settings_chip_bg_inactive">#DADCE2</color>
+    <color name="settings_chip_bg_active">#D6F0F5</color>
+    <color name="settings_text_primary">#1B1C1F</color>
+    <color name="settings_text_muted">#6B6D75</color>
+    <color name="settings_accent">#00ACC1</color>
+    <color name="settings_accent_text">#00767F</color>
 </resources>
