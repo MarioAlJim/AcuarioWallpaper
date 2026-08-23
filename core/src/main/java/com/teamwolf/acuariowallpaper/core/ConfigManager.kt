@@ -28,9 +28,13 @@ class ConfigManager(context: Context) : ConfigProvider {
     companion object {
         const val PREFS_NAME = "acuario_wallpaper_prefs"
 
-        // Add KEY_/DEFAULT_ constants here as settings are introduced, following the
+        const val KEY_ACUARIO_THEME = "acuario_theme"
+        const val DEFAULT_ACUARIO_THEME = 0
+
+        // Add more KEY_/DEFAULT_ constants here as settings are introduced, following the
         // pattern used by the "wallpaper" reference project's ConfigManager.
     }
 
-    // Delegate to `acuario` here as ConfigProvider grows getters/setters.
+    override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
+    fun setAcuarioTheme(theme: Int) = acuario.setAcuarioTheme(theme)
 }

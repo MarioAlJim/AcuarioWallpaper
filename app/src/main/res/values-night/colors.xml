@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings screen card-selector tokens (dark palette), used by SettingsCardSelectorHelper -->
+    <color name="settings_card_bg_alt">#21212A</color>
+    <color name="settings_card_bg_alt2">#15151A</color>
+    <color name="settings_chip_bg_inactive">#3A3A4A</color>
+    <color name="settings_chip_bg_active">#2D2D3D</color>
+    <color name="settings_text_primary">#E0E0E6</color>
+    <color name="settings_text_muted">#B0B0BA</color>
+    <color name="settings_accent">#00E5FF</color>
+    <color name="settings_accent_text">#00E5FF</color>
+</resources>
