@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">AcuarioWallpaper</string>
+    <string name="wallpaper_label">Acuario OpenGL</string>
+    <string name="wallpaper_description">Fondo de pantalla animado de un acuario (en desarrollo).</string>
+    <string name="settings_title">Configuración de Acuario</string>
+    <string name="settings_placeholder">Los ajustes del Acuario aparecerán aquí.</string>
+    <string name="settings_apply_wallpaper">Establecer fondo de pantalla</string>
+</resources>

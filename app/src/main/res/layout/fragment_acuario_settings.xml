@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Placeholder screen for the Acuario effect's settings. Replace with the real
+    controls (card selectors, sliders, etc.) once the effect's configurable knobs
+    are designed — see SunnySettingsFragment/fragment_sunny_settings.xml in the
+    "wallpaper" reference project for the established card-selector pattern.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_placeholder"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="15sp"
+            android:gravity="center" />
+
+    </LinearLayout>
+</ScrollView>
