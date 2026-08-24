@@ -58,14 +58,14 @@ void main() {
         // and an artificial lamp above rather than open sky).
         deepColor = vec3(0.012, 0.095, 0.130);
         shallowColor = vec3(0.10, 0.44, 0.40);
-        causticStrength = 0.10;
+        causticStrength = 0.06;
         rayStrength = 0.10;
     } else {
         // Mar abierto: colder, deeper blue with stronger sunlight shafts filtering from the
         // surface, reading as more open/infinite depth.
         deepColor = vec3(0.010, 0.045, 0.130);
         shallowColor = vec3(0.05, 0.34, 0.55);
-        causticStrength = 0.16;
+        causticStrength = 0.10;
         rayStrength = 0.22;
     }
 
@@ -108,19 +108,32 @@ void main() {
 
     // Chromatic aberration: real underwater caustics separate slightly by wavelength right at
     // their sharp edges. With no texture to sample here, we fake it by re-running the same
-    // cellular lookup at a tiny position offset for red/blue (green stays on the un-shifted
+    // cellular lookup at a small position offset for red/blue (green stays on the un-shifted
     // sample) - since the pattern is ~0 everywhere except right at a light-net seam, this only
     // produces a visible red/blue fringe exactly where the pattern itself has contrast, never as
-    // a flat screen-wide tint. The offset is tiny (a couple of texels in `p`'s own units) - just
-    // enough to be felt, not seen as a distinct effect on its own.
-    const vec2 kAberrationOffset = vec2(0.004, 0.0);
+    // a flat screen-wide tint.
+    //
+    // The R/B *deviation* from the green (centered) sample is boosted by kAberrationBoost
+    // independently of causticStrength/kAberrationOffset below, so the fringe stays clearly
+    // visible even though causticStrength dims the whole caustic layer - without this, turning
+    // the mesh down would also (wrongly) fade the color separation to invisible right along with it.
+    const vec2 kAberrationOffset = vec2(0.05, 0.02);
+    const float kAberrationBoost = 1.6;
     vec2 cellG = voronoiCaustic(cp);
     vec2 cellR = voronoiCaustic(cp + kAberrationOffset);
     vec2 cellB = voronoiCaustic(cp - kAberrationOffset);
     float caustic = pow(1.0 - smoothstep(0.0, 0.2, cellG.y - cellG.x), 1.5);
     float causticR = pow(1.0 - smoothstep(0.0, 0.2, cellR.y - cellR.x), 1.5);
     float causticB = pow(1.0 - smoothstep(0.0, 0.2, cellB.y - cellB.x), 1.5);
-    color += shallowColor * vec3(causticR, caustic, causticB) * causticStrength * (0.4 + raysMask * 0.8);
+    // Clamped to >= 0: near a sharp seam corner the boosted deviation could in principle push a
+    // channel negative, which would subtract from `color` instead of tinting it - a dark halo
+    // where a bright fringe was intended.
+    vec3 causticRGB = vec3(
+        max(caustic + (causticR - caustic) * kAberrationBoost, 0.0),
+        caustic,
+        max(caustic + (causticB - caustic) * kAberrationBoost, 0.0)
+    );
+    color += shallowColor * causticRGB * causticStrength * (0.4 + raysMask * 0.8);
 
     fragColor = vec4(color, 1.0);
 }
