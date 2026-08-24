@@ -4,6 +4,10 @@ precision mediump float;
 in vec2 vUV;
 
 uniform float uSwimPhase;
+uniform vec3 uShellColor;
+uniform vec3 uHeadColor;
+uniform vec3 uFlipperColor;
+uniform vec3 uSpotColor;
 
 out vec4 fragColor;
 
@@ -42,19 +46,17 @@ void main() {
         discard;
     }
 
-    vec3 flipperColor = vec3(0.20, 0.42, 0.22);
-    vec3 headColor = vec3(0.24, 0.48, 0.26);
-    vec3 shellColor = vec3(0.16, 0.38, 0.20);
-    vec3 spotColor = vec3(0.09, 0.24, 0.13);
+    // Colors come from the turtle's randomly-assigned TurtlePalette (see AcuarioRenderer),
+    // not hardcoded here, so each turtle in the tank can look like a different real species.
     vec3 eyeColor = vec3(0.02, 0.02, 0.02);
 
-    vec3 color = flipperColor;
-    color = mix(color, headColor, aHead);
-    color = mix(color, shellColor, aShell);
+    vec3 color = uFlipperColor;
+    color = mix(color, uHeadColor, aHead);
+    color = mix(color, uShellColor, aShell);
 
     // A loose speckle pattern on the shell only, breaking up the flat fill a little.
     float speckle = step(0.45, sin(p.x * 9.0 + 1.7) * sin(p.y * 9.0 + 0.6) * 0.5 + 0.5);
-    color = mix(color, spotColor, speckle * aShell * 0.6);
+    color = mix(color, uSpotColor, speckle * aShell * 0.6);
 
     color = mix(color, eyeColor, aEye);
 

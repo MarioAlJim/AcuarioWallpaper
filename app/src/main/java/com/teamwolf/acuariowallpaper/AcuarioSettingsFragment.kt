@@ -12,8 +12,8 @@ import com.teamwolf.acuariowallpaper.core.ConfigManager
 
 /**
  * Settings screen for the Acuario effect. Currently wires the "Ambiente" (Acuario / Mar
- * abierto) theme selector - see fragment_acuario_settings.xml's comment for what to add next
- * as the effect grows more knobs.
+ * abierto) theme selector and the turtle count (0-5) selector - see
+ * fragment_acuario_settings.xml's comment for what to add next as the effect grows more knobs.
  */
 class AcuarioSettingsFragment : Fragment() {
 
@@ -32,6 +32,7 @@ class AcuarioSettingsFragment : Fragment() {
         configManager = (requireActivity() as WallpaperSettingsActivity).configManager
 
         setupThemeCards(view)
+        setupTurtleCountCards(view)
     }
 
     private fun setupThemeCards(parent: View) {
@@ -56,6 +57,29 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setAcuarioTheme(selectedIndex)
+        }
+    }
+
+    // Index == turtle count (0-5), so no separate value-mapping array is needed - the card's
+    // position in the row is the setting's value.
+    private fun setupTurtleCountCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerTurtleCount)
+        val options = (0..5).map { it.toString() }.toTypedArray()
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getTurtleCount(),
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = if (index == 0) "🚫" else "🐢"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setTurtleCount(selectedIndex)
         }
     }
 }

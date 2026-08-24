@@ -22,9 +22,15 @@ import kotlin.random.Random
  * easing to a stop - like a body with real weight in the water.
  */
 class Turtle {
-    var x = 0f
+    /** Randomly assigned at construction and fixed for the turtle's lifetime - not user-selectable. */
+    val palette: TurtlePalette = TurtlePalette.PALETTES.random()
+
+    // Randomized (instead of a fixed spot) so multiple turtles don't all start stacked on top
+    // of each other; aspectRatio isn't known yet at construction time, so this uses a
+    // generic-enough range and the first update() call picks a proper waypoint right after.
+    var x = Random.nextFloat() * 1.2f - 0.6f
         private set
-    var y = -0.3f
+    var y = -0.9f + Random.nextFloat() * 1.1f
         private set
 
     /** Current facing angle in radians, smoothed each frame - see class doc. */
