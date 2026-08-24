@@ -35,6 +35,7 @@ class AcuarioSettingsFragment : Fragment() {
 
         setupThemeCards(view)
         setupTurtleCountCards(view)
+        setupFishCountCards(view)
         setupBubbleCountCards(view)
     }
 
@@ -83,6 +84,27 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setTurtleCount(selectedIndex)
+        }
+    }
+
+    private fun setupFishCountCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerFishCount)
+        val options = (0..8).map { it.toString() }.toTypedArray()
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getFishCount(),
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = if (index == 0) "🚫" else "🐠"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setFishCount(selectedIndex)
         }
     }
 

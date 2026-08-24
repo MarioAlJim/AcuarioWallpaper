@@ -10,6 +10,8 @@
     <string name="acuario_theme_mar">Mar abierto</string>
     <string name="settings_section_turtle_count">Cantidad de tortugas</string>
     <string name="settings_turtle_color_note">Cada tortuga toma un color de una especie real al azar.</string>
+    <string name="settings_section_fish_count">Cantidad de peces</string>
+    <string name="settings_fish_color_note">Cada pez toma un color de una paleta tropical al azar.</string>
     <string name="settings_section_bubble_count">Cantidad de burbujas</string>
     <string name="bubble_density_poco">Poco</string>
     <string name="bubble_density_medio">Medio</string>
