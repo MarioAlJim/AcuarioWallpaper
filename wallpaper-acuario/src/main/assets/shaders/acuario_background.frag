@@ -81,7 +81,14 @@ void main() {
         float slant = 0.35 + fi * 0.15;
         float freq = 6.0 + fi * 2.3;
         float speed = 0.05 + fi * 0.02;
-        float phase = vUv.x * uAspectRatio * freq + y * slant * freq - uTime * speed * freq;
+        // highp: derived directly from uTime, which grows unboundedly for as long as the
+        // wallpaper runs. uTime itself is already highp, but that alone doesn't protect this -
+        // assigning a highp-derived expression into an (implicitly mediump, per this file's
+        // default precision) local truncates it right there. Without highp here, this
+        // rediscovers the exact same mediump-precision bug already fixed for Turtle.kt's
+        // swimPhase/turtle.frag's uSwimPhase, just one level removed behind an
+        // already-correct-looking `uniform highp float uTime`.
+        highp float phase = vUv.x * uAspectRatio * freq + y * slant * freq - uTime * speed * freq;
         ray += sin(phase) * 0.5 + 0.5;
     }
     ray /= 3.0;
@@ -99,7 +106,13 @@ void main() {
     // organically over time instead of sliding past as a rigid grid (an actually-translating
     // Voronoi grid would read as tiles scrolling by, not water).
     vec2 p = vec2(vUv.x * uAspectRatio, y) * 6.0;
-    float t = uTime * 0.35;
+    // highp for the same reason as `phase` above: derived directly from the ever-growing
+    // uTime, and every sin()/cos() call below (both the warp and the re-added sine caustic
+    // further down) needs an accurate `t` to stay smooth no matter how long the wallpaper has
+    // been running. `p`/`warp`/`cp` don't need highp themselves - they're bounded by screen
+    // coordinates and sin() outputs respectively, never growing over time - only `t` (and
+    // `phase` above) are direct multiples of the unbounded uTime.
+    highp float t = uTime * 0.35;
     vec2 warp = vec2(
         sin(p.y * 1.3 + t * 2.0),
         sin(p.x * 1.1 - t * 1.6)
