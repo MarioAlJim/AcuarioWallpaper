@@ -28,7 +28,7 @@ import kotlin.random.Random
  * slow down travel speed - the parallax cue that "background" turtles drift more lazily than
  * ones "against the glass".
  *
- * Breathing cycle: every couple of minutes ([kOxygenIntervalMin]-[kOxygenIntervalMax]) the
+ * Breathing cycle: every so often ([kOxygenIntervalMin]-[kOxygenIntervalMax] seconds) the
  * turtle overrides its normal wandering, surfaces, holds at the top leveling out to a
  * horizontal pitch, then dives back down - see the [BreathPhase] states below and
  * [consumeExhaleEvent] for the "exhale" bubble burst AcuarioRenderer spawns on the way back
@@ -268,10 +268,10 @@ class Turtle {
         // (1 - e^(-kDepthEaseRate*2) ≈ 0.95) - a deliberate, gradual drift rather than a snap.
         const val kDepthEaseRate = 1.5f
 
-        // "Every couple of minutes" - randomized per-turtle (and re-rolled after every breath)
-        // so multiple turtles don't all surface in lockstep.
-        const val kOxygenIntervalMin = 120f
-        const val kOxygenIntervalMax = 180f
+        // Randomized per-turtle (and re-rolled after every breath) so multiple turtles don't
+        // all surface in lockstep.
+        const val kOxygenIntervalMin = 30f
+        const val kOxygenIntervalMax = 120f
 
         // Near the top edge but low enough that the turtle's own scale never clips offscreen.
         const val kSurfaceY = 0.85f

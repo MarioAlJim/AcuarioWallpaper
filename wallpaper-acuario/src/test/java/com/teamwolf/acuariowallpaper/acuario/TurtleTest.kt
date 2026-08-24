@@ -81,8 +81,9 @@ class TurtleTest {
         // of pitch (climbing and diving) should show up over enough updates. 1000 frames
         // (~16.7s) only covers 1-3 waypoint legs, which was occasionally too few for both signs
         // to show up by chance (flaky - a run or two of mostly-horizontal legs was enough to
-        // fail it); 8000 (~133s) covers many more legs while staying comfortably under the
-        // 120s minimum oxygen interval most of the time.
+        // fail it); 8000 (~133s) covers many more legs - likely including a breathing cycle or
+        // two (30-120s oxygen interval), which only reinforces the "some upward pitch" bound
+        // via the forced ascent to the surface.
         val turtle = Turtle()
         var maxPitch = Float.NEGATIVE_INFINITY
         var minPitch = Float.POSITIVE_INFINITY
@@ -148,7 +149,7 @@ class TurtleTest {
         var levelPitchNearSurface = false
         var exhaleCount = 0
 
-        // ~250 simulated seconds - comfortably past the worst-case 180s oxygen interval plus
+        // ~250 simulated seconds - comfortably past the worst-case 120s oxygen interval plus
         // travel/hold time, so at least one full breathing cycle should complete.
         repeat(15000) {
             turtle.update(deltaTime, aspectRatio = 1.7f)
