@@ -8,4 +8,6 @@
     <string name="settings_section_environment">Ambiente</string>
     <string name="acuario_theme_acuario">Acuario</string>
     <string name="acuario_theme_mar">Mar abierto</string>
+    <string name="settings_section_turtle_count">Cantidad de tortugas</string>
+    <string name="settings_turtle_color_note">Cada tortuga toma un color de una especie real al azar.</string>
 </resources>

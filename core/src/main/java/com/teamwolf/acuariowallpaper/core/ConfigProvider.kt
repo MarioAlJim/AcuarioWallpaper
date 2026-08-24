@@ -8,4 +8,5 @@ package com.teamwolf.acuariowallpaper.core
  */
 interface ConfigProvider {
     fun getAcuarioTheme(): Int // 0: Acuario (contained, warmer light), 1: Mar abierto (deeper, colder light)
+    fun getTurtleCount(): Int  // 0-5
 }

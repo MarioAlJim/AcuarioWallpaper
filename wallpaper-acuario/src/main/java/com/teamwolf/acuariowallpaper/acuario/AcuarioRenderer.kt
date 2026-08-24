@@ -16,7 +16,8 @@ import kotlin.random.Random
  * First real Acuario effect layer: a procedural underwater background (vertical gradient +
  * animated god rays + caustics, both selectable between the "Acuario" and "Mar abierto"
  * themes via [ConfigProvider.getAcuarioTheme]), a field of bubbles rising from the bottom of
- * the screen, and a single turtle ([Turtle]) wandering around the tank with animated flippers.
+ * the screen, and 0-5 turtles ([Turtle], count via [ConfigProvider.getTurtleCount]) wandering
+ * around the tank with animated flippers, each in a randomly-assigned [TurtlePalette].
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
@@ -46,13 +47,19 @@ class AcuarioRenderer(
     private val maxBubbles = 28
     private val bubbles = mutableListOf<Bubble>()
 
-    // Turtle (single, non-instanced quad transformed via MVP - same shape as moon.vert in the
-    // "wallpaper" reference project)
+    // Turtles (each a non-instanced quad transformed via its own MVP - same shape as moon.vert
+    // in the "wallpaper" reference project; at most kMaxTurtles of them, so one draw call per
+    // turtle is simpler than instancing and still cheap)
     private var turtleProgram = 0
     private var turtleMVPHandle = 0
     private var turtleSwimPhaseHandle = 0
-    private val turtle = Turtle()
+    private var turtleShellColorHandle = 0
+    private var turtleHeadColorHandle = 0
+    private var turtleFlipperColorHandle = 0
+    private var turtleSpotColorHandle = 0
+    private val turtles = mutableListOf<Turtle>()
     private val kTurtleScale = 0.28f
+    private val kMaxTurtles = 5
 
     private var aspectRatio = 1f
     private var time = 0f
@@ -103,6 +110,10 @@ class AcuarioRenderer(
             turtleProgram = createProgram(vert, frag)
             turtleMVPHandle = GLES30.glGetUniformLocation(turtleProgram, "uMVPMatrix")
             turtleSwimPhaseHandle = GLES30.glGetUniformLocation(turtleProgram, "uSwimPhase")
+            turtleShellColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uShellColor")
+            turtleHeadColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uHeadColor")
+            turtleFlipperColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uFlipperColor")
+            turtleSpotColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uSpotColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -139,6 +150,9 @@ class AcuarioRenderer(
 
         bubbles.clear()
         repeat(maxBubbles) { bubbles.add(createRandomBubble(spawnAnywhere = true)) }
+
+        turtles.clear()
+        syncTurtleCount()
     }
 
     override fun onSurfaceChanged(width: Int, height: Int) {
@@ -149,7 +163,10 @@ class AcuarioRenderer(
 
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
-        turtle.update(deltaTime, aspectRatio)
+        syncTurtleCount()
+        for (t in turtles) {
+            t.update(deltaTime, aspectRatio)
+        }
         for (bubble in bubbles) {
             bubble.y += deltaTime * bubble.speed
             bubble.x = bubble.baseX + kotlin.math.sin(time * bubble.wobbleSpeed + bubble.wobbleSeed) * bubble.wobbleAmplitude
@@ -166,28 +183,27 @@ class AcuarioRenderer(
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         drawBackground()
-        drawTurtle()
+        drawTurtles()
         drawBubbles()
     }
 
-    private fun drawTurtle() {
-        if (turtleProgram == 0) return
-        GLES30.glUseProgram(turtleProgram)
+    /**
+     * Grows/shrinks [turtles] to match [ConfigProvider.getTurtleCount] (clamped to
+     * [kMaxTurtles]). Only the size delta is touched - existing turtles keep their position/
+     * palette/pitch when the count changes, new ones are freshly created, and a decrease just
+     * drops turtles off the end.
+     */
+    private fun syncTurtleCount() {
+        val desired = configProvider.getTurtleCount().coerceIn(0, kMaxTurtles)
+        when {
+            desired > turtles.size -> repeat(desired - turtles.size) { turtles.add(Turtle()) }
+            desired < turtles.size -> while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
+        }
+    }
 
-        Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.translateM(modelMatrix, 0, turtle.x, turtle.y, 0f)
-        // Order matters here: Android's Matrix helpers post-multiply, so the LAST call below
-        // is the FIRST one actually applied to each vertex. We want, in per-vertex apply
-        // order: (1) uniform base scale, (2) pitch rotation (in the sprite's canonical
-        // always-facing-right frame, so +pitch always lifts the head), (3) the left/right
-        // mirror (only flips X, so it can't undo the vertical lift added by pitch), (4) the
-        // translate to world position - hence the calls are written in the reverse of that.
-        Matrix.scaleM(modelMatrix, 0, turtle.facingScale(), 1f, 1f)
-        Matrix.rotateM(modelMatrix, 0, turtle.pitchDegrees, 0f, 0f, 1f)
-        Matrix.scaleM(modelMatrix, 0, kTurtleScale, kTurtleScale, 1f)
-        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-        GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
-        GLES30.glUniform1f(turtleSwimPhaseHandle, turtle.swimPhase)
+    private fun drawTurtles() {
+        if (turtleProgram == 0 || turtles.isEmpty()) return
+        GLES30.glUseProgram(turtleProgram)
 
         unitQuadBuffer.position(0)
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
@@ -196,7 +212,31 @@ class AcuarioRenderer(
         GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
         GLES30.glEnableVertexAttribArray(1)
 
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        for (t in turtles) {
+            Matrix.setIdentityM(modelMatrix, 0)
+            Matrix.translateM(modelMatrix, 0, t.x, t.y, 0f)
+            // Order matters here: Android's Matrix helpers post-multiply, so the LAST call
+            // below is the FIRST one actually applied to each vertex. We want, in per-vertex
+            // apply order: (1) uniform base scale, (2) pitch rotation (in the sprite's
+            // canonical always-facing-right frame, so +pitch always lifts the head), (3) the
+            // left/right mirror (only flips X, so it can't undo the vertical lift added by
+            // pitch), (4) the translate to world position - hence the calls are written in the
+            // reverse of that.
+            Matrix.scaleM(modelMatrix, 0, t.facingScale(), 1f, 1f)
+            Matrix.rotateM(modelMatrix, 0, t.pitchDegrees, 0f, 0f, 1f)
+            Matrix.scaleM(modelMatrix, 0, kTurtleScale, kTurtleScale, 1f)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
+            GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase)
+
+            val palette = t.palette
+            GLES30.glUniform3fv(turtleShellColorHandle, 1, palette.shellColor, 0)
+            GLES30.glUniform3fv(turtleHeadColorHandle, 1, palette.headColor, 0)
+            GLES30.glUniform3fv(turtleFlipperColorHandle, 1, palette.flipperColor, 0)
+            GLES30.glUniform3fv(turtleSpotColorHandle, 1, palette.spotColor, 0)
+
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
 
         GLES30.glDisableVertexAttribArray(0)
         GLES30.glDisableVertexAttribArray(1)

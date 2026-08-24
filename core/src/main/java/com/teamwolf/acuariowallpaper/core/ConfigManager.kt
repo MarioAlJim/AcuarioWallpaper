@@ -31,10 +31,16 @@ class ConfigManager(context: Context) : ConfigProvider {
         const val KEY_ACUARIO_THEME = "acuario_theme"
         const val DEFAULT_ACUARIO_THEME = 0
 
+        const val KEY_TURTLE_COUNT = "turtle_count"
+        const val DEFAULT_TURTLE_COUNT = 1
+
         // Add more KEY_/DEFAULT_ constants here as settings are introduced, following the
         // pattern used by the "wallpaper" reference project's ConfigManager.
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
     fun setAcuarioTheme(theme: Int) = acuario.setAcuarioTheme(theme)
+
+    override fun getTurtleCount(): Int = acuario.getTurtleCount()
+    fun setTurtleCount(count: Int) = acuario.setTurtleCount(count)
 }
