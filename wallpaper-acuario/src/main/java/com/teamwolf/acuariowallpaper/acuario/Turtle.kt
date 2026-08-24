@@ -33,6 +33,10 @@ import kotlin.random.Random
  * horizontal pitch, then dives back down - see the [BreathPhase] states below and
  * [consumeExhaleEvent] for the "exhale" bubble burst AcuarioRenderer spawns on the way back
  * down.
+ *
+ * Propulsion: once per flap cycle, right at the front flippers' downstroke (their peak
+ * velocity - see [consumePowerStrokeEvent]'s comment), AcuarioRenderer spawns a couple of
+ * small bubbles at [frontFlipperWorldPosition], emphasizing the effort of the stroke.
  */
 class Turtle {
     /** Randomly assigned at construction and fixed for the turtle's lifetime - not user-selectable. */
@@ -79,6 +83,7 @@ class Turtle {
     private var oxygenTimer = randomOxygenInterval()
     private var surfaceHoldTimer = 0f
     private var exhalePending = false
+    private var powerStrokePending = false
 
     fun update(deltaTime: Float, aspectRatio: Float) {
         if (breathPhase == BreathPhase.HOLDING_BREATH) {
@@ -162,7 +167,20 @@ class Turtle {
         val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
         depth += (targetDepth - depth) * depthLerp
 
+        val previousSwimPhase = swimPhase
         swimPhase += deltaTime * (2.2f + speed * 4f)
+
+        // Power stroke: turtle.frag animates the front flippers as sin(swimPhase)*0.14, so
+        // their downstroke - the actual "push" against the water - peaks in velocity exactly
+        // where that sine crosses zero going negative, i.e. at swimPhase == PI (mod 2*PI).
+        // floor((phase - PI) / (2*PI)) is a step function that ticks up by exactly 1 every time
+        // phase crosses one of those instants, so comparing it before/after this frame's
+        // advance detects the crossing without any explicit modulo/wraparound bookkeeping.
+        val strokesBefore = kotlin.math.floor((previousSwimPhase - PI) / TWO_PI)
+        val strokesAfter = kotlin.math.floor((swimPhase - PI) / TWO_PI)
+        if (strokesAfter > strokesBefore) {
+            powerStrokePending = true
+        }
     }
 
     /**
@@ -212,6 +230,43 @@ class Turtle {
         if (!exhalePending) return false
         exhalePending = false
         return true
+    }
+
+    /**
+     * True exactly once per flap cycle, right at the front flippers' downstroke (their peak
+     * velocity through the water - see [update]'s comment) - callers (AcuarioRenderer) should
+     * spawn a couple of small bubbles at [frontFlipperWorldPosition] when this returns true, to
+     * emphasize the thrust. Consumes the event, so it won't fire again until the next stroke.
+     */
+    fun consumePowerStrokeEvent(): Boolean {
+        if (!powerStrokePending) return false
+        powerStrokePending = false
+        return true
+    }
+
+    /**
+     * World-space position of the front-top ([top] = true) or front-bottom ([top] = false)
+     * flipper's own local anchor - the same point turtle.frag centers
+     * aFlipperTopFront/aFlipperBotFront on - transformed through the exact same
+     * scale-then-pitch-rotate-then-mirror-then-translate chain AcuarioRenderer uses to draw
+     * this turtle (see its drawTurtles() comment for why that order matters), so the
+     * propulsion bubble trail spawns right where the flipper visually is regardless of the
+     * turtle's current facing/pitch. [turtleScale] must be the same uniform scale
+     * AcuarioRenderer draws this turtle at (its kTurtleScale).
+     */
+    fun frontFlipperWorldPosition(top: Boolean, turtleScale: Float): Pair<Float, Float> {
+        val frontFlap = kotlin.math.sin(swimPhase) * 0.14f
+        val localX = 0.10f
+        val localY = if (top) 0.46f + frontFlap else -0.46f - frontFlap
+
+        val pitchRad = pitchDegrees * (PI / 180f)
+        val cosP = kotlin.math.cos(pitchRad)
+        val sinP = kotlin.math.sin(pitchRad)
+        val rotatedX = localX * cosP - localY * sinP
+        val rotatedY = localX * sinP + localY * cosP
+
+        val mirroredX = rotatedX * facingScale()
+        return (x + turtleScale * mirroredX) to (y + turtleScale * rotatedY)
     }
 
     private fun pickNewTarget(aspectRatio: Float) {

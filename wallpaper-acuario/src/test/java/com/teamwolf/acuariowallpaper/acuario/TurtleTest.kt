@@ -182,4 +182,50 @@ class TurtleTest {
         }
         assertTrue("expected to observe at least one exhale event", consumedOnce)
     }
+
+    @Test
+    fun powerStrokeEvent_firesRepeatedlyWhileSwimmingAndIsOneShot() {
+        val turtle = Turtle()
+        val deltaTime = 1f / 60f
+        var strokeCount = 0
+        // ~16.7s, comfortably below the 30s minimum oxygen interval, so this whole window stays
+        // in normal swimming (no breathing-cycle interference); the flap rate
+        // (2.2-3.4 rad/s / 2*PI ~= 0.35-0.54 Hz) means several strokes should land in it.
+        repeat(1000) {
+            turtle.update(deltaTime, aspectRatio = 1.7f)
+            if (turtle.consumePowerStrokeEvent()) {
+                strokeCount++
+                // One-shot: consuming it again the same frame (no further update()) must be false.
+                assertTrue(!turtle.consumePowerStrokeEvent())
+            }
+        }
+
+        assertTrue("expected several power-stroke events while swimming, got $strokeCount", strokeCount >= 3)
+    }
+
+    @Test
+    fun frontFlipperWorldPosition_staysNearTheTurtleWithTopAndBottomOnOppositeSides() {
+        val turtle = Turtle()
+        repeat(120) { turtle.update(1f / 60f, aspectRatio = 1.7f) }
+
+        val turtleScale = 0.28f
+        val (topX, topY) = turtle.frontFlipperWorldPosition(top = true, turtleScale)
+        val (botX, botY) = turtle.frontFlipperWorldPosition(top = false, turtleScale)
+
+        // Both anchors are a small local offset scaled by turtleScale, so they must stay close
+        // to the turtle's own position, not drift off arbitrarily far.
+        assertTrue(abs(topX - turtle.x) < turtleScale * 2f)
+        assertTrue(abs(topY - turtle.y) < turtleScale * 2f)
+        assertTrue(abs(botX - turtle.x) < turtleScale * 2f)
+        assertTrue(abs(botY - turtle.y) < turtleScale * 2f)
+
+        // The top and bottom flipper anchors' local Y always has opposite signs before
+        // rotation, and pitch stays within its documented +-40 deg overshoot clamp, so rotating
+        // by it can never swing them to the same side - this should hold for any pitch/facing.
+        assertTrue(
+            "expected top/bottom flipper anchors on opposite sides of the turtle, " +
+                "topY-y=${topY - turtle.y}, botY-y=${botY - turtle.y}",
+            (topY - turtle.y) * (botY - turtle.y) < 0f
+        )
+    }
 }
