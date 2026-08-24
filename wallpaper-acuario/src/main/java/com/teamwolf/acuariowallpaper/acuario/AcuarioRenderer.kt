@@ -176,8 +176,9 @@ class AcuarioRenderer(
 
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.translateM(modelMatrix, 0, turtle.x, turtle.y, 0f)
-        // facingScale() smoothly passes through 0 as the turtle's heading crosses vertical,
-        // so the left/right mirror reads as turning in depth instead of an instant flip.
+        // facingScale() eases between +-1 on its own quick, fixed timescale whenever the
+        // turtle's discrete facing side flips, so the mirror reads as a brief turn-in-depth
+        // flourish instead of an instant pop (see Turtle.kt for why it isn't cos(heading)).
         Matrix.scaleM(modelMatrix, 0, kTurtleScale * turtle.facingScale(), kTurtleScale, 1f)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
