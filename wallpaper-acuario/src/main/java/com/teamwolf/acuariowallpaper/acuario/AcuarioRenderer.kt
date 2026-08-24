@@ -20,7 +20,8 @@ import kotlin.random.Random
  * ([Turtle], count via [ConfigProvider.getTurtleCount]) wandering around the tank with
  * animated flippers, each in a randomly-assigned [TurtlePalette]. Every so often (30-120s)
  * each turtle surfaces to breathe and releases a one-off burst of larger "exhale" bubbles
- * ([Turtle.consumeExhaleEvent]) on the way back down.
+ * ([Turtle.consumeExhaleEvent]) on the way back down, and on every flap cycle it leaves a
+ * small propulsion-bubble trail behind its front flippers ([Turtle.consumePowerStrokeEvent]).
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
@@ -56,14 +57,19 @@ class AcuarioRenderer(
     private val kMaxAmbientBubbles = 45
     private val bubbles = mutableListOf<Bubble>()
 
-    // "Exhale" bubbles: a one-off burst a turtle releases diving back down after a surface
-    // breath (see Turtle.consumeExhaleEvent). Unlike the ambient `bubbles` above, these are
-    // NOT recycled forever - once one drifts off the top of the screen it's simply removed,
-    // since it's a momentary event rather than a permanent part of the water's atmosphere.
-    // kMaxExhaleBubbles is a safety cap on the shared instance buffer below, not a tuning knob.
+    // "Burst" bubbles: one-off bubbles tied to a specific moment rather than the ambient water
+    // - a turtle's "exhale" releasing diving back down after a surface breath (see
+    // Turtle.consumeExhaleEvent) and its "propulsion" trail behind the front flippers on each
+    // downstroke (see Turtle.consumePowerStrokeEvent). Unlike the ambient `bubbles` above,
+    // these are NOT recycled forever - once one drifts off the top of the screen it's simply
+    // removed, since each is a momentary event, not a permanent part of the water's atmosphere.
+    // kMaxBurstBubbles is a safety cap on the shared instance buffer below, not a tuning knob -
+    // sized generously since up to kMaxTurtles turtles can each be adding a small propulsion
+    // pair roughly once per stroke cycle (every ~2s), on top of occasional exhale bursts.
     private val kExhaleBubblesPerBreath = 2
-    private val kMaxExhaleBubbles = 10
-    private val exhaleBubbles = mutableListOf<Bubble>()
+    private val kPropulsionBubblesPerStroke = 2
+    private val kMaxBurstBubbles = 40
+    private val burstBubbles = mutableListOf<Bubble>()
 
     // Turtles (each a non-instanced quad transformed via its own MVP - same shape as moon.vert
     // in the "wallpaper" reference project; at most kMaxTurtles of them, so one draw call per
@@ -178,13 +184,13 @@ class AcuarioRenderer(
                 position(0)
             }
 
-        bubbleInstanceBuffer = ByteBuffer.allocateDirect((kMaxAmbientBubbles + kMaxExhaleBubbles) * instanceFloatsPerEntry * 4)
+        bubbleInstanceBuffer = ByteBuffer.allocateDirect((kMaxAmbientBubbles + kMaxBurstBubbles) * instanceFloatsPerEntry * 4)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer()
 
         bubbles.clear()
         syncBubbleCount(spawnNewOnesAnywhere = true)
-        exhaleBubbles.clear()
+        burstBubbles.clear()
 
         turtles.clear()
         syncTurtleCount()
@@ -205,6 +211,9 @@ class AcuarioRenderer(
             if (t.consumeExhaleEvent()) {
                 spawnExhaleBubbles(t.x, t.y)
             }
+            if (t.consumePowerStrokeEvent()) {
+                spawnPropulsionBubbles(t)
+            }
         }
         for (bubble in bubbles) {
             bubble.y += deltaTime * bubble.speed
@@ -218,15 +227,15 @@ class AcuarioRenderer(
             }
         }
 
-        // Exhale bubbles animate the same way, but are a one-off burst, not part of the
-        // ambient water - once one drifts off the top it's removed instead of recycled.
-        val exhaleIterator = exhaleBubbles.iterator()
-        while (exhaleIterator.hasNext()) {
-            val bubble = exhaleIterator.next()
+        // Burst bubbles (exhale + propulsion) animate the same way, but are one-off - once one
+        // drifts off the top it's removed instead of recycled like the ambient water is.
+        val burstIterator = burstBubbles.iterator()
+        while (burstIterator.hasNext()) {
+            val bubble = burstIterator.next()
             bubble.y += deltaTime * bubble.speed
             bubble.x = bubble.baseX + kotlin.math.sin(time * bubble.wobbleSpeed + bubble.wobbleSeed) * bubble.wobbleAmplitude
             if (bubble.y > 1.2f) {
-                exhaleIterator.remove()
+                burstIterator.remove()
             }
         }
     }
@@ -234,9 +243,9 @@ class AcuarioRenderer(
     /** [kExhaleBubblesPerBreath] larger, more opaque bubbles released at ([originX], [originY]). */
     private fun spawnExhaleBubbles(originX: Float, originY: Float) {
         repeat(kExhaleBubblesPerBreath) {
-            if (exhaleBubbles.size >= kMaxExhaleBubbles) return
+            if (burstBubbles.size >= kMaxBurstBubbles) return
             val jitteredX = originX + (Random.nextFloat() - 0.5f) * 0.08f
-            exhaleBubbles.add(
+            burstBubbles.add(
                 Bubble(
                     x = jitteredX,
                     y = originY,
@@ -250,6 +259,34 @@ class AcuarioRenderer(
                 )
             )
         }
+    }
+
+    /**
+     * [kPropulsionBubblesPerStroke] small, subtle bubbles released right at [t]'s front-top and
+     * front-bottom flippers - the "push" of a downstroke - reinforcing the effort of swimming.
+     */
+    private fun spawnPropulsionBubbles(t: Turtle) {
+        val (topX, topY) = t.frontFlipperWorldPosition(top = true, turtleScale = kTurtleScale)
+        val (botX, botY) = t.frontFlipperWorldPosition(top = false, turtleScale = kTurtleScale)
+        spawnPropulsionBubbleAt(topX, topY)
+        spawnPropulsionBubbleAt(botX, botY)
+    }
+
+    private fun spawnPropulsionBubbleAt(originX: Float, originY: Float) {
+        if (burstBubbles.size >= kMaxBurstBubbles) return
+        burstBubbles.add(
+            Bubble(
+                x = originX,
+                y = originY,
+                baseX = originX,
+                size = 0.012f + Random.nextFloat() * 0.015f,
+                speed = 0.18f + Random.nextFloat() * 0.12f,
+                wobbleAmplitude = 0.006f + Random.nextFloat() * 0.01f,
+                wobbleSpeed = 1.2f + Random.nextFloat() * 1.6f,
+                wobbleSeed = Random.nextFloat() * 6.2832f,
+                alpha = 0.30f + Random.nextFloat() * 0.25f
+            )
+        )
     }
 
     override fun onDrawFrame() {
@@ -372,7 +409,7 @@ class AcuarioRenderer(
     }
 
     private fun drawBubbles() {
-        val totalBubbles = bubbles.size + exhaleBubbles.size
+        val totalBubbles = bubbles.size + burstBubbles.size
         if (totalBubbles == 0 || bubbleProgram == 0) return
         GLES30.glUseProgram(bubbleProgram)
         GLES30.glUniformMatrix4fv(bubbleProjMatrixHandle, 1, false, projectionMatrix, 0)
@@ -387,7 +424,7 @@ class AcuarioRenderer(
             bubbleInstanceBuffer.put(1.0f)  // b
             bubbleInstanceBuffer.put(bubble.alpha)
         }
-        for (bubble in exhaleBubbles) {
+        for (bubble in burstBubbles) {
             bubbleInstanceBuffer.put(bubble.x)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
