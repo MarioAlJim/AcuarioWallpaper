@@ -20,6 +20,13 @@ import kotlin.random.Random
  * (ascending pitches the nose up, descending pitches it down), animated as a lightly
  * underdamped spring so it overshoots and settles with a little bounce instead of just
  * easing to a stop - like a body with real weight in the water.
+ *
+ * [depth] simulates the turtle drifting nearer the glass (0) or back into the tank (1) on a
+ * flat 2D scene: a new target depth is chosen alongside every new waypoint (see
+ * [pickNewTarget]) and eased toward slowly, like the x/y wander. AcuarioRenderer reads it to
+ * shrink+tint distant turtles toward the water's deep color, and [update] itself uses it to
+ * slow down travel speed - the parallax cue that "background" turtles drift more lazily than
+ * ones "against the glass".
  */
 class Turtle {
     /** Randomly assigned at construction and fixed for the turtle's lifetime - not user-selectable. */
@@ -45,6 +52,11 @@ class Turtle {
         private set
     private var pitchVelocity = 0f
 
+    /** 0 = near the glass, 1 = deep in the tank - see class doc. */
+    var depth = Random.nextFloat()
+        private set
+    private var targetDepth = depth
+
     private var targetX = 0f
     private var targetY = 0f
     private var hasTarget = false
@@ -69,8 +81,14 @@ class Turtle {
             return
         }
 
-        x += (dx / dist) * speed * deltaTime
-        y += (dy / dist) * speed * deltaTime
+        // Parallax cue: turtles drifting deeper into the tank move more slowly than ones near
+        // the glass, same as distant things crossing the screen slower in a real parallax
+        // scene. Scales the whole travel speed (not just its horizontal share) since "lateral"
+        // is by far the dominant component of most legs here anyway, and a uniform slowdown is
+        // simpler than splitting it axis-by-axis for the same visual effect.
+        val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth)
+        x += (dx / dist) * effectiveSpeed * deltaTime
+        y += (dy / dist) * effectiveSpeed * deltaTime
 
         // Steer heading toward the target angle instead of snapping to it: each frame it
         // closes a fraction of the remaining angular gap (framerate-independent via the usual
@@ -112,6 +130,12 @@ class Turtle {
         pitchVelocity += springAccel * deltaTime
         pitchDegrees = (pitchDegrees + pitchVelocity * deltaTime).coerceIn(-kMaxPitchOvershoot, kMaxPitchOvershoot)
 
+        // Depth drifts slowly toward targetDepth (picked alongside each new x/y waypoint) -
+        // deliberately much slower than the mirror/pitch eases above, so "coming closer" or
+        // "receding" reads as a gradual drift rather than a snap.
+        val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
+        depth += (targetDepth - depth) * depthLerp
+
         swimPhase += deltaTime * (2.2f + speed * 4f)
     }
 
@@ -128,6 +152,8 @@ class Turtle {
         targetX = Random.nextFloat() * (aspectRatio * 1.6f) - aspectRatio * 0.8f
         targetY = -0.9f + Random.nextFloat() * 1.1f
         hasTarget = true
+        // A new "decision" to come closer or recede is made alongside every new waypoint.
+        targetDepth = Random.nextFloat()
     }
 
     private companion object {
@@ -155,5 +181,12 @@ class Turtle {
         // Safety clamp: with zeta ≈ 0.47 the spring overshoots kMaxPitchDegrees by roughly
         // 18%, so this just guards against a much larger transient in some edge case.
         const val kMaxPitchOvershoot = 40f
+
+        // Speed at full depth (1.0) is this fraction of speed at the glass (0.0).
+        const val kMinSpeedAtDepth = 0.45f
+
+        // Chosen so depth is ~95% of the way to a new targetDepth in about 2s
+        // (1 - e^(-kDepthEaseRate*2) ≈ 0.95) - a deliberate, gradual drift rather than a snap.
+        const val kDepthEaseRate = 1.5f
     }
 }

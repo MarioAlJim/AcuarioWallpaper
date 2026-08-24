@@ -105,4 +105,30 @@ class TurtleTest {
             abs(turtle.pitchDegrees) < 5f
         )
     }
+
+    @Test
+    fun depth_staysWithinZeroToOneAcrossManyWaypointChanges() {
+        val turtle = Turtle()
+        repeat(2000) {
+            turtle.update(1f / 60f, aspectRatio = 1.7f)
+            assertTrue("depth out of [0, 1]: ${turtle.depth}", turtle.depth in -0.001f..1.001f)
+        }
+    }
+
+    @Test
+    fun depth_variesOverTimeInsteadOfBeingFixed() {
+        // Enough waypoint changes should eventually send depth toward both ends of its range -
+        // it isn't just a fixed per-instance value.
+        val turtle = Turtle()
+        var maxDepth = 0f
+        var minDepth = 1f
+        repeat(3000) {
+            turtle.update(1f / 60f, aspectRatio = 1.7f)
+            maxDepth = maxOf(maxDepth, turtle.depth)
+            minDepth = minOf(minDepth, turtle.depth)
+        }
+
+        assertTrue("expected depth to drift near the glass at some point, min was $minDepth", minDepth < 0.3f)
+        assertTrue("expected depth to drift into the background at some point, max was $maxDepth", maxDepth > 0.7f)
+    }
 }
