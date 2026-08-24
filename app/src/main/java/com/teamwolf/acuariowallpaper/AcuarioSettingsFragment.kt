@@ -5,6 +5,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.graphics.drawable.GradientDrawable
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
@@ -42,10 +43,27 @@ class AcuarioSettingsFragment : Fragment() {
     private fun setupThemeCards(parent: View) {
         val container = parent.findViewById<LinearLayout>(R.id.containerAcuarioTheme)
         val options = arrayOf(
-            getString(R.string.acuario_theme_acuario),
-            getString(R.string.acuario_theme_mar)
+            getString(R.string.acuario_theme_turquesa),
+            getString(R.string.acuario_theme_azul_profundo),
+            getString(R.string.acuario_theme_atardecer),
+            getString(R.string.acuario_theme_abisal),
+            getString(R.string.acuario_theme_arrecife)
         )
-        val previewEmoji = arrayOf("🐠", "🌊")
+
+        val shallowColors = intArrayOf(
+            0xFF1A7066.toInt(), // Turquesa
+            0xFF0D578C.toInt(), // Azul Profundo
+            0xFFB34D66.toInt(), // Atardecer Violeta
+            0xFF260D40.toInt(), // Fosa Abisal
+            0xFF0DA699.toInt()  // Arrecife Coral
+        )
+        val deepColors = intArrayOf(
+            0xFF031821.toInt(),
+            0xFF020B21.toInt(),
+            0xFF140A26.toInt(),
+            0xFF02020A.toInt(),
+            0xFF05142E.toInt()
+        )
 
         SettingsCardSelectorHelper.populate(
             requireContext(),
@@ -53,10 +71,13 @@ class AcuarioSettingsFragment : Fragment() {
             options,
             configManager.getAcuarioTheme(),
             previewFactory = { index ->
-                TextView(requireContext()).apply {
-                    text = previewEmoji[index]
-                    textSize = 22f
-                    gravity = Gravity.CENTER
+                View(requireContext()).apply {
+                    background = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(shallowColors[index], deepColors[index])
+                    ).apply {
+                        cornerRadius = 6f * resources.displayMetrics.density
+                    }
                 }
             }
         ) { selectedIndex ->

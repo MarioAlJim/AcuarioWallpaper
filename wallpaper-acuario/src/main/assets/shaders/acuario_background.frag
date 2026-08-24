@@ -54,19 +54,35 @@ void main() {
     float rayStrength;
 
     if (uTheme == 0) {
-        // Acuario: warmer greenish teal, light kept fairly contained (as if bounded by glass
-        // and an artificial lamp above rather than open sky).
+        // Turquesa: warmer greenish teal, light kept contained (like an artificial lamp)
         deepColor = vec3(0.012, 0.095, 0.130);
         shallowColor = vec3(0.10, 0.44, 0.40);
         causticStrength = 0.06;
         rayStrength = 0.10;
-    } else {
-        // Mar abierto: colder, deeper blue with stronger sunlight shafts filtering from the
-        // surface, reading as more open/infinite depth.
+    } else if (uTheme == 1) {
+        // Azul Profundo: colder, deeper blue with stronger sunlight shafts
         deepColor = vec3(0.010, 0.045, 0.130);
         shallowColor = vec3(0.05, 0.34, 0.55);
         causticStrength = 0.10;
         rayStrength = 0.22;
+    } else if (uTheme == 2) {
+        // Atardecer Violeta: warm pink/orange rays fading to dark violet at depth
+        deepColor = vec3(0.08, 0.04, 0.15);
+        shallowColor = vec3(0.70, 0.30, 0.40);
+        causticStrength = 0.08;
+        rayStrength = 0.18;
+    } else if (uTheme == 3) {
+        // Fosa Abisal: near black abyss, faint dark purple rays at top
+        deepColor = vec3(0.01, 0.01, 0.04);
+        shallowColor = vec3(0.15, 0.05, 0.25);
+        causticStrength = 0.04;
+        rayStrength = 0.08;
+    } else {
+        // Arrecife Coral: bright tropical cyan/turquoise water with high visibility
+        deepColor = vec3(0.02, 0.08, 0.18);
+        shallowColor = vec3(0.05, 0.65, 0.60);
+        causticStrength = 0.09;
+        rayStrength = 0.20;
     }
 
     // Base vertical gradient: deep/dark at the bottom, brighter near the "surface" at top.
@@ -93,10 +109,10 @@ void main() {
     }
     ray /= 3.0;
 
-    // Occasional sun flashes (only in "Mar abierto" theme) fanning from the top edge.
+    // Occasional sun flashes (only in open-water themes: 1, 2, 4) fanning from the top edge.
     // Multiplying different frequencies creates occasional spikes/pulses, power of 4 sharpens them.
     float flare = 0.0;
-    if (uTheme == 1) {
+    if (uTheme == 1 || uTheme == 2 || uTheme == 4) {
         flare = pow(max(0.0, sin(uTime * 0.13) * sin(uTime * 0.21 + 1.5) * cos(uTime * 0.07)), 4.0);
     }
 
@@ -104,10 +120,10 @@ void main() {
     float activeRayStrength = rayStrength * (1.0 + flare * 1.5);
     color += shallowColor * ray * raysMask * activeRayStrength;
 
-    if (uTheme == 1) {
-        // Bright golden-white sun flash concentrated at the top edge
+    if (uTheme == 1 || uTheme == 2 || uTheme == 4) {
+        // Bright warm sun flash concentrated at the top edge (warm pinkish/orange for sunset)
         float flashMask = pow(y, 3.5);
-        vec3 flashColor = vec3(0.95, 0.92, 0.82);
+        vec3 flashColor = (uTheme == 2) ? vec3(0.98, 0.70, 0.50) : vec3(0.95, 0.92, 0.82);
         color += flashColor * flare * flashMask * 0.40;
     }
 

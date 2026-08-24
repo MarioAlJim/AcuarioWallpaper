@@ -6,8 +6,11 @@
     <string name="settings_placeholder">Más ajustes (peces, fondo…) próximamente.</string>
     <string name="settings_apply_wallpaper">Establecer fondo de pantalla</string>
     <string name="settings_section_environment">Ambiente</string>
-    <string name="acuario_theme_acuario">Acuario</string>
-    <string name="acuario_theme_mar">Mar abierto</string>
+    <string name="acuario_theme_turquesa">Turquesa</string>
+    <string name="acuario_theme_azul_profundo">Azul Profundo</string>
+    <string name="acuario_theme_atardecer">Atardecer Violeta</string>
+    <string name="acuario_theme_abisal">Fosa Abisal</string>
+    <string name="acuario_theme_arrecife">Arrecife Coral</string>
     <string name="settings_section_turtle_count">Cantidad de tortugas</string>
     <string name="settings_turtle_color_note">Cada tortuga toma un color de una especie real al azar.</string>
     <string name="settings_section_fish_count">Cantidad de peces</string>
