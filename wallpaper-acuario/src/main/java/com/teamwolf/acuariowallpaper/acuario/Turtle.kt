@@ -15,6 +15,11 @@ import kotlin.random.Random
  *
  * [heading] is the turtle's current facing angle in radians (0 = facing/moving right), eased
  * toward the angle-to-target every frame instead of snapping to it - see [update]'s comment.
+ *
+ * [pitchDegrees] is a "nose up/down" body tilt driven by the vertical component of travel
+ * (ascending pitches the nose up, descending pitches it down), animated as a lightly
+ * underdamped spring so it overshoots and settles with a little bounce instead of just
+ * easing to a stop - like a body with real weight in the water.
  */
 class Turtle {
     var x = 0f
@@ -28,6 +33,11 @@ class Turtle {
 
     var swimPhase = 0f
         private set
+
+    /** "Nose up/down" body tilt in degrees - see class doc. */
+    var pitchDegrees = 0f
+        private set
+    private var pitchVelocity = 0f
 
     private var targetX = 0f
     private var targetY = 0f
@@ -83,6 +93,19 @@ class Turtle {
         val mirrorLerp = 1f - exp(-kMirrorRate * deltaTime)
         mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
 
+        // Pitch: nose precedes vertical movement, based exclusively on dy's share of the
+        // travel direction (dy/dist, i.e. how much of this leg is "straight up/down" vs
+        // "sideways") mapped straight to +-kMaxPitchDegrees.
+        val desiredPitch = (dy / dist) * kMaxPitchDegrees
+
+        // Driven as a lightly underdamped spring (not a plain ease) so it doesn't just glide
+        // to a stop: it overshoots the target pitch and settles with a small bounce/wobble,
+        // reading as a body with real weight and momentum in the water rather than a puppet
+        // snapping straight to the "correct" angle.
+        val springAccel = (desiredPitch - pitchDegrees) * kPitchSpringStiffness - pitchVelocity * kPitchSpringDamping
+        pitchVelocity += springAccel * deltaTime
+        pitchDegrees = (pitchDegrees + pitchVelocity * deltaTime).coerceIn(-kMaxPitchOvershoot, kMaxPitchOvershoot)
+
         swimPhase += deltaTime * (2.2f + speed * 4f)
     }
 
@@ -114,5 +137,17 @@ class Turtle {
         // Chosen so the mirror flip is ~95% done in about 0.25s (1 - e^(-kMirrorRate*0.25) ≈
         // 0.95) - fast enough to read as a snappy turn rather than a slow fade.
         const val kMirrorRate = 12f
+
+        const val kMaxPitchDegrees = 20f
+
+        // Damping ratio zeta = kPitchSpringDamping / (2*sqrt(kPitchSpringStiffness)) ≈ 0.47 -
+        // underdamped on purpose, for a visible but controlled single overshoot/bounce rather
+        // than a dead-stop ease or a wobbling oscillation.
+        const val kPitchSpringStiffness = 90f
+        const val kPitchSpringDamping = 9f
+
+        // Safety clamp: with zeta ≈ 0.47 the spring overshoots kMaxPitchDegrees by roughly
+        // 18%, so this just guards against a much larger transient in some edge case.
+        const val kMaxPitchOvershoot = 40f
     }
 }

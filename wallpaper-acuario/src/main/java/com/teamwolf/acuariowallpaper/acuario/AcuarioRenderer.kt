@@ -176,10 +176,15 @@ class AcuarioRenderer(
 
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.translateM(modelMatrix, 0, turtle.x, turtle.y, 0f)
-        // facingScale() eases between +-1 on its own quick, fixed timescale whenever the
-        // turtle's discrete facing side flips, so the mirror reads as a brief turn-in-depth
-        // flourish instead of an instant pop (see Turtle.kt for why it isn't cos(heading)).
-        Matrix.scaleM(modelMatrix, 0, kTurtleScale * turtle.facingScale(), kTurtleScale, 1f)
+        // Order matters here: Android's Matrix helpers post-multiply, so the LAST call below
+        // is the FIRST one actually applied to each vertex. We want, in per-vertex apply
+        // order: (1) uniform base scale, (2) pitch rotation (in the sprite's canonical
+        // always-facing-right frame, so +pitch always lifts the head), (3) the left/right
+        // mirror (only flips X, so it can't undo the vertical lift added by pitch), (4) the
+        // translate to world position - hence the calls are written in the reverse of that.
+        Matrix.scaleM(modelMatrix, 0, turtle.facingScale(), 1f, 1f)
+        Matrix.rotateM(modelMatrix, 0, turtle.pitchDegrees, 0f, 0f, 1f)
+        Matrix.scaleM(modelMatrix, 0, kTurtleScale, kTurtleScale, 1f)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
         GLES30.glUniform1f(turtleSwimPhaseHandle, turtle.swimPhase)
