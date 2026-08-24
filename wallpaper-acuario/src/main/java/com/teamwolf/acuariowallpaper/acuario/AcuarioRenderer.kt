@@ -103,6 +103,7 @@ class AcuarioRenderer(
 
     private var aspectRatio = 1f
     private var time = 0f
+    private val kTwoPi = (Math.PI * 2.0).toFloat()
     private val projectionMatrix = FloatArray(16)
     private val modelMatrix = FloatArray(16)
     private val mvpMatrix = FloatArray(16)
@@ -366,7 +367,19 @@ class AcuarioRenderer(
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
-            GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase)
+            // Wrapped to [0, 2*PI) before upload: turtle.frag is `precision mediump float`, and
+            // t.swimPhase itself grows forever (never resets) for as long as the wallpaper runs.
+            // Past a few hours of continuous uptime it's large enough that mediump - roughly a
+            // 10-bit mantissa, so its representable step size scales with magnitude - can no
+            // longer resolve a single frame's small increment, so consecutive frames round to
+            // the *same* value and the animation visibly stalls/steps instead of flowing - worse
+            // for the back flippers specifically since their whole motion range is much smaller
+            // than the front flippers', so the same absolute rounding error eats a bigger share
+            // of it. sin()/cos() only ever need the phase mod 2*PI anyway, so wrapping here (in
+            // full 32-bit float, on the CPU) costs nothing and keeps the uploaded value small
+            // enough for mediump to represent precisely no matter how long the wallpaper's been
+            // running.
+            GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase % kTwoPi)
 
             val palette = t.palette
             mixColorInto(scratchShellColor, palette.shellColor, deepColor, tintAmount)
