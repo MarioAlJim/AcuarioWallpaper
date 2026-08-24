@@ -74,4 +74,35 @@ class TurtleTest {
             abs(headingAfterOneFrame) < 0.3f
         )
     }
+
+    @Test
+    fun pitchDegrees_staysWithinTheSafetyClampAndCanBothLiftAndDip() {
+        // A tall, narrow roaming box means plenty of legs are mostly vertical, so both signs
+        // of pitch (climbing and diving) should show up over enough updates.
+        val turtle = Turtle()
+        var maxPitch = Float.NEGATIVE_INFINITY
+        var minPitch = Float.POSITIVE_INFINITY
+        repeat(1000) {
+            turtle.update(1f / 60f, aspectRatio = 0.5f)
+            maxPitch = maxOf(maxPitch, turtle.pitchDegrees)
+            minPitch = minOf(minPitch, turtle.pitchDegrees)
+            assertTrue("pitchDegrees out of safety clamp: ${turtle.pitchDegrees}", abs(turtle.pitchDegrees) <= 40f)
+        }
+
+        assertTrue("expected some upward pitch (climbing), max was $maxPitch", maxPitch > 5f)
+        assertTrue("expected some downward pitch (diving), min was $minPitch", minPitch < -5f)
+    }
+
+    @Test
+    fun pitchDegrees_doesNotSnapInstantlyToTheDesiredAngle() {
+        // Starting level (pitchDegrees == 0) with a target straight below should NOT put the
+        // spring already at rest one frame later - it has mass/inertia, so a single 1/60s step
+        // can only have nudged it a little.
+        val turtle = Turtle()
+        turtle.update(1f / 60f, aspectRatio = 1.7f)
+        assertTrue(
+            "expected only a small first-frame pitch change, got ${turtle.pitchDegrees}",
+            abs(turtle.pitchDegrees) < 5f
+        )
+    }
 }
