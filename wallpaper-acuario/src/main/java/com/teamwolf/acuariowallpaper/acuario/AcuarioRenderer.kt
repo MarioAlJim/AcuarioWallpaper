@@ -15,9 +15,11 @@ import kotlin.random.Random
 /**
  * First real Acuario effect layer: a procedural underwater background (vertical gradient +
  * animated god rays + caustics, both selectable between the "Acuario" and "Mar abierto"
- * themes via [ConfigProvider.getAcuarioTheme]), a field of bubbles rising from the bottom of
- * the screen, and 0-5 turtles ([Turtle], count via [ConfigProvider.getTurtleCount]) wandering
- * around the tank with animated flippers, each in a randomly-assigned [TurtlePalette].
+ * themes via [ConfigProvider.getAcuarioTheme]), a field of ambient bubbles rising from the
+ * bottom of the screen, and 0-5 turtles ([Turtle], count via [ConfigProvider.getTurtleCount])
+ * wandering around the tank with animated flippers, each in a randomly-assigned
+ * [TurtlePalette]. Every couple of minutes each turtle surfaces to breathe and releases a
+ * one-off burst of larger "exhale" bubbles ([Turtle.consumeExhaleEvent]) on the way back down.
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
@@ -46,6 +48,15 @@ class AcuarioRenderer(
 
     private val maxBubbles = 28
     private val bubbles = mutableListOf<Bubble>()
+
+    // "Exhale" bubbles: a one-off burst a turtle releases diving back down after a surface
+    // breath (see Turtle.consumeExhaleEvent). Unlike the ambient `bubbles` above, these are
+    // NOT recycled forever - once one drifts off the top of the screen it's simply removed,
+    // since it's a momentary event rather than a permanent part of the water's atmosphere.
+    // kMaxExhaleBubbles is a safety cap on the shared instance buffer below, not a tuning knob.
+    private val kExhaleBubblesPerBreath = 2
+    private val kMaxExhaleBubbles = 10
+    private val exhaleBubbles = mutableListOf<Bubble>()
 
     // Turtles (each a non-instanced quad transformed via its own MVP - same shape as moon.vert
     // in the "wallpaper" reference project; at most kMaxTurtles of them, so one draw call per
@@ -160,12 +171,13 @@ class AcuarioRenderer(
                 position(0)
             }
 
-        bubbleInstanceBuffer = ByteBuffer.allocateDirect(maxBubbles * instanceFloatsPerEntry * 4)
+        bubbleInstanceBuffer = ByteBuffer.allocateDirect((maxBubbles + kMaxExhaleBubbles) * instanceFloatsPerEntry * 4)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer()
 
         bubbles.clear()
         repeat(maxBubbles) { bubbles.add(createRandomBubble(spawnAnywhere = true)) }
+        exhaleBubbles.clear()
 
         turtles.clear()
         syncTurtleCount()
@@ -182,6 +194,9 @@ class AcuarioRenderer(
         syncTurtleCount()
         for (t in turtles) {
             t.update(deltaTime, aspectRatio)
+            if (t.consumeExhaleEvent()) {
+                spawnExhaleBubbles(t.x, t.y)
+            }
         }
         for (bubble in bubbles) {
             bubble.y += deltaTime * bubble.speed
@@ -193,6 +208,39 @@ class AcuarioRenderer(
             if (bubbles[i].y > 1.2f) {
                 bubbles[i] = createRandomBubble(spawnAnywhere = false)
             }
+        }
+
+        // Exhale bubbles animate the same way, but are a one-off burst, not part of the
+        // ambient water - once one drifts off the top it's removed instead of recycled.
+        val exhaleIterator = exhaleBubbles.iterator()
+        while (exhaleIterator.hasNext()) {
+            val bubble = exhaleIterator.next()
+            bubble.y += deltaTime * bubble.speed
+            bubble.x = bubble.baseX + kotlin.math.sin(time * bubble.wobbleSpeed + bubble.wobbleSeed) * bubble.wobbleAmplitude
+            if (bubble.y > 1.2f) {
+                exhaleIterator.remove()
+            }
+        }
+    }
+
+    /** [kExhaleBubblesPerBreath] larger, more opaque bubbles released at ([originX], [originY]). */
+    private fun spawnExhaleBubbles(originX: Float, originY: Float) {
+        repeat(kExhaleBubblesPerBreath) {
+            if (exhaleBubbles.size >= kMaxExhaleBubbles) return
+            val jitteredX = originX + (Random.nextFloat() - 0.5f) * 0.08f
+            exhaleBubbles.add(
+                Bubble(
+                    x = jitteredX,
+                    y = originY,
+                    baseX = jitteredX,
+                    size = 0.07f + Random.nextFloat() * 0.04f,
+                    speed = 0.22f + Random.nextFloat() * 0.15f,
+                    wobbleAmplitude = 0.01f + Random.nextFloat() * 0.015f,
+                    wobbleSpeed = 0.8f + Random.nextFloat() * 1.4f,
+                    wobbleSeed = Random.nextFloat() * 6.2832f,
+                    alpha = 0.6f + Random.nextFloat() * 0.25f
+                )
+            )
         }
     }
 
@@ -299,12 +347,22 @@ class AcuarioRenderer(
     }
 
     private fun drawBubbles() {
-        if (bubbles.isEmpty() || bubbleProgram == 0) return
+        val totalBubbles = bubbles.size + exhaleBubbles.size
+        if (totalBubbles == 0 || bubbleProgram == 0) return
         GLES30.glUseProgram(bubbleProgram)
         GLES30.glUniformMatrix4fv(bubbleProjMatrixHandle, 1, false, projectionMatrix, 0)
 
         bubbleInstanceBuffer.clear()
         for (bubble in bubbles) {
+            bubbleInstanceBuffer.put(bubble.x)
+            bubbleInstanceBuffer.put(bubble.y)
+            bubbleInstanceBuffer.put(bubble.size)
+            bubbleInstanceBuffer.put(0.85f) // r
+            bubbleInstanceBuffer.put(0.95f) // g
+            bubbleInstanceBuffer.put(1.0f)  // b
+            bubbleInstanceBuffer.put(bubble.alpha)
+        }
+        for (bubble in exhaleBubbles) {
             bubbleInstanceBuffer.put(bubble.x)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
@@ -344,7 +402,7 @@ class AcuarioRenderer(
         GLES30.glEnableVertexAttribArray(5)
         GLES30.glVertexAttribDivisor(5, 1)
 
-        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, bubbles.size)
+        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, totalBubbles)
 
         GLES30.glDisableVertexAttribArray(0)
         GLES30.glDisableVertexAttribArray(1)
