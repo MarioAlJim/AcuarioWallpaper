@@ -1,7 +1,6 @@
 package com.teamwolf.acuariowallpaper.acuario
 
 import kotlin.math.atan2
-import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -34,6 +33,11 @@ class Turtle {
     private var targetY = 0f
     private var hasTarget = false
 
+    // Discrete left/right side (+1/-1) the sprite should mirror to, and a fast-easing blend
+    // toward it - see facingScale()'s doc for why this is kept separate from `heading`.
+    private var facingSign = 1f
+    private var mirrorBlend = 1f
+
     private val speed = 0.10f + Random.nextFloat() * 0.05f
 
     fun update(deltaTime: Float, aspectRatio: Float) {
@@ -64,17 +68,30 @@ class Turtle {
         val turnLerp = 1f - exp(-kTurnRate * deltaTime)
         heading += angleDiff * turnLerp
 
+        // Which side the sprite mirrors to is driven only by the discrete horizontal
+        // direction (with a dead zone so near-vertical travel - dx close to 0 - can't make it
+        // flicker), not by the full travel angle: the roaming box is taller than it is wide on
+        // a portrait screen, so `heading` spends long stretches near +-90 deg just cruising up
+        // or down, and tying the mirror to it (e.g. via cos(heading)) left the turtle looking
+        // squashed for most of that time instead of just during an actual side change.
+        if (kotlin.math.abs(dx) > kFacingDeadzone) {
+            facingSign = if (dx > 0f) 1f else -1f
+        }
+        // mirrorBlend eases toward facingSign on its own quick, fixed timescale, independent
+        // of how long the real heading lingers near vertical - so a side change always reads
+        // as a brief turn-in-depth flourish (thin -> re-expand) instead of a lingering squash.
+        val mirrorLerp = 1f - exp(-kMirrorRate * deltaTime)
+        mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
+
         swimPhase += deltaTime * (2.2f + speed * 4f)
     }
 
     /**
-     * X-scale multiplier for the (always "facing right") sprite: +1 heading straight right,
-     * -1 heading straight left, passing smoothly through 0 as [heading] crosses vertical - so
-     * AcuarioRenderer applying this as a scale reads as the turtle turning in depth (thinning
-     * to an edge-on silhouette, then re-expanding facing the other way) rather than an instant
-     * left/right mirror pop.
+     * X-scale multiplier for the (always "facing right") sprite: settles at +1/-1 facing
+     * right/left, passing through 0 only briefly while [facingSign] just flipped - see
+     * [update]'s comment for why this isn't simply cos(heading).
      */
-    fun facingScale(): Float = cos(heading)
+    fun facingScale(): Float = mirrorBlend
 
     private fun pickNewTarget(aspectRatio: Float) {
         // Roams the lower two-thirds of the water column - turtles cruise nearer the
@@ -91,5 +108,11 @@ class Turtle {
         // Chosen so heading closes ~5% of the remaining angular gap per 1/60s frame, i.e.
         // 1 - e^(-kTurnRate/60) ≈ 0.05.
         const val kTurnRate = 3.08f
+
+        const val kFacingDeadzone = 0.02f
+
+        // Chosen so the mirror flip is ~95% done in about 0.25s (1 - e^(-kMirrorRate*0.25) ≈
+        // 0.95) - fast enough to read as a snappy turn rather than a slow fade.
+        const val kMirrorRate = 12f
     }
 }

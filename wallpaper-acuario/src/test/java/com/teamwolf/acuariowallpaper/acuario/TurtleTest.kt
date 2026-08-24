@@ -1,6 +1,5 @@
 package com.teamwolf.acuariowallpaper.acuario
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -39,13 +38,27 @@ class TurtleTest {
     }
 
     @Test
-    fun facingScale_staysInValidRangeAndTracksHeading() {
+    fun facingScale_staysInValidRange() {
         val turtle = Turtle()
         repeat(200) { turtle.update(1f / 60f, aspectRatio = 1.7f) }
 
         val scale = turtle.facingScale()
         assertTrue("facingScale() out of [-1, 1]: $scale", scale in -1f..1f)
-        assertEquals(kotlin.math.cos(turtle.heading), scale, 1e-5f)
+    }
+
+    @Test
+    fun facingScale_reachesFullWidthInsteadOfStayingCompressed() {
+        // A tall, narrow roaming box (portrait-like aspect ratio) makes the real travel angle
+        // spend long stretches near vertical - facingScale() must not stay squashed for that
+        // whole time (see Turtle.update's comment on why it's decoupled from cos(heading)).
+        val turtle = Turtle()
+        var maxAbsScale = 0f
+        repeat(600) {
+            turtle.update(1f / 60f, aspectRatio = 0.5f)
+            maxAbsScale = maxOf(maxAbsScale, abs(turtle.facingScale()))
+        }
+
+        assertTrue("expected facingScale() to reach near full width at some point, max was $maxAbsScale", maxAbsScale > 0.9f)
     }
 
     @Test
