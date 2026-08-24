@@ -27,6 +27,12 @@ import kotlin.random.Random
  * shrink+tint distant turtles toward the water's deep color, and [update] itself uses it to
  * slow down travel speed - the parallax cue that "background" turtles drift more lazily than
  * ones "against the glass".
+ *
+ * Breathing cycle: every couple of minutes ([kOxygenIntervalMin]-[kOxygenIntervalMax]) the
+ * turtle overrides its normal wandering, surfaces, holds at the top leveling out to a
+ * horizontal pitch, then dives back down - see the [BreathPhase] states below and
+ * [consumeExhaleEvent] for the "exhale" bubble burst AcuarioRenderer spawns on the way back
+ * down.
  */
 class Turtle {
     /** Randomly assigned at construction and fixed for the turtle's lifetime - not user-selectable. */
@@ -68,16 +74,43 @@ class Turtle {
 
     private val speed = 0.10f + Random.nextFloat() * 0.05f
 
+    private enum class BreathPhase { SWIMMING, SURFACING, HOLDING_BREATH }
+    private var breathPhase = BreathPhase.SWIMMING
+    private var oxygenTimer = randomOxygenInterval()
+    private var surfaceHoldTimer = 0f
+    private var exhalePending = false
+
     fun update(deltaTime: Float, aspectRatio: Float) {
+        if (breathPhase == BreathPhase.HOLDING_BREATH) {
+            updateHoldingBreath(deltaTime)
+            return
+        }
+
+        if (breathPhase == BreathPhase.SWIMMING) {
+            oxygenTimer -= deltaTime
+            if (oxygenTimer <= 0f) {
+                // Overrides whatever waypoint it was chasing - breathing takes priority.
+                breathPhase = BreathPhase.SURFACING
+                hasTarget = false
+            }
+        }
+
         if (!hasTarget) {
-            pickNewTarget(aspectRatio)
+            if (breathPhase == BreathPhase.SURFACING) pickSurfaceTarget() else pickNewTarget(aspectRatio)
         }
 
         val dx = targetX - x
         val dy = targetY - y
         val dist = sqrt(dx * dx + dy * dy)
         if (dist < 0.05f) {
-            pickNewTarget(aspectRatio)
+            if (breathPhase == BreathPhase.SURFACING) {
+                // Arrived at the surface: pause and level out instead of immediately picking
+                // the next normal waypoint.
+                breathPhase = BreathPhase.HOLDING_BREATH
+                surfaceHoldTimer = kSurfaceHoldMin + Random.nextFloat() * (kSurfaceHoldMax - kSurfaceHoldMin)
+            } else {
+                pickNewTarget(aspectRatio)
+            }
             return
         }
 
@@ -121,14 +154,7 @@ class Turtle {
         // travel direction (dy/dist, i.e. how much of this leg is "straight up/down" vs
         // "sideways") mapped straight to +-kMaxPitchDegrees.
         val desiredPitch = (dy / dist) * kMaxPitchDegrees
-
-        // Driven as a lightly underdamped spring (not a plain ease) so it doesn't just glide
-        // to a stop: it overshoots the target pitch and settles with a small bounce/wobble,
-        // reading as a body with real weight and momentum in the water rather than a puppet
-        // snapping straight to the "correct" angle.
-        val springAccel = (desiredPitch - pitchDegrees) * kPitchSpringStiffness - pitchVelocity * kPitchSpringDamping
-        pitchVelocity += springAccel * deltaTime
-        pitchDegrees = (pitchDegrees + pitchVelocity * deltaTime).coerceIn(-kMaxPitchOvershoot, kMaxPitchOvershoot)
+        stepPitchSpring(desiredPitch, deltaTime)
 
         // Depth drifts slowly toward targetDepth (picked alongside each new x/y waypoint) -
         // deliberately much slower than the mirror/pitch eases above, so "coming closer" or
@@ -140,11 +166,53 @@ class Turtle {
     }
 
     /**
+     * While holding at the surface: no travel, just level the body out to a horizontal pitch
+     * (via the same spring as normal swimming, so it settles with the same natural bounce)
+     * and count down the hold. Flippers/heading/mirror/depth are left untouched - it's resting,
+     * not swimming.
+     */
+    private fun updateHoldingBreath(deltaTime: Float) {
+        stepPitchSpring(desiredPitch = 0f, deltaTime)
+
+        surfaceHoldTimer -= deltaTime
+        if (surfaceHoldTimer <= 0f) {
+            breathPhase = BreathPhase.SWIMMING
+            oxygenTimer = randomOxygenInterval()
+            hasTarget = false
+            // Consumed by AcuarioRenderer to spawn a couple of big "exhale" bubbles right as
+            // the turtle dives back down.
+            exhalePending = true
+        }
+    }
+
+    private fun stepPitchSpring(desiredPitch: Float, deltaTime: Float) {
+        // Driven as a lightly underdamped spring (not a plain ease) so it doesn't just glide
+        // to a stop: it overshoots the target pitch and settles with a small bounce/wobble,
+        // reading as a body with real weight and momentum in the water rather than a puppet
+        // snapping straight to the "correct" angle.
+        val springAccel = (desiredPitch - pitchDegrees) * kPitchSpringStiffness - pitchVelocity * kPitchSpringDamping
+        pitchVelocity += springAccel * deltaTime
+        pitchDegrees = (pitchDegrees + pitchVelocity * deltaTime).coerceIn(-kMaxPitchOvershoot, kMaxPitchOvershoot)
+    }
+
+    /**
      * X-scale multiplier for the (always "facing right") sprite: settles at +1/-1 facing
      * right/left, passing through 0 only briefly while [facingSign] just flipped - see
      * [update]'s comment for why this isn't simply cos(heading).
      */
     fun facingScale(): Float = mirrorBlend
+
+    /**
+     * True exactly once, right as the turtle finishes a surface breathing pause and starts
+     * diving back down - callers (AcuarioRenderer) should spawn a couple of big bubbles at
+     * (x, y) when this returns true. Consumes the event, so it won't fire again until the next
+     * breathing cycle completes.
+     */
+    fun consumeExhaleEvent(): Boolean {
+        if (!exhalePending) return false
+        exhalePending = false
+        return true
+    }
 
     private fun pickNewTarget(aspectRatio: Float) {
         // Roams the lower two-thirds of the water column - turtles cruise nearer the
@@ -155,6 +223,17 @@ class Turtle {
         // A new "decision" to come closer or recede is made alongside every new waypoint.
         targetDepth = Random.nextFloat()
     }
+
+    /** Straight up to near the top of the screen to breathe - see class doc. */
+    private fun pickSurfaceTarget() {
+        targetX = x
+        targetY = kSurfaceY
+        targetDepth = kSurfaceDepth
+        hasTarget = true
+    }
+
+    private fun randomOxygenInterval(): Float =
+        kOxygenIntervalMin + Random.nextFloat() * (kOxygenIntervalMax - kOxygenIntervalMin)
 
     private companion object {
         const val PI = kotlin.math.PI.toFloat()
@@ -188,5 +267,18 @@ class Turtle {
         // Chosen so depth is ~95% of the way to a new targetDepth in about 2s
         // (1 - e^(-kDepthEaseRate*2) ≈ 0.95) - a deliberate, gradual drift rather than a snap.
         const val kDepthEaseRate = 1.5f
+
+        // "Every couple of minutes" - randomized per-turtle (and re-rolled after every breath)
+        // so multiple turtles don't all surface in lockstep.
+        const val kOxygenIntervalMin = 120f
+        const val kOxygenIntervalMax = 180f
+
+        // Near the top edge but low enough that the turtle's own scale never clips offscreen.
+        const val kSurfaceY = 0.85f
+        // Near the glass while breathing, for a clearer view of it.
+        const val kSurfaceDepth = 0.1f
+
+        const val kSurfaceHoldMin = 2f
+        const val kSurfaceHoldMax = 3.5f
     }
 }

@@ -78,11 +78,15 @@ class TurtleTest {
     @Test
     fun pitchDegrees_staysWithinTheSafetyClampAndCanBothLiftAndDip() {
         // A tall, narrow roaming box means plenty of legs are mostly vertical, so both signs
-        // of pitch (climbing and diving) should show up over enough updates.
+        // of pitch (climbing and diving) should show up over enough updates. 1000 frames
+        // (~16.7s) only covers 1-3 waypoint legs, which was occasionally too few for both signs
+        // to show up by chance (flaky - a run or two of mostly-horizontal legs was enough to
+        // fail it); 8000 (~133s) covers many more legs while staying comfortably under the
+        // 120s minimum oxygen interval most of the time.
         val turtle = Turtle()
         var maxPitch = Float.NEGATIVE_INFINITY
         var minPitch = Float.POSITIVE_INFINITY
-        repeat(1000) {
+        repeat(8000) {
             turtle.update(1f / 60f, aspectRatio = 0.5f)
             maxPitch = maxOf(maxPitch, turtle.pitchDegrees)
             minPitch = minOf(minPitch, turtle.pitchDegrees)
@@ -118,11 +122,15 @@ class TurtleTest {
     @Test
     fun depth_variesOverTimeInsteadOfBeingFixed() {
         // Enough waypoint changes should eventually send depth toward both ends of its range -
-        // it isn't just a fixed per-instance value.
+        // it isn't just a fixed per-instance value. 3000 frames (~50 simulated seconds) only
+        // covers a handful of independent targetDepth draws, which was occasionally too few to
+        // reliably visit both ends by chance (flaky); 15000 (~250s) also guarantees at least
+        // one breathing cycle (forcing depth toward the glass while surfacing - see
+        // breathingCycle_surfacesLevelsOutPitchAndExhales), which only reinforces this.
         val turtle = Turtle()
         var maxDepth = 0f
         var minDepth = 1f
-        repeat(3000) {
+        repeat(15000) {
             turtle.update(1f / 60f, aspectRatio = 1.7f)
             maxDepth = maxOf(maxDepth, turtle.depth)
             minDepth = minOf(minDepth, turtle.depth)
@@ -130,5 +138,47 @@ class TurtleTest {
 
         assertTrue("expected depth to drift near the glass at some point, min was $minDepth", minDepth < 0.3f)
         assertTrue("expected depth to drift into the background at some point, max was $maxDepth", maxDepth > 0.7f)
+    }
+
+    @Test
+    fun breathingCycle_surfacesLevelsOutPitchAndExhales() {
+        val turtle = Turtle()
+        val deltaTime = 1f / 60f
+        var reachedSurface = false
+        var levelPitchNearSurface = false
+        var exhaleCount = 0
+
+        // ~250 simulated seconds - comfortably past the worst-case 180s oxygen interval plus
+        // travel/hold time, so at least one full breathing cycle should complete.
+        repeat(15000) {
+            turtle.update(deltaTime, aspectRatio = 1.7f)
+            if (turtle.y > 0.75f) {
+                reachedSurface = true
+                if (abs(turtle.pitchDegrees) < 5f) levelPitchNearSurface = true
+            }
+            if (turtle.consumeExhaleEvent()) exhaleCount++
+        }
+
+        assertTrue("expected the turtle to surface at least once", reachedSurface)
+        assertTrue("expected pitch to level out horizontal while holding at the surface", levelPitchNearSurface)
+        assertTrue("expected at least one exhale event, got $exhaleCount", exhaleCount >= 1)
+    }
+
+    @Test
+    fun consumeExhaleEvent_doesNotFireAgainImmediatelyAfterBeingConsumed() {
+        val turtle = Turtle()
+        val deltaTime = 1f / 60f
+        var consumedOnce = false
+        for (i in 0 until 15000) {
+            turtle.update(deltaTime, aspectRatio = 1.7f)
+            if (turtle.consumeExhaleEvent()) {
+                consumedOnce = true
+                // The very next read (same frame, no further update()) must be false - it's a
+                // one-shot event, not a level that stays true.
+                assertTrue(!turtle.consumeExhaleEvent())
+                break
+            }
+        }
+        assertTrue("expected to observe at least one exhale event", consumedOnce)
     }
 }
