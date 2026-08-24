@@ -92,7 +92,24 @@ void main() {
         ray += sin(phase) * 0.5 + 0.5;
     }
     ray /= 3.0;
-    color += shallowColor * ray * raysMask * rayStrength;
+
+    // Occasional sun flashes (only in "Mar abierto" theme) fanning from the top edge.
+    // Multiplying different frequencies creates occasional spikes/pulses, power of 4 sharpens them.
+    float flare = 0.0;
+    if (uTheme == 1) {
+        flare = pow(max(0.0, sin(uTime * 0.13) * sin(uTime * 0.21 + 1.5) * cos(uTime * 0.07)), 4.0);
+    }
+
+    // Boost god rays when the sun flares up
+    float activeRayStrength = rayStrength * (1.0 + flare * 1.5);
+    color += shallowColor * ray * raysMask * activeRayStrength;
+
+    if (uTheme == 1) {
+        // Bright golden-white sun flash concentrated at the top edge
+        float flashMask = pow(y, 3.5);
+        vec3 flashColor = vec3(0.95, 0.92, 0.82);
+        color += flashColor * flare * flashMask * 0.40;
+    }
 
     // Caustics: a cellular (Voronoi) light-net, the classic bright, curved, moving mesh seen on
     // a pool or reef floor. Real caustics are the SEAMS between neighboring focused-light cells,

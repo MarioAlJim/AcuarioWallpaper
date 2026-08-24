@@ -86,6 +86,18 @@ class AcuarioRenderer(
     private val kTurtleScale = 0.28f
     private val kMaxTurtles = 5
 
+    // Fish (drawn in back-to-front order by depth, single draw call per fish)
+    private var fishProgram = 0
+    private var fishMVPHandle = 0
+    private var fishSwimPhaseHandle = 0
+    private var fishBodyColorHandle = 0
+    private var fishFinColorHandle = 0
+    private var fishTailColorHandle = 0
+    private var fishStripeColorHandle = 0
+    private val fishes = mutableListOf<Fish>()
+    private val kFishScale = 0.18f
+    private val kMaxFish = 8
+
     // Depth-of-field illusion on an otherwise flat 2D scene: a turtle at Turtle.depth == 1
     // (deep in the tank) is drawn at kMinScaleAtDepth of its normal size and its palette is
     // tinted toward the current theme's deep-water color by up to kMaxDepthTint - see
@@ -96,6 +108,10 @@ class AcuarioRenderer(
     private val scratchHeadColor = FloatArray(3)
     private val scratchFlipperColor = FloatArray(3)
     private val scratchSpotColor = FloatArray(3)
+    private val scratchBodyColor = FloatArray(3)
+    private val scratchFinColor = FloatArray(3)
+    private val scratchTailColor = FloatArray(3)
+    private val scratchStripeColor = FloatArray(3)
 
     // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
     // toward the same color the background already fades to at depth.
@@ -200,6 +216,20 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/fish.vert")
+            val frag = readAssetFile(context, "shaders/fish.frag")
+            fishProgram = createProgram(vert, frag)
+            fishMVPHandle = GLES30.glGetUniformLocation(fishProgram, "uMVPMatrix")
+            fishSwimPhaseHandle = GLES30.glGetUniformLocation(fishProgram, "uSwimPhase")
+            fishBodyColorHandle = GLES30.glGetUniformLocation(fishProgram, "uBodyColor")
+            fishFinColorHandle = GLES30.glGetUniformLocation(fishProgram, "uFinColor")
+            fishTailColorHandle = GLES30.glGetUniformLocation(fishProgram, "uTailColor")
+            fishStripeColorHandle = GLES30.glGetUniformLocation(fishProgram, "uStripeColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
             -1f, -1f,
@@ -240,6 +270,9 @@ class AcuarioRenderer(
 
         turtles.clear()
         syncTurtleCount()
+
+        fishes.clear()
+        syncFishCount()
     }
 
     override fun onSurfaceChanged(width: Int, height: Int) {
@@ -251,7 +284,11 @@ class AcuarioRenderer(
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
         syncTurtleCount()
+        syncFishCount()
         syncBubbleCount()
+        for (i in fishes.indices) {
+            fishes[i].update(deltaTime, aspectRatio)
+        }
         for (i in turtles.indices) {
             val t = turtles[i]
             t.update(deltaTime, aspectRatio)
@@ -339,6 +376,7 @@ class AcuarioRenderer(
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         drawBackground()
+        drawFish()
         drawTurtles()
         drawBubbles()
     }
@@ -355,6 +393,72 @@ class AcuarioRenderer(
             desired > turtles.size -> repeat(desired - turtles.size) { turtles.add(Turtle()) }
             desired < turtles.size -> while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
         }
+    }
+
+    private fun syncFishCount() {
+        val desired = configProvider.getFishCount().coerceIn(0, kMaxFish)
+        when {
+            desired > fishes.size -> repeat(desired - fishes.size) { fishes.add(Fish()) }
+            desired < fishes.size -> while (fishes.size > desired) fishes.removeAt(fishes.size - 1)
+        }
+    }
+
+    private fun drawFish() {
+        if (fishProgram == 0 || fishes.isEmpty()) return
+        GLES30.glUseProgram(fishProgram)
+
+        // Farthest first, manual insertion sort to avoid allocation
+        for (i in 1 until fishes.size) {
+            val key = fishes[i]
+            var j = i - 1
+            while (j >= 0 && fishes[j].depth < key.depth) {
+                fishes[j + 1] = fishes[j]
+                j--
+            }
+            fishes[j + 1] = key
+        }
+
+        val deepColor = if (configProvider.getAcuarioTheme() == 0) kDeepColorAcuario else kDeepColorMarAbierto
+
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
+        for (i in fishes.indices) {
+            val f = fishes[i]
+            // Depth-of-field illusion
+            val depthScale = kFishScale * (1f - (1f - kMinScaleAtDepth) * f.depth)
+            val tintAmount = f.depth * kMaxDepthTint
+
+            Matrix.setIdentityM(modelMatrix, 0)
+            Matrix.translateM(modelMatrix, 0, f.x, f.y, 0f)
+            Matrix.scaleM(modelMatrix, 0, f.facingScale(), 1f, 1f)
+            Matrix.rotateM(modelMatrix, 0, f.pitchDegrees, 0f, 0f, 1f)
+            Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            GLES30.glUniformMatrix4fv(fishMVPHandle, 1, false, mvpMatrix, 0)
+
+            GLES30.glUniform1f(fishSwimPhaseHandle, f.swimPhase % kTwoPi)
+
+            val palette = f.palette
+            mixColorInto(scratchBodyColor, palette.bodyColor, deepColor, tintAmount)
+            mixColorInto(scratchFinColor, palette.finColor, deepColor, tintAmount)
+            mixColorInto(scratchTailColor, palette.tailColor, deepColor, tintAmount)
+            mixColorInto(scratchStripeColor, palette.stripeColor, deepColor, tintAmount)
+
+            GLES30.glUniform3fv(fishBodyColorHandle, 1, scratchBodyColor, 0)
+            GLES30.glUniform3fv(fishFinColorHandle, 1, scratchFinColor, 0)
+            GLES30.glUniform3fv(fishTailColorHandle, 1, scratchTailColor, 0)
+            GLES30.glUniform3fv(fishStripeColorHandle, 1, scratchStripeColor, 0)
+
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
     }
 
     /**
