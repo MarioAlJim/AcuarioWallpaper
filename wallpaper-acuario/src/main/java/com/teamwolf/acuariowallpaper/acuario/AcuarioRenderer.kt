@@ -61,6 +61,22 @@ class AcuarioRenderer(
     private val kTurtleScale = 0.28f
     private val kMaxTurtles = 5
 
+    // Depth-of-field illusion on an otherwise flat 2D scene: a turtle at Turtle.depth == 1
+    // (deep in the tank) is drawn at kMinScaleAtDepth of its normal size and its palette is
+    // tinted toward the current theme's deep-water color by up to kMaxDepthTint - see
+    // drawTurtles(). Reused per-turtle so tinting 5 turtles/frame doesn't allocate.
+    private val kMinScaleAtDepth = 0.45f
+    private val kMaxDepthTint = 0.75f
+    private val scratchShellColor = FloatArray(3)
+    private val scratchHeadColor = FloatArray(3)
+    private val scratchFlipperColor = FloatArray(3)
+    private val scratchSpotColor = FloatArray(3)
+
+    // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
+    // toward the same color the background already fades to at depth.
+    private val kDeepColorAcuario = floatArrayOf(0.012f, 0.095f, 0.130f)
+    private val kDeepColorMarAbierto = floatArrayOf(0.010f, 0.045f, 0.130f)
+
     private var aspectRatio = 1f
     private var time = 0f
     private val projectionMatrix = FloatArray(16)
@@ -205,6 +221,13 @@ class AcuarioRenderer(
         if (turtleProgram == 0 || turtles.isEmpty()) return
         GLES30.glUseProgram(turtleProgram)
 
+        // Farthest first, so a turtle nearer the glass correctly draws on top of one that
+        // overlaps it deeper in the tank (there's no depth buffer test here - just simple
+        // back-to-front painter's-algorithm ordering by Turtle.depth).
+        turtles.sortByDescending { it.depth }
+
+        val deepColor = if (configProvider.getAcuarioTheme() == 0) kDeepColorAcuario else kDeepColorMarAbierto
+
         unitQuadBuffer.position(0)
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
         GLES30.glEnableVertexAttribArray(0)
@@ -213,6 +236,12 @@ class AcuarioRenderer(
         GLES30.glEnableVertexAttribArray(1)
 
         for (t in turtles) {
+            // Depth illusion: shrink and tint toward the water's deep color as the turtle
+            // recedes (Turtle.depth -> 1), so it reads as farther away/underwater-hazier
+            // instead of just smaller.
+            val depthScale = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
+            val tintAmount = t.depth * kMaxDepthTint
+
             Matrix.setIdentityM(modelMatrix, 0)
             Matrix.translateM(modelMatrix, 0, t.x, t.y, 0f)
             // Order matters here: Android's Matrix helpers post-multiply, so the LAST call
@@ -224,22 +253,33 @@ class AcuarioRenderer(
             // reverse of that.
             Matrix.scaleM(modelMatrix, 0, t.facingScale(), 1f, 1f)
             Matrix.rotateM(modelMatrix, 0, t.pitchDegrees, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, kTurtleScale, kTurtleScale, 1f)
+            Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
             GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase)
 
             val palette = t.palette
-            GLES30.glUniform3fv(turtleShellColorHandle, 1, palette.shellColor, 0)
-            GLES30.glUniform3fv(turtleHeadColorHandle, 1, palette.headColor, 0)
-            GLES30.glUniform3fv(turtleFlipperColorHandle, 1, palette.flipperColor, 0)
-            GLES30.glUniform3fv(turtleSpotColorHandle, 1, palette.spotColor, 0)
+            mixColorInto(scratchShellColor, palette.shellColor, deepColor, tintAmount)
+            mixColorInto(scratchHeadColor, palette.headColor, deepColor, tintAmount)
+            mixColorInto(scratchFlipperColor, palette.flipperColor, deepColor, tintAmount)
+            mixColorInto(scratchSpotColor, palette.spotColor, deepColor, tintAmount)
+            GLES30.glUniform3fv(turtleShellColorHandle, 1, scratchShellColor, 0)
+            GLES30.glUniform3fv(turtleHeadColorHandle, 1, scratchHeadColor, 0)
+            GLES30.glUniform3fv(turtleFlipperColorHandle, 1, scratchFlipperColor, 0)
+            GLES30.glUniform3fv(turtleSpotColorHandle, 1, scratchSpotColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
 
         GLES30.glDisableVertexAttribArray(0)
         GLES30.glDisableVertexAttribArray(1)
+    }
+
+    /** Writes `mix(from, toward, amount)` component-wise into [out] (avoids a per-call allocation). */
+    private fun mixColorInto(out: FloatArray, from: FloatArray, toward: FloatArray, amount: Float) {
+        for (i in 0..2) {
+            out[i] = from[i] + (toward[i] - from[i]) * amount
+        }
     }
 
     private fun drawBackground() {
