@@ -144,4 +144,8 @@ object SettingsCardSelectorHelper {
             }
         }
     }
+
+    /** Index into [values] whose entry is numerically closest to [current] (ties favor the lower index). */
+    fun closestValueIndex(values: IntArray, current: Int): Int =
+        values.indices.minByOrNull { kotlin.math.abs(values[it] - current) } ?: 0
 }

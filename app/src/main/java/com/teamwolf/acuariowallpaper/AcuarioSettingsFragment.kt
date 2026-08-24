@@ -12,8 +12,10 @@ import com.teamwolf.acuariowallpaper.core.ConfigManager
 
 /**
  * Settings screen for the Acuario effect. Currently wires the "Ambiente" (Acuario / Mar
- * abierto) theme selector and the turtle count (0-5) selector - see
- * fragment_acuario_settings.xml's comment for what to add next as the effect grows more knobs.
+ * abierto) theme selector, the turtle count (0-5) selector, and the ambient bubble count
+ * (Poco/Medio/Alto/Muy alto) selector - see fragment_acuario_settings.xml's comment for what to
+ * add next as the effect grows more knobs. Every new effect should get its own selector here,
+ * mirroring one of these three.
  */
 class AcuarioSettingsFragment : Fragment() {
 
@@ -33,6 +35,7 @@ class AcuarioSettingsFragment : Fragment() {
 
         setupThemeCards(view)
         setupTurtleCountCards(view)
+        setupBubbleCountCards(view)
     }
 
     private fun setupThemeCards(parent: View) {
@@ -80,6 +83,37 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setTurtleCount(selectedIndex)
+        }
+    }
+
+    // Unlike theme/turtle count, the card's index isn't the stored value directly - each tier
+    // maps to an actual bubble count (kept in sync with AcuarioRenderer's
+    // kMinAmbientBubbles/kMaxAmbientBubbles range).
+    private fun setupBubbleCountCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerBubbleCount)
+        val options = arrayOf(
+            getString(R.string.bubble_density_poco),
+            getString(R.string.bubble_density_medio),
+            getString(R.string.bubble_density_alto),
+            getString(R.string.bubble_density_muy_alto)
+        )
+        val values = intArrayOf(8, 18, 28, 42)
+        val initialIndex = SettingsCardSelectorHelper.closestValueIndex(values, configManager.getBubbleCount())
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            initialIndex,
+            previewFactory = {
+                TextView(requireContext()).apply {
+                    text = "🫧"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setBubbleCount(values[selectedIndex])
         }
     }
 }

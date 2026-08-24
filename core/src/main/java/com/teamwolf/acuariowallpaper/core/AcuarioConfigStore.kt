@@ -16,4 +16,8 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
 
     fun getTurtleCount(): Int = cachedInt(ConfigManager.KEY_TURTLE_COUNT, ConfigManager.DEFAULT_TURTLE_COUNT)
     fun setTurtleCount(count: Int) { putInt(ConfigManager.KEY_TURTLE_COUNT, count.coerceIn(0, 5)) }
+
+    // Range matches AcuarioRenderer's kMinAmbientBubbles/kMaxAmbientBubbles - keep both in sync.
+    fun getBubbleCount(): Int = cachedInt(ConfigManager.KEY_BUBBLE_COUNT, ConfigManager.DEFAULT_BUBBLE_COUNT)
+    fun setBubbleCount(count: Int) { putInt(ConfigManager.KEY_BUBBLE_COUNT, count.coerceIn(4, 45)) }
 }
