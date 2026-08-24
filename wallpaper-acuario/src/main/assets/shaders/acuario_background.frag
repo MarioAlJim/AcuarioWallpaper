@@ -10,39 +10,39 @@ uniform float uAspectRatio;
 out vec4 fragColor;
 
 // Deterministic pseudo-random 2D hash, used to place one "feature point" per grid cell for the
-// Voronoi caustic network below. Same technique/constants as turtle.frag's own hash2() (reused
-// here unchanged, just duplicated - this project's shaders are standalone files, no #include).
-vec2 hash2(vec2 cell) {
-    vec2 h = vec2(dot(cell, vec2(127.1, 311.7)), dot(cell, vec2(269.5, 183.3)));
-    return fract(sin(h) * 43758.5453123);
+// Voronoi caustic network below. Fast, sine-free 2D hash based on Dave Hoskins.
+vec2 hash2(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
 }
 
 // Cellular/Voronoi lookup at `p`: returns (F1, F2), the distances to the nearest and
-// second-nearest feature points. (Local variable named `dist`, not `length`, so it doesn't
-// shadow the builtin length() call right below it - the same footgun already documented next to
-// turtle.frag's hingedLimbAlpha().)
+// second-nearest feature points. Optimized to use squared distances inside the loop to avoid
+// 9 square root operations, only applying sqrt on the final distances.
 vec2 voronoiCaustic(vec2 p) {
     vec2 ip = floor(p);
     vec2 fp = fract(p);
 
-    float f1 = 8.0;
-    float f2 = 8.0;
+    float f1Sq = 64.0;
+    float f2Sq = 64.0;
 
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
             vec2 neighbor = vec2(float(x), float(y));
             vec2 point = hash2(ip + neighbor);
-            float dist = length(neighbor + point - fp);
-            if (dist < f1) {
-                f2 = f1;
-                f1 = dist;
-            } else if (dist < f2) {
-                f2 = dist;
+            vec2 diff = neighbor + point - fp;
+            float distSq = dot(diff, diff);
+            if (distSq < f1Sq) {
+                f2Sq = f1Sq;
+                f1Sq = distSq;
+            } else if (distSq < f2Sq) {
+                f2Sq = distSq;
             }
         }
     }
 
-    return vec2(f1, f2);
+    return vec2(sqrt(f1Sq), sqrt(f2Sq));
 }
 
 void main() {

@@ -70,6 +70,7 @@ class AcuarioRenderer(
     private val kPropulsionBubblesPerStroke = 2
     private val kMaxBurstBubbles = 40
     private val burstBubbles = mutableListOf<Bubble>()
+    private var activeBurstCount = 0
 
     // Turtles (each a non-instanced quad transformed via its own MVP - same shape as moon.vert
     // in the "wallpaper" reference project; at most kMaxTurtles of them, so one draw call per
@@ -109,16 +110,56 @@ class AcuarioRenderer(
     private val mvpMatrix = FloatArray(16)
 
     private class Bubble(
-        var x: Float,
-        var y: Float,
-        val baseX: Float,
-        val size: Float,
-        val speed: Float,
-        val wobbleAmplitude: Float,
-        val wobbleSpeed: Float,
-        val wobbleSeed: Float,
-        val alpha: Float
-    )
+        var x: Float = 0f,
+        var y: Float = 0f,
+        var baseX: Float = 0f,
+        var size: Float = 0f,
+        var speed: Float = 0f,
+        var wobbleAmplitude: Float = 0f,
+        var wobbleSpeed: Float = 0f,
+        var wobbleSeed: Float = 0f,
+        var alpha: Float = 0f
+    ) {
+        fun reset(
+            startX: Float,
+            startY: Float,
+            size: Float,
+            speed: Float,
+            wobbleAmplitude: Float,
+            wobbleSpeed: Float,
+            wobbleSeed: Float,
+            alpha: Float
+        ) {
+            this.x = startX
+            this.y = startY
+            this.baseX = startX
+            this.size = size
+            this.speed = speed
+            this.wobbleAmplitude = wobbleAmplitude
+            this.wobbleSpeed = wobbleSpeed
+            this.wobbleSeed = wobbleSeed
+            this.alpha = alpha
+        }
+
+        fun resetRandom(spawnAnywhere: Boolean, aspectRatio: Float) {
+            val rx = Random.nextFloat() * (aspectRatio * 2f) - aspectRatio
+            val ry = if (spawnAnywhere) {
+                Random.nextFloat() * 2.4f - 1.2f
+            } else {
+                -1.2f - Random.nextFloat() * 0.3f
+            }
+            reset(
+                startX = rx,
+                startY = ry,
+                size = 0.02f + Random.nextFloat() * 0.045f,
+                speed = 0.12f + Random.nextFloat() * 0.22f,
+                wobbleAmplitude = 0.01f + Random.nextFloat() * 0.02f,
+                wobbleSpeed = 0.8f + Random.nextFloat() * 1.4f,
+                wobbleSeed = Random.nextFloat() * 6.2832f,
+                alpha = 0.35f + Random.nextFloat() * 0.45f
+            )
+        }
+    }
 
     override fun onSurfaceCreated() {
         GLES30.glClearColor(0f, 0f, 0f, 1f)
@@ -192,6 +233,10 @@ class AcuarioRenderer(
         bubbles.clear()
         syncBubbleCount(spawnNewOnesAnywhere = true)
         burstBubbles.clear()
+        repeat(kMaxBurstBubbles) {
+            burstBubbles.add(Bubble())
+        }
+        activeBurstCount = 0
 
         turtles.clear()
         syncTurtleCount()
@@ -207,7 +252,8 @@ class AcuarioRenderer(
         time += deltaTime
         syncTurtleCount()
         syncBubbleCount()
-        for (t in turtles) {
+        for (i in turtles.indices) {
+            val t = turtles[i]
             t.update(deltaTime, aspectRatio)
             if (t.consumeExhaleEvent()) {
                 spawnExhaleBubbles(t.x, t.y)
@@ -216,27 +262,31 @@ class AcuarioRenderer(
                 spawnPropulsionBubbles(t)
             }
         }
-        for (bubble in bubbles) {
+        for (i in bubbles.indices) {
+            val bubble = bubbles[i]
             bubble.y += deltaTime * bubble.speed
             bubble.x = bubble.baseX + kotlin.math.sin(time * bubble.wobbleSpeed + bubble.wobbleSeed) * bubble.wobbleAmplitude
-        }
-        // Recycle bubbles that drifted past the top edge back to the bottom, instead of
-        // reallocating the whole list every frame.
-        for (i in bubbles.indices) {
-            if (bubbles[i].y > 1.2f) {
-                bubbles[i] = createRandomBubble(spawnAnywhere = false)
+            if (bubble.y > 1.2f) {
+                bubble.resetRandom(spawnAnywhere = false, aspectRatio)
             }
         }
 
         // Burst bubbles (exhale + propulsion) animate the same way, but are one-off - once one
         // drifts off the top it's removed instead of recycled like the ambient water is.
-        val burstIterator = burstBubbles.iterator()
-        while (burstIterator.hasNext()) {
-            val bubble = burstIterator.next()
+        var i = 0
+        while (i < activeBurstCount) {
+            val bubble = burstBubbles[i]
             bubble.y += deltaTime * bubble.speed
             bubble.x = bubble.baseX + kotlin.math.sin(time * bubble.wobbleSpeed + bubble.wobbleSeed) * bubble.wobbleAmplitude
             if (bubble.y > 1.2f) {
-                burstIterator.remove()
+                if (i < activeBurstCount - 1) {
+                    val lastActive = burstBubbles[activeBurstCount - 1]
+                    burstBubbles[activeBurstCount - 1] = bubble
+                    burstBubbles[i] = lastActive
+                }
+                activeBurstCount--
+            } else {
+                i++
             }
         }
     }
@@ -244,21 +294,19 @@ class AcuarioRenderer(
     /** [kExhaleBubblesPerBreath] larger, more opaque bubbles released at ([originX], [originY]). */
     private fun spawnExhaleBubbles(originX: Float, originY: Float) {
         repeat(kExhaleBubblesPerBreath) {
-            if (burstBubbles.size >= kMaxBurstBubbles) return
+            if (activeBurstCount >= kMaxBurstBubbles) return
             val jitteredX = originX + (Random.nextFloat() - 0.5f) * 0.08f
-            burstBubbles.add(
-                Bubble(
-                    x = jitteredX,
-                    y = originY,
-                    baseX = jitteredX,
-                    size = 0.07f + Random.nextFloat() * 0.04f,
-                    speed = 0.22f + Random.nextFloat() * 0.15f,
-                    wobbleAmplitude = 0.01f + Random.nextFloat() * 0.015f,
-                    wobbleSpeed = 0.8f + Random.nextFloat() * 1.4f,
-                    wobbleSeed = Random.nextFloat() * 6.2832f,
-                    alpha = 0.6f + Random.nextFloat() * 0.25f
-                )
+            burstBubbles[activeBurstCount].reset(
+                startX = jitteredX,
+                startY = originY,
+                size = 0.07f + Random.nextFloat() * 0.04f,
+                speed = 0.22f + Random.nextFloat() * 0.15f,
+                wobbleAmplitude = 0.01f + Random.nextFloat() * 0.015f,
+                wobbleSpeed = 0.8f + Random.nextFloat() * 1.4f,
+                wobbleSeed = Random.nextFloat() * 6.2832f,
+                alpha = 0.6f + Random.nextFloat() * 0.25f
             )
+            activeBurstCount++
         }
     }
 
@@ -274,20 +322,18 @@ class AcuarioRenderer(
     }
 
     private fun spawnPropulsionBubbleAt(originX: Float, originY: Float) {
-        if (burstBubbles.size >= kMaxBurstBubbles) return
-        burstBubbles.add(
-            Bubble(
-                x = originX,
-                y = originY,
-                baseX = originX,
-                size = 0.012f + Random.nextFloat() * 0.015f,
-                speed = 0.18f + Random.nextFloat() * 0.12f,
-                wobbleAmplitude = 0.006f + Random.nextFloat() * 0.01f,
-                wobbleSpeed = 1.2f + Random.nextFloat() * 1.6f,
-                wobbleSeed = Random.nextFloat() * 6.2832f,
-                alpha = 0.30f + Random.nextFloat() * 0.25f
-            )
+        if (activeBurstCount >= kMaxBurstBubbles) return
+        burstBubbles[activeBurstCount].reset(
+            startX = originX,
+            startY = originY,
+            size = 0.012f + Random.nextFloat() * 0.015f,
+            speed = 0.18f + Random.nextFloat() * 0.12f,
+            wobbleAmplitude = 0.006f + Random.nextFloat() * 0.01f,
+            wobbleSpeed = 1.2f + Random.nextFloat() * 1.6f,
+            wobbleSeed = Random.nextFloat() * 6.2832f,
+            alpha = 0.30f + Random.nextFloat() * 0.25f
         )
+        activeBurstCount++
     }
 
     override fun onDrawFrame() {
@@ -322,7 +368,7 @@ class AcuarioRenderer(
         val desired = configProvider.getBubbleCount().coerceIn(kMinAmbientBubbles, kMaxAmbientBubbles)
         when {
             desired > bubbles.size -> repeat(desired - bubbles.size) {
-                bubbles.add(createRandomBubble(spawnAnywhere = spawnNewOnesAnywhere))
+                bubbles.add(Bubble().apply { resetRandom(spawnNewOnesAnywhere, aspectRatio) })
             }
             desired < bubbles.size -> while (bubbles.size > desired) bubbles.removeAt(bubbles.size - 1)
         }
@@ -335,7 +381,16 @@ class AcuarioRenderer(
         // Farthest first, so a turtle nearer the glass correctly draws on top of one that
         // overlaps it deeper in the tank (there's no depth buffer test here - just simple
         // back-to-front painter's-algorithm ordering by Turtle.depth).
-        turtles.sortByDescending { it.depth }
+        // Manual insertion sort to avoid any list/comparator allocations per frame.
+        for (i in 1 until turtles.size) {
+            val key = turtles[i]
+            var j = i - 1
+            while (j >= 0 && turtles[j].depth < key.depth) {
+                turtles[j + 1] = turtles[j]
+                j--
+            }
+            turtles[j + 1] = key
+        }
 
         val deepColor = if (configProvider.getAcuarioTheme() == 0) kDeepColorAcuario else kDeepColorMarAbierto
 
@@ -346,7 +401,8 @@ class AcuarioRenderer(
         GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
         GLES30.glEnableVertexAttribArray(1)
 
-        for (t in turtles) {
+        for (i in turtles.indices) {
+            val t = turtles[i]
             // Depth illusion: shrink and tint toward the water's deep color as the turtle
             // recedes (Turtle.depth -> 1), so it reads as farther away/underwater-hazier
             // instead of just smaller.
@@ -422,13 +478,14 @@ class AcuarioRenderer(
     }
 
     private fun drawBubbles() {
-        val totalBubbles = bubbles.size + burstBubbles.size
+        val totalBubbles = bubbles.size + activeBurstCount
         if (totalBubbles == 0 || bubbleProgram == 0) return
         GLES30.glUseProgram(bubbleProgram)
         GLES30.glUniformMatrix4fv(bubbleProjMatrixHandle, 1, false, projectionMatrix, 0)
 
         bubbleInstanceBuffer.clear()
-        for (bubble in bubbles) {
+        for (i in bubbles.indices) {
+            val bubble = bubbles[i]
             bubbleInstanceBuffer.put(bubble.x)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
@@ -437,7 +494,8 @@ class AcuarioRenderer(
             bubbleInstanceBuffer.put(1.0f)  // b
             bubbleInstanceBuffer.put(bubble.alpha)
         }
-        for (bubble in burstBubbles) {
+        for (i in 0 until activeBurstCount) {
+            val bubble = burstBubbles[i]
             bubbleInstanceBuffer.put(bubble.x)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
@@ -489,30 +547,5 @@ class AcuarioRenderer(
         GLES30.glVertexAttribDivisor(3, 0)
         GLES30.glVertexAttribDivisor(4, 0)
         GLES30.glVertexAttribDivisor(5, 0)
-    }
-
-    /**
-     * [spawnAnywhere] places the bubble at a random height (used only to seed the initial
-     * field so the first frame isn't empty); recycled bubbles always restart below the
-     * bottom edge.
-     */
-    private fun createRandomBubble(spawnAnywhere: Boolean): Bubble {
-        val baseX = Random.nextFloat() * (aspectRatio * 2f) - aspectRatio
-        val startY = if (spawnAnywhere) {
-            Random.nextFloat() * 2.4f - 1.2f
-        } else {
-            -1.2f - Random.nextFloat() * 0.3f
-        }
-        return Bubble(
-            x = baseX,
-            y = startY,
-            baseX = baseX,
-            size = 0.02f + Random.nextFloat() * 0.045f,
-            speed = 0.12f + Random.nextFloat() * 0.22f,
-            wobbleAmplitude = 0.01f + Random.nextFloat() * 0.02f,
-            wobbleSpeed = 0.8f + Random.nextFloat() * 1.4f,
-            wobbleSeed = Random.nextFloat() * 6.2832f,
-            alpha = 0.35f + Random.nextFloat() * 0.45f
-        )
     }
 }
