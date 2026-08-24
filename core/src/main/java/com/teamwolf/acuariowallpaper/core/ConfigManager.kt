@@ -34,8 +34,13 @@ class ConfigManager(context: Context) : ConfigProvider {
         const val KEY_TURTLE_COUNT = "turtle_count"
         const val DEFAULT_TURTLE_COUNT = 1
 
+        const val KEY_BUBBLE_COUNT = "bubble_count"
+        const val DEFAULT_BUBBLE_COUNT = 28
+
         // Add more KEY_/DEFAULT_ constants here as settings are introduced, following the
-        // pattern used by the "wallpaper" reference project's ConfigManager.
+        // pattern used by the "wallpaper" reference project's ConfigManager. Every new visual
+        // effect should get its own knob here (count/density and/or an enable toggle at
+        // minimum) rather than shipping with hardcoded constants only.
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
@@ -43,4 +48,7 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getTurtleCount(): Int = acuario.getTurtleCount()
     fun setTurtleCount(count: Int) = acuario.setTurtleCount(count)
+
+    override fun getBubbleCount(): Int = acuario.getBubbleCount()
+    fun setBubbleCount(count: Int) = acuario.setBubbleCount(count)
 }

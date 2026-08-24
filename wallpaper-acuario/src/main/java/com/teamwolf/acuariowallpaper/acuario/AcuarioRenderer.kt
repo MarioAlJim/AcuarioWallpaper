@@ -15,16 +15,19 @@ import kotlin.random.Random
 /**
  * First real Acuario effect layer: a procedural underwater background (vertical gradient +
  * animated god rays + caustics, both selectable between the "Acuario" and "Mar abierto"
- * themes via [ConfigProvider.getAcuarioTheme]), a field of ambient bubbles rising from the
- * bottom of the screen, and 0-5 turtles ([Turtle], count via [ConfigProvider.getTurtleCount])
- * wandering around the tank with animated flippers, each in a randomly-assigned
- * [TurtlePalette]. Every so often (30-120s) each turtle surfaces to breathe and releases a
- * one-off burst of larger "exhale" bubbles ([Turtle.consumeExhaleEvent]) on the way back down.
+ * themes via [ConfigProvider.getAcuarioTheme]), a field of ambient bubbles (count via
+ * [ConfigProvider.getBubbleCount]) rising from the bottom of the screen, and 0-5 turtles
+ * ([Turtle], count via [ConfigProvider.getTurtleCount]) wandering around the tank with
+ * animated flippers, each in a randomly-assigned [TurtlePalette]. Every so often (30-120s)
+ * each turtle surfaces to breathe and releases a one-off burst of larger "exhale" bubbles
+ * ([Turtle.consumeExhaleEvent]) on the way back down.
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
  * creatures) that those will build on, following the same shape as StormRenderer/SunnyRenderer
- * in the "wallpaper" reference project.
+ * in the "wallpaper" reference project. Every new effect should ship with its own
+ * [ConfigProvider] knob (count/density and/or an enable toggle), the same way bubbles/turtles/
+ * theme already do - not as a hardcoded constant only.
  */
 class AcuarioRenderer(
     private val context: Context,
@@ -46,7 +49,11 @@ class AcuarioRenderer(
     private lateinit var bubbleInstanceBuffer: FloatBuffer
     private val instanceFloatsPerEntry = 7 // x, y, scale, r, g, b, opacity
 
-    private val maxBubbles = 28
+    // Ambient bubble count is configurable (ConfigProvider.getBubbleCount()); these bounds are
+    // just the allocation cap for bubbleInstanceBuffer and a defensive clamp - keep them in
+    // sync with AcuarioConfigStore.setBubbleCount()'s coerceIn range.
+    private val kMinAmbientBubbles = 4
+    private val kMaxAmbientBubbles = 45
     private val bubbles = mutableListOf<Bubble>()
 
     // "Exhale" bubbles: a one-off burst a turtle releases diving back down after a surface
@@ -171,12 +178,12 @@ class AcuarioRenderer(
                 position(0)
             }
 
-        bubbleInstanceBuffer = ByteBuffer.allocateDirect((maxBubbles + kMaxExhaleBubbles) * instanceFloatsPerEntry * 4)
+        bubbleInstanceBuffer = ByteBuffer.allocateDirect((kMaxAmbientBubbles + kMaxExhaleBubbles) * instanceFloatsPerEntry * 4)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer()
 
         bubbles.clear()
-        repeat(maxBubbles) { bubbles.add(createRandomBubble(spawnAnywhere = true)) }
+        syncBubbleCount(spawnNewOnesAnywhere = true)
         exhaleBubbles.clear()
 
         turtles.clear()
@@ -192,6 +199,7 @@ class AcuarioRenderer(
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
         syncTurtleCount()
+        syncBubbleCount()
         for (t in turtles) {
             t.update(deltaTime, aspectRatio)
             if (t.consumeExhaleEvent()) {
@@ -262,6 +270,23 @@ class AcuarioRenderer(
         when {
             desired > turtles.size -> repeat(desired - turtles.size) { turtles.add(Turtle()) }
             desired < turtles.size -> while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
+        }
+    }
+
+    /**
+     * Grows/shrinks [bubbles] to match [ConfigProvider.getBubbleCount] (clamped to
+     * [kMinAmbientBubbles]/[kMaxAmbientBubbles]). Only the size delta is touched - a decrease
+     * just drops bubbles off the end; an increase adds new ones from below like any recycled
+     * bubble ([spawnNewOnesAnywhere] is only used once, to seed the initial field in
+     * onSurfaceCreated so the very first frame isn't empty).
+     */
+    private fun syncBubbleCount(spawnNewOnesAnywhere: Boolean = false) {
+        val desired = configProvider.getBubbleCount().coerceIn(kMinAmbientBubbles, kMaxAmbientBubbles)
+        when {
+            desired > bubbles.size -> repeat(desired - bubbles.size) {
+                bubbles.add(createRandomBubble(spawnAnywhere = spawnNewOnesAnywhere))
+            }
+            desired < bubbles.size -> while (bubbles.size > desired) bubbles.removeAt(bubbles.size - 1)
         }
     }
 
