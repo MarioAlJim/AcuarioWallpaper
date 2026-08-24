@@ -15,12 +15,13 @@ import kotlin.random.Random
 /**
  * First real Acuario effect layer: a procedural underwater background (vertical gradient +
  * animated god rays + caustics, both selectable between the "Acuario" and "Mar abierto"
- * themes via [ConfigProvider.getAcuarioTheme]) plus a field of bubbles rising from the
- * bottom of the screen.
+ * themes via [ConfigProvider.getAcuarioTheme]), a field of bubbles rising from the bottom of
+ * the screen, and a single turtle ([Turtle]) wandering around the tank with animated flippers.
  *
- * Fish, plants, sand, etc. are deliberately not here yet - this establishes the rendering
- * pipeline (shader compilation, instanced-quad particles) that those will build on, following
- * the same shape as StormRenderer/SunnyRenderer in the "wallpaper" reference project.
+ * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
+ * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
+ * creatures) that those will build on, following the same shape as StormRenderer/SunnyRenderer
+ * in the "wallpaper" reference project.
  */
 class AcuarioRenderer(
     private val context: Context,
@@ -38,16 +39,26 @@ class AcuarioRenderer(
     // particle.vert/frag)
     private var bubbleProgram = 0
     private var bubbleProjMatrixHandle = 0
-    private lateinit var bubbleQuadBuffer: FloatBuffer
+    private lateinit var unitQuadBuffer: FloatBuffer
     private lateinit var bubbleInstanceBuffer: FloatBuffer
     private val instanceFloatsPerEntry = 7 // x, y, scale, r, g, b, opacity
 
     private val maxBubbles = 28
     private val bubbles = mutableListOf<Bubble>()
 
+    // Turtle (single, non-instanced quad transformed via MVP - same shape as moon.vert in the
+    // "wallpaper" reference project)
+    private var turtleProgram = 0
+    private var turtleMVPHandle = 0
+    private var turtleSwimPhaseHandle = 0
+    private val turtle = Turtle()
+    private val kTurtleScale = 0.28f
+
     private var aspectRatio = 1f
     private var time = 0f
     private val projectionMatrix = FloatArray(16)
+    private val modelMatrix = FloatArray(16)
+    private val mvpMatrix = FloatArray(16)
 
     private class Bubble(
         var x: Float,
@@ -86,6 +97,16 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/turtle.vert")
+            val frag = readAssetFile(context, "shaders/turtle.frag")
+            turtleProgram = createProgram(vert, frag)
+            turtleMVPHandle = GLES30.glGetUniformLocation(turtleProgram, "uMVPMatrix")
+            turtleSwimPhaseHandle = GLES30.glGetUniformLocation(turtleProgram, "uSwimPhase")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
             -1f, -1f,
@@ -105,7 +126,7 @@ class AcuarioRenderer(
             0.5f, 0.5f, 1f, 0f,
             0.5f, -0.5f, 1f, 1f
         )
-        bubbleQuadBuffer = ByteBuffer.allocateDirect(bubbleQuadCoords.size * 4)
+        unitQuadBuffer = ByteBuffer.allocateDirect(bubbleQuadCoords.size * 4)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer().apply {
                 put(bubbleQuadCoords)
@@ -128,6 +149,7 @@ class AcuarioRenderer(
 
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
+        turtle.update(deltaTime, aspectRatio)
         for (bubble in bubbles) {
             bubble.y += deltaTime * bubble.speed
             bubble.x = bubble.baseX + kotlin.math.sin(time * bubble.wobbleSpeed + bubble.wobbleSeed) * bubble.wobbleAmplitude
@@ -144,7 +166,33 @@ class AcuarioRenderer(
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         drawBackground()
+        drawTurtle()
         drawBubbles()
+    }
+
+    private fun drawTurtle() {
+        if (turtleProgram == 0) return
+        GLES30.glUseProgram(turtleProgram)
+
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(modelMatrix, 0, turtle.x, turtle.y, 0f)
+        // Negative X scale mirrors the (always "facing right") sprite when swimming left.
+        Matrix.scaleM(modelMatrix, 0, kTurtleScale * turtle.facing, kTurtleScale, 1f)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+        GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
+        GLES30.glUniform1f(turtleSwimPhaseHandle, turtle.swimPhase)
+
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
     }
 
     private fun drawBackground() {
@@ -181,11 +229,11 @@ class AcuarioRenderer(
         bubbleInstanceBuffer.position(0)
 
         // Shared quad geometry (locations 0/1, divisor 0 -> same 4 vertices for every instance)
-        bubbleQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, bubbleQuadBuffer)
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
         GLES30.glEnableVertexAttribArray(0)
-        bubbleQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, bubbleQuadBuffer)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
         GLES30.glEnableVertexAttribArray(1)
 
         val stride = instanceFloatsPerEntry * 4
