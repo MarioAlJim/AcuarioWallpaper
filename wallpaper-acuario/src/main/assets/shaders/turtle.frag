@@ -21,6 +21,27 @@ float ellipseAlpha(vec2 p, vec2 center, vec2 radii, float softness) {
     return smoothstep(w, -w, d);
 }
 
+// Ellipse-shaped "limb" (a capsule-like segment) hinged at `pivot`: at hinge angle `hingeAngle`
+// (radians, added to the local rest direction `restAngle`), the limb extends `limbLength`
+// outward from the pivot with half-width `halfWidth`, rotating like a real hinged joint - a
+// shoulder swinging a flipper through an arc - instead of the whole shape just translating
+// up/down. The pivot itself sits exactly on the limb's near edge, so it starts right at the
+// joint and sweeps outward from there. (Parameter named `limbLength`, not `length`, so it
+// doesn't shadow the builtin length() used below.)
+float hingedLimbAlpha(vec2 p, vec2 pivot, float restAngle, float hingeAngle, float limbLength, float halfWidth, float softness) {
+    float totalAngle = restAngle + hingeAngle;
+    vec2 d = p - pivot;
+    float c = cos(totalAngle);
+    float s = sin(totalAngle);
+    // Rotate d by -totalAngle (the inverse of the limb's own rotation) so the limb lies along
+    // local +x in this frame regardless of its current hinge angle.
+    vec2 local = vec2(d.x * c + d.y * s, -d.x * s + d.y * c);
+    vec2 q = (local - vec2(limbLength * 0.5, 0.0)) / vec2(limbLength * 0.5, halfWidth);
+    float dist = length(q) - 1.0;
+    float w = softness / min(limbLength * 0.5, halfWidth);
+    return smoothstep(w, -w, dist);
+}
+
 // Deterministic pseudo-random 2D hash, used below to place one "feature point" per grid cell
 // for the Voronoi scute pattern (same cell coordinate always yields the same point/shade, so
 // the plate layout doesn't swim as the turtle moves).
@@ -84,16 +105,31 @@ void main() {
     // AcuarioRenderer flips the whole quad horizontally (negative X scale) to face left.
     vec2 p = (vUV - 0.5) * 2.0;
 
-    // Front flippers stroke together in a wide sweep; back flippers trail with a smaller,
-    // phase-delayed motion, like a real sea turtle "flying" through the water.
-    float frontFlap = sin(uSwimPhase) * 0.14;
+    // Front flippers hinge (rotate) around a shoulder pivot placed just outside the shell's own
+    // edge - a real limb swings through an arc from a fixed joint, it doesn't just translate
+    // up/down. Since the pivot itself never moves (only the limb's angle does), placing it
+    // clear of the shell keeps the whole sweep outside the shell for effectively its entire
+    // range, instead of the previous translation's whole shape drifting into and out of the
+    // shell's fixed boundary every stroke. Both flippers stroke in mirror-symmetric sync (note
+    // the negated rest/hinge angle on the bottom one) - "front flippers stroke together in a
+    // wide sweep" - driven by the exact same sin(uSwimPhase) the power-stroke detection in
+    // Turtle.kt keys off of, so this hinge's peak angular velocity lines up with
+    // consumePowerStrokeEvent() there. Back flippers keep their smaller, phase-delayed
+    // translation, like a real sea turtle "flying" through the water.
+    float frontHingeAngle = sin(uSwimPhase) * 0.6;
+    const float kFrontRestAngle = 1.134; // ~65 deg: rest pose points up-and-forward
+    const vec2 kFrontTopPivot = vec2(0.32, 0.42);
+    const vec2 kFrontBotPivot = vec2(0.32, -0.42);
+    const float kFrontLimbLength = 0.46;
+    const float kFrontHalfWidth = 0.15;
+
     float backFlap = sin(uSwimPhase - 1.0) * 0.08;
 
     float aShell = ellipseAlpha(p, vec2(0.0, 0.0), vec2(0.60, 0.40), 0.025);
     float aHead = ellipseAlpha(p, vec2(0.75, 0.05), vec2(0.22, 0.22), 0.02);
     float aTail = ellipseAlpha(p, vec2(-0.72, 0.0), vec2(0.14, 0.08), 0.02);
-    float aFlipperTopFront = ellipseAlpha(p, vec2(0.10, 0.46 + frontFlap), vec2(0.34, 0.14), 0.02);
-    float aFlipperBotFront = ellipseAlpha(p, vec2(0.10, -0.46 - frontFlap), vec2(0.34, 0.14), 0.02);
+    float aFlipperTopFront = hingedLimbAlpha(p, kFrontTopPivot, kFrontRestAngle, frontHingeAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
+    float aFlipperBotFront = hingedLimbAlpha(p, kFrontBotPivot, -kFrontRestAngle, -frontHingeAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
     float aFlipperTopBack = ellipseAlpha(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), 0.02);
     float aFlipperBotBack = ellipseAlpha(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), 0.02);
     float aEye = ellipseAlpha(p, vec2(0.82, 0.10), vec2(0.035, 0.035), 0.01);
@@ -136,31 +172,31 @@ void main() {
 
     shellColor = mix(shellColor, uShellColor * 0.45, groove);
 
+    // The shell is drawn in front of the flippers/head (not the other way around) - it's the
+    // carapace, limbs tuck under its edge, not over it. The front-flipper hinge above places its
+    // pivot clear of the shell's boundary specifically so this ordering doesn't clip a chunk out
+    // of it on every stroke the way the old translate-based motion did; the back flippers still
+    // overlap the shell's edge somewhat through their cycle (unchanged from before this hinge
+    // pass - only the front flippers were in scope here).
     color = mix(color, shellColor, aShell);
-
-    // Flippers are re-asserted on top of the shell (rather than left to whatever mixed in
-    // above) because their sweep overlaps the shell's fixed boundary throughout most of their
-    // cycle - especially the back flippers, whose smaller amplitude means their lower edge
-    // dips below the shell's edge almost the entire stroke. Left as a plain mix(..., aShell)
-    // order, the shell would clip a varying bite out of them every frame, making their visible
-    // silhouette balloon and shrink independently of the actual flap motion - the "less fluid"
-    // look. Limbs simply aren't meant to be occluded by the carapace edge here.
-    color = mix(color, uFlipperColor, flippersAlpha);
     color = mix(color, eyeColor, aEye);
 
     // Rim lighting on the head and flippers only (per the design ask - the shell already gets
     // its own "domed plate" shading above): a fine sunlit highlight along their upper edges,
-    // helping the silhouette separate from a dark background. Only the head's rim is masked by
-    // (1 - aShell) - the shell can still cover part of it where it tucks under the shell's
-    // front edge - since flippers are now always drawn on top of the shell above and are never
-    // actually occluded by it.
+    // helping the silhouette separate from a dark background. Masked by (1 - aShell) since the
+    // shell is drawn last and can still cover part of the head/flippers where they tuck under
+    // its edge - without that mask this would incorrectly glow through the shell there.
     float headRim = rimLight(p, vec2(0.75, 0.05), vec2(0.22, 0.22), aHead);
-    float flipperTopFrontRim = rimLight(p, vec2(0.10, 0.46 + frontFlap), vec2(0.34, 0.14), aFlipperTopFront);
-    float flipperBotFrontRim = rimLight(p, vec2(0.10, -0.46 - frontFlap), vec2(0.34, 0.14), aFlipperBotFront);
+    float topTotalAngle = kFrontRestAngle + frontHingeAngle;
+    float botTotalAngle = -kFrontRestAngle - frontHingeAngle;
+    vec2 frontTopCenter = kFrontTopPivot + vec2(cos(topTotalAngle), sin(topTotalAngle)) * (kFrontLimbLength * 0.5);
+    vec2 frontBotCenter = kFrontBotPivot + vec2(cos(botTotalAngle), sin(botTotalAngle)) * (kFrontLimbLength * 0.5);
+    float flipperTopFrontRim = rimLight(p, frontTopCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperTopFront);
+    float flipperBotFrontRim = rimLight(p, frontBotCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperBotFront);
     float flipperTopBackRim = rimLight(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), aFlipperTopBack);
     float flipperBotBackRim = rimLight(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), aFlipperBotBack);
     float flipperRim = max(max(flipperTopFrontRim, flipperBotFrontRim), max(flipperTopBackRim, flipperBotBackRim));
-    float rimAmount = max(headRim * (1.0 - aShell), flipperRim);
+    float rimAmount = max(headRim, flipperRim) * (1.0 - aShell);
 
     const vec3 kRimColor = vec3(1.0, 0.98, 0.90);
     const float kRimIntensity = 0.55;
