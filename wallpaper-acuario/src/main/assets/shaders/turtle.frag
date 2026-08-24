@@ -21,6 +21,50 @@ float ellipseAlpha(vec2 p, vec2 center, vec2 radii, float softness) {
     return smoothstep(w, -w, d);
 }
 
+// Deterministic pseudo-random 2D hash, used below to place one "feature point" per grid cell
+// for the Voronoi scute pattern (same cell coordinate always yields the same point/shade, so
+// the plate layout doesn't swim as the turtle moves).
+vec2 hash2(vec2 cell) {
+    vec2 h = vec2(dot(cell, vec2(127.1, 311.7)), dot(cell, vec2(269.5, 183.3)));
+    return fract(sin(h) * 43758.5453123);
+}
+
+// Cellular/Voronoi lookup at `p`: returns (F1, F2, cellShade, cellSpot) where F1/F2 are the
+// distances to the nearest and second-nearest feature points (the classic building block for
+// scute/plate patterns - the shell's actual scute layout in real turtles is fairly regular, but
+// the ask here was specifically the Voronoi technique), and cellShade/cellSpot are two
+// independent, stable pseudo-random values in [0, 1) tied to the WINNING cell (the one F1 is
+// measured to) rather than recomputed from floor(p) - a fragment right at a plate boundary can
+// be closer to a neighboring cell's feature point than to its own cell's, so re-deriving the
+// cell from floor(p) instead of tracking which one actually won would occasionally tag that
+// fragment with the wrong plate's random values.
+vec4 voronoi(vec2 p) {
+    vec2 ip = floor(p);
+    vec2 fp = fract(p);
+
+    float f1 = 8.0;
+    float f2 = 8.0;
+    vec2 f1Cell = ip;
+
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 neighbor = vec2(float(x), float(y));
+            vec2 point = hash2(ip + neighbor);
+            float dist = length(neighbor + point - fp);
+            if (dist < f1) {
+                f2 = f1;
+                f1 = dist;
+                f1Cell = ip + neighbor;
+            } else if (dist < f2) {
+                f2 = dist;
+            }
+        }
+    }
+
+    vec2 cellRandom = hash2(f1Cell);
+    return vec4(f1, f2, cellRandom.x, cellRandom.y);
+}
+
 void main() {
     // Center the quad's UV into a [-1, 1] local space. The sprite is authored facing right;
     // AcuarioRenderer flips the whole quad horizontally (negative X scale) to face left.
@@ -52,12 +96,33 @@ void main() {
 
     vec3 color = uFlipperColor;
     color = mix(color, uHeadColor, aHead);
-    color = mix(color, uShellColor, aShell);
 
-    // A loose speckle pattern on the shell only, breaking up the flat fill a little.
-    float speckle = step(0.45, sin(p.x * 9.0 + 1.7) * sin(p.y * 9.0 + 0.6) * 0.5 + 0.5);
-    color = mix(color, uSpotColor, speckle * aShell * 0.6);
+    // Shell scute (plate) pattern: a Voronoi cell diagram scaled non-uniformly to roughly match
+    // the shell's own 1.5:1 aspect, so the plates read as a handful of roughly even rows/
+    // columns across the carapace rather than a smear of dots.
+    vec4 cell = voronoi(p * vec2(5.0, 3.3));
+    float f1 = cell.x;
+    float f2 = cell.y;
+    float cellShade = cell.z;
+    float cellSpot = cell.w;
 
+    // Relief: each plate gets a soft "domed" highlight toward its own center (small F1) and a
+    // dark groove right at the boundary between two plates (small F2 - F1) - a cheap fake-bevel
+    // that reads as a raised, rugged scute instead of a flat painted-on pattern.
+    float dome = 1.0 - smoothstep(0.0, 0.55, f1);
+    float groove = 1.0 - smoothstep(0.0, 0.10, f2 - f1);
+
+    vec3 shellColor = uShellColor * mix(0.90, 1.08, cellShade);
+    shellColor *= mix(0.92, 1.05, dome);
+
+    // A minority of plates (rather than every one) carry a duller/spotted tone, like the
+    // natural mottling on a real shell.
+    float spotted = step(0.75, cellSpot);
+    shellColor = mix(shellColor, uSpotColor, spotted * 0.5 * dome);
+
+    shellColor = mix(shellColor, uShellColor * 0.45, groove);
+
+    color = mix(color, shellColor, aShell);
     color = mix(color, eyeColor, aEye);
 
     float alpha = max(bodyAlpha, aEye);
