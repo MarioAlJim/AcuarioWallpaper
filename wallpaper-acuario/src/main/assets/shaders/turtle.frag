@@ -65,6 +65,20 @@ vec4 voronoi(vec2 p) {
     return vec4(f1, f2, cellRandom.x, cellRandom.y);
 }
 
+// Thin rim-light contribution for one ellipse-shaped part, as if lit from directly above.
+// `4*alpha*(1-alpha)` peaks right at the shape's own silhouette edge and fades to 0 both
+// further inside and fully outside it (same trick as the "wallpaper" reference project's
+// background rim lighting), and `upFacing` - the y-component of the outward direction from
+// the ellipse's center, zeroed below the horizontal - keeps it confined to the upper arc
+// instead of glowing all the way around. No branching, so it's safe to call unconditionally.
+float rimLight(vec2 p, vec2 center, vec2 radii, float alpha) {
+    vec2 q = (p - center) / radii;
+    float dist = max(length(q), 0.0001);
+    float upFacing = max(q.y / dist, 0.0);
+    float edgeBand = 4.0 * alpha * (1.0 - alpha);
+    return pow(edgeBand, 1.4) * pow(upFacing, 2.0);
+}
+
 void main() {
     // Center the quad's UV into a [-1, 1] local space. The sprite is authored facing right;
     // AcuarioRenderer flips the whole quad horizontally (negative X scale) to face left.
@@ -124,6 +138,23 @@ void main() {
 
     color = mix(color, shellColor, aShell);
     color = mix(color, eyeColor, aEye);
+
+    // Rim lighting on the head and flippers only (per the design ask - the shell already gets
+    // its own "domed plate" shading above): a fine sunlit highlight along their upper edges,
+    // helping the silhouette separate from a dark background. Masked by (1 - aShell) since the
+    // shell is drawn last and can cover part of the head/front flippers where they tuck under
+    // its front edge - without that mask this would incorrectly glow through the shell there.
+    float headRim = rimLight(p, vec2(0.75, 0.05), vec2(0.22, 0.22), aHead);
+    float flipperTopFrontRim = rimLight(p, vec2(0.10, 0.46 + frontFlap), vec2(0.34, 0.14), aFlipperTopFront);
+    float flipperBotFrontRim = rimLight(p, vec2(0.10, -0.46 - frontFlap), vec2(0.34, 0.14), aFlipperBotFront);
+    float flipperTopBackRim = rimLight(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), aFlipperTopBack);
+    float flipperBotBackRim = rimLight(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), aFlipperBotBack);
+    float flipperRim = max(max(flipperTopFrontRim, flipperBotFrontRim), max(flipperTopBackRim, flipperBotBackRim));
+    float rimAmount = max(headRim, flipperRim) * (1.0 - aShell);
+
+    const vec3 kRimColor = vec3(1.0, 0.98, 0.90);
+    const float kRimIntensity = 0.55;
+    color += kRimColor * rimAmount * kRimIntensity;
 
     float alpha = max(bodyAlpha, aEye);
     fragColor = vec4(color, alpha);
