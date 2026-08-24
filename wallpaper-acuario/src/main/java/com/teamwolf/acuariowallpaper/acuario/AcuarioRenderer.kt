@@ -115,8 +115,21 @@ class AcuarioRenderer(
 
     // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
     // toward the same color the background already fades to at depth.
-    private val kDeepColorAcuario = floatArrayOf(0.012f, 0.095f, 0.130f)
-    private val kDeepColorMarAbierto = floatArrayOf(0.010f, 0.045f, 0.130f)
+    private val kDeepColorTurquesa = floatArrayOf(0.012f, 0.095f, 0.130f)
+    private val kDeepColorAzulProfundo = floatArrayOf(0.010f, 0.045f, 0.130f)
+    private val kDeepColorAtardecer = floatArrayOf(0.08f, 0.04f, 0.15f)
+    private val kDeepColorAbisal = floatArrayOf(0.01f, 0.01f, 0.04f)
+    private val kDeepColorArrecife = floatArrayOf(0.02f, 0.08f, 0.18f)
+
+    private fun getDeepColorForTheme(theme: Int): FloatArray {
+        return when (theme) {
+            0 -> kDeepColorTurquesa
+            1 -> kDeepColorAzulProfundo
+            2 -> kDeepColorAtardecer
+            3 -> kDeepColorAbisal
+            else -> kDeepColorArrecife
+        }
+    }
 
     private var aspectRatio = 1f
     private var time = 0f
@@ -418,7 +431,7 @@ class AcuarioRenderer(
             fishes[j + 1] = key
         }
 
-        val deepColor = if (configProvider.getAcuarioTheme() == 0) kDeepColorAcuario else kDeepColorMarAbierto
+        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         unitQuadBuffer.position(0)
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
@@ -496,7 +509,7 @@ class AcuarioRenderer(
             turtles[j + 1] = key
         }
 
-        val deepColor = if (configProvider.getAcuarioTheme() == 0) kDeepColorAcuario else kDeepColorMarAbierto
+        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         unitQuadBuffer.position(0)
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)

@@ -25,7 +25,7 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
 
     fun getAcuarioTheme(): Int = cachedTheme
     fun setAcuarioTheme(theme: Int) {
-        val coerced = theme.coerceIn(0, 1)
+        val coerced = theme.coerceIn(0, 4)
         cachedTheme = coerced
         putInt(ConfigManager.KEY_ACUARIO_THEME, coerced)
     }
