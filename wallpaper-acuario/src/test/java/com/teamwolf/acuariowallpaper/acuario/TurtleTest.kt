@@ -1,5 +1,6 @@
 package com.teamwolf.acuariowallpaper.acuario
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -38,11 +39,26 @@ class TurtleTest {
     }
 
     @Test
-    fun facing_reflectsHorizontalTravelDirection() {
+    fun facingScale_staysInValidRangeAndTracksHeading() {
         val turtle = Turtle()
-        // Facing always starts at 1 (right) and only flips once horizontal movement resolves,
-        // so just assert it lands on a valid value after a good number of update ticks.
         repeat(200) { turtle.update(1f / 60f, aspectRatio = 1.7f) }
-        assertTrue(turtle.facing == 1f || turtle.facing == -1f)
+
+        val scale = turtle.facingScale()
+        assertTrue("facingScale() out of [-1, 1]: $scale", scale in -1f..1f)
+        assertEquals(kotlin.math.cos(turtle.heading), scale, 1e-5f)
+    }
+
+    @Test
+    fun heading_easesTowardTargetInsteadOfSnapping() {
+        val turtle = Turtle()
+        turtle.update(1f / 60f, aspectRatio = 1.7f)
+        val headingAfterOneFrame = turtle.heading
+
+        // A single 1/60s step should only close a small fraction of the angular gap (~5%
+        // per the class doc), never jump straight to the target angle.
+        assertTrue(
+            "expected a small first-frame turn, got $headingAfterOneFrame",
+            abs(headingAfterOneFrame) < 0.3f
+        )
     }
 }

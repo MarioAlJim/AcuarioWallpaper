@@ -176,8 +176,9 @@ class AcuarioRenderer(
 
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.translateM(modelMatrix, 0, turtle.x, turtle.y, 0f)
-        // Negative X scale mirrors the (always "facing right") sprite when swimming left.
-        Matrix.scaleM(modelMatrix, 0, kTurtleScale * turtle.facing, kTurtleScale, 1f)
+        // facingScale() smoothly passes through 0 as the turtle's heading crosses vertical,
+        // so the left/right mirror reads as turning in depth instead of an instant flip.
+        Matrix.scaleM(modelMatrix, 0, kTurtleScale * turtle.facingScale(), kTurtleScale, 1f)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
         GLES30.glUniform1f(turtleSwimPhaseHandle, turtle.swimPhase)
