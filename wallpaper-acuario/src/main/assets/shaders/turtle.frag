@@ -105,41 +105,33 @@ void main() {
     // AcuarioRenderer flips the whole quad horizontally (negative X scale) to face left.
     vec2 p = (vUV - 0.5) * 2.0;
 
-    // Front flippers hinge (rotate) around a shoulder pivot placed just outside the shell's own
-    // edge - a real limb swings through an arc from a fixed joint, it doesn't just translate
-    // up/down. Since the pivot itself never moves (only the limb's angle does), placing it
-    // clear of the shell keeps the whole sweep outside the shell for effectively its entire
-    // range, instead of the previous translation's whole shape drifting into and out of the
-    // shell's fixed boundary every stroke. Both flippers stroke in mirror-symmetric sync (note
-    // the negated rest/hinge angle on the bottom one) - "front flippers stroke together in a
-    // wide sweep" - driven by the exact same sin(uSwimPhase) the power-stroke detection in
-    // Turtle.kt keys off of, so this hinge's peak angular velocity lines up with
-    // consumePowerStrokeEvent() there. Back flippers keep their smaller, phase-delayed
-    // translation, like a real sea turtle "flying" through the water.
-    float frontHingeAngle = sin(uSwimPhase) * 0.6;
-    const float kFrontRestAngle = 1.134; // ~65 deg: rest pose points up-and-forward
-    const vec2 kFrontTopPivot = vec2(0.32, 0.42);
-    const vec2 kFrontBotPivot = vec2(0.32, -0.42);
+    // Front flippers hinge (rotate) around a shoulder pivot sitting right at the shell's own
+    // surface, starting CLOSED - folded flush against the body, like they were in their very
+    // first (pre-hinge, non-rotating) version - and swinging open up to 90% of a full 90-degree
+    // spread before returning to closed. Both flippers open in mirror-symmetric sync (top swings
+    // up, bottom swings down by the same amount) - "front flippers stroke together in a wide
+    // sweep" - driven by sin(uSwimPhase) mapped to a 0..1 easing so the fastest mid-swing point
+    // (where openness is CLOSING at peak speed - the actual power stroke) lands at
+    // swimPhase == PI, the exact instant Turtle.kt's consumePowerStrokeEvent() fires. Back
+    // flippers keep their smaller, phase-delayed translation, like a real sea turtle "flying"
+    // through the water.
+    float frontOpenness = (sin(uSwimPhase) * 0.5 + 0.5) * 0.9; // 0 (closed) .. 0.9 (90% open)
+    const float kFrontMaxOpenAngle = 1.5708; // 90 deg: "fully open" reference, capped at 90% of it
+    const vec2 kFrontTopPivot = vec2(0.15, 0.38);
+    const vec2 kFrontBotPivot = vec2(0.15, -0.38);
     const float kFrontLimbLength = 0.506; // 0.46 + 10%
     const float kFrontHalfWidth = 0.15;
-
-    // Real sea turtles fold their flippers in slightly during the forward (recovery) part of
-    // the stroke to cut drag, then extend fully for the power stroke - without that, the
-    // longer limb's tip reaches unnaturally far forward at the peak of the recovery swing.
-    // forwardness is 0 through the rest pose and the whole backward/power-stroke half
-    // (frontHingeAngle >= 0) and ramps up to 1 exactly at the most-forward angle
-    // (frontHingeAngle == -0.6), so the limb tapers to 90% length there and re-extends to full
-    // length as it swings back toward/through the power stroke.
-    float forwardness = clamp(-frontHingeAngle / 0.6, 0.0, 1.0);
-    float frontLimbLength = kFrontLimbLength * mix(1.0, 0.9, forwardness);
+    float frontOpenAngle = frontOpenness * kFrontMaxOpenAngle;
 
     float backFlap = sin(uSwimPhase - 1.0) * 0.08;
 
     float aShell = ellipseAlpha(p, vec2(0.0, 0.0), vec2(0.60, 0.40), 0.025);
     float aHead = ellipseAlpha(p, vec2(0.75, 0.05), vec2(0.22, 0.22), 0.02);
     float aTail = ellipseAlpha(p, vec2(-0.72, 0.0), vec2(0.14, 0.08), 0.02);
-    float aFlipperTopFront = hingedLimbAlpha(p, kFrontTopPivot, kFrontRestAngle, frontHingeAngle, frontLimbLength, kFrontHalfWidth, 0.02);
-    float aFlipperBotFront = hingedLimbAlpha(p, kFrontBotPivot, -kFrontRestAngle, -frontHingeAngle, frontLimbLength, kFrontHalfWidth, 0.02);
+    // restAngle is 0 (pointing straight along +x, flush with the body) for both - only the
+    // hinge/open angle's sign differs, so "closed" always means the same flush-with-body pose.
+    float aFlipperTopFront = hingedLimbAlpha(p, kFrontTopPivot, 0.0, frontOpenAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
+    float aFlipperBotFront = hingedLimbAlpha(p, kFrontBotPivot, 0.0, -frontOpenAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
     float aFlipperTopBack = ellipseAlpha(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), 0.02);
     float aFlipperBotBack = ellipseAlpha(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), 0.02);
     float aEye = ellipseAlpha(p, vec2(0.82, 0.10), vec2(0.035, 0.035), 0.01);
@@ -197,12 +189,10 @@ void main() {
     // shell is drawn last and can still cover part of the head/flippers where they tuck under
     // its edge - without that mask this would incorrectly glow through the shell there.
     float headRim = rimLight(p, vec2(0.75, 0.05), vec2(0.22, 0.22), aHead);
-    float topTotalAngle = kFrontRestAngle + frontHingeAngle;
-    float botTotalAngle = -kFrontRestAngle - frontHingeAngle;
-    vec2 frontTopCenter = kFrontTopPivot + vec2(cos(topTotalAngle), sin(topTotalAngle)) * (frontLimbLength * 0.5);
-    vec2 frontBotCenter = kFrontBotPivot + vec2(cos(botTotalAngle), sin(botTotalAngle)) * (frontLimbLength * 0.5);
-    float flipperTopFrontRim = rimLight(p, frontTopCenter, vec2(frontLimbLength * 0.5, kFrontHalfWidth), aFlipperTopFront);
-    float flipperBotFrontRim = rimLight(p, frontBotCenter, vec2(frontLimbLength * 0.5, kFrontHalfWidth), aFlipperBotFront);
+    vec2 frontTopCenter = kFrontTopPivot + vec2(cos(frontOpenAngle), sin(frontOpenAngle)) * (kFrontLimbLength * 0.5);
+    vec2 frontBotCenter = kFrontBotPivot + vec2(cos(-frontOpenAngle), sin(-frontOpenAngle)) * (kFrontLimbLength * 0.5);
+    float flipperTopFrontRim = rimLight(p, frontTopCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperTopFront);
+    float flipperBotFrontRim = rimLight(p, frontBotCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperBotFront);
     float flipperTopBackRim = rimLight(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), aFlipperTopBack);
     float flipperBotBackRim = rimLight(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), aFlipperBotBack);
     float flipperRim = max(max(flipperTopFrontRim, flipperBotFrontRim), max(flipperTopBackRim, flipperBotBackRim));
