@@ -120,16 +120,26 @@ void main() {
     const float kFrontRestAngle = 1.134; // ~65 deg: rest pose points up-and-forward
     const vec2 kFrontTopPivot = vec2(0.32, 0.42);
     const vec2 kFrontBotPivot = vec2(0.32, -0.42);
-    const float kFrontLimbLength = 0.46;
+    const float kFrontLimbLength = 0.506; // 0.46 + 10%
     const float kFrontHalfWidth = 0.15;
+
+    // Real sea turtles fold their flippers in slightly during the forward (recovery) part of
+    // the stroke to cut drag, then extend fully for the power stroke - without that, the
+    // longer limb's tip reaches unnaturally far forward at the peak of the recovery swing.
+    // forwardness is 0 through the rest pose and the whole backward/power-stroke half
+    // (frontHingeAngle >= 0) and ramps up to 1 exactly at the most-forward angle
+    // (frontHingeAngle == -0.6), so the limb tapers to 90% length there and re-extends to full
+    // length as it swings back toward/through the power stroke.
+    float forwardness = clamp(-frontHingeAngle / 0.6, 0.0, 1.0);
+    float frontLimbLength = kFrontLimbLength * mix(1.0, 0.9, forwardness);
 
     float backFlap = sin(uSwimPhase - 1.0) * 0.08;
 
     float aShell = ellipseAlpha(p, vec2(0.0, 0.0), vec2(0.60, 0.40), 0.025);
     float aHead = ellipseAlpha(p, vec2(0.75, 0.05), vec2(0.22, 0.22), 0.02);
     float aTail = ellipseAlpha(p, vec2(-0.72, 0.0), vec2(0.14, 0.08), 0.02);
-    float aFlipperTopFront = hingedLimbAlpha(p, kFrontTopPivot, kFrontRestAngle, frontHingeAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
-    float aFlipperBotFront = hingedLimbAlpha(p, kFrontBotPivot, -kFrontRestAngle, -frontHingeAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
+    float aFlipperTopFront = hingedLimbAlpha(p, kFrontTopPivot, kFrontRestAngle, frontHingeAngle, frontLimbLength, kFrontHalfWidth, 0.02);
+    float aFlipperBotFront = hingedLimbAlpha(p, kFrontBotPivot, -kFrontRestAngle, -frontHingeAngle, frontLimbLength, kFrontHalfWidth, 0.02);
     float aFlipperTopBack = ellipseAlpha(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), 0.02);
     float aFlipperBotBack = ellipseAlpha(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), 0.02);
     float aEye = ellipseAlpha(p, vec2(0.82, 0.10), vec2(0.035, 0.035), 0.01);
@@ -189,10 +199,10 @@ void main() {
     float headRim = rimLight(p, vec2(0.75, 0.05), vec2(0.22, 0.22), aHead);
     float topTotalAngle = kFrontRestAngle + frontHingeAngle;
     float botTotalAngle = -kFrontRestAngle - frontHingeAngle;
-    vec2 frontTopCenter = kFrontTopPivot + vec2(cos(topTotalAngle), sin(topTotalAngle)) * (kFrontLimbLength * 0.5);
-    vec2 frontBotCenter = kFrontBotPivot + vec2(cos(botTotalAngle), sin(botTotalAngle)) * (kFrontLimbLength * 0.5);
-    float flipperTopFrontRim = rimLight(p, frontTopCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperTopFront);
-    float flipperBotFrontRim = rimLight(p, frontBotCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperBotFront);
+    vec2 frontTopCenter = kFrontTopPivot + vec2(cos(topTotalAngle), sin(topTotalAngle)) * (frontLimbLength * 0.5);
+    vec2 frontBotCenter = kFrontBotPivot + vec2(cos(botTotalAngle), sin(botTotalAngle)) * (frontLimbLength * 0.5);
+    float flipperTopFrontRim = rimLight(p, frontTopCenter, vec2(frontLimbLength * 0.5, kFrontHalfWidth), aFlipperTopFront);
+    float flipperBotFrontRim = rimLight(p, frontBotCenter, vec2(frontLimbLength * 0.5, kFrontHalfWidth), aFlipperBotFront);
     float flipperTopBackRim = rimLight(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), aFlipperTopBack);
     float flipperBotBackRim = rimLight(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), aFlipperBotBack);
     float flipperRim = max(max(flipperTopFrontRim, flipperBotFrontRim), max(flipperTopBackRim, flipperBotBackRim));
