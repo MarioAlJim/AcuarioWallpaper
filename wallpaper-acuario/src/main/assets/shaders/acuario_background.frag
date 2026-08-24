@@ -133,7 +133,21 @@ void main() {
         caustic,
         max(caustic + (causticB - caustic) * kAberrationBoost, 0.0)
     );
-    color += shallowColor * causticRGB * causticStrength * (0.4 + raysMask * 0.8);
+
+    // Layered back in alongside the Voronoi net (not replacing it): the original two-sine
+    // interference ripple this project used before switching to Voronoi. Real caustics are
+    // rarely just one clean pattern - overlapping wave interference at a different scale on top
+    // of the light-net seams reads as richer/more turbulent water. Reuses the same `p`/`t` as
+    // the Voronoi lookup above, just processed differently, so both patterns share one
+    // coordinate/time frame instead of drifting relative to each other. Weighted at 0.7 (not
+    // 1.0) so it reads as a secondary texture riding on top of the net, not a second
+    // equally-dominant pattern competing with it.
+    float c1 = sin(p.x * 1.7 + t + sin(p.y * 2.3 - t * 0.7));
+    float c2 = sin(p.y * 1.9 - t * 1.3 + sin(p.x * 2.1 + t * 0.5));
+    float sineCaustic = smoothstep(0.55, 1.0, c1 * c2) * 0.7;
+
+    vec3 combinedCaustic = causticRGB + vec3(sineCaustic);
+    color += shallowColor * combinedCaustic * causticStrength * (0.4 + raysMask * 0.8);
 
     fragColor = vec4(color, 1.0);
 }
