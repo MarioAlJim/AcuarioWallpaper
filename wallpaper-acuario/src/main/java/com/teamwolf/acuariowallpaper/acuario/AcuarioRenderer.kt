@@ -18,7 +18,7 @@ import kotlin.random.Random
  * themes via [ConfigProvider.getAcuarioTheme]), a field of ambient bubbles rising from the
  * bottom of the screen, and 0-5 turtles ([Turtle], count via [ConfigProvider.getTurtleCount])
  * wandering around the tank with animated flippers, each in a randomly-assigned
- * [TurtlePalette]. Every couple of minutes each turtle surfaces to breathe and releases a
+ * [TurtlePalette]. Every so often (30-120s) each turtle surfaces to breathe and releases a
  * one-off burst of larger "exhale" bubbles ([Turtle.consumeExhaleEvent]) on the way back down.
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
