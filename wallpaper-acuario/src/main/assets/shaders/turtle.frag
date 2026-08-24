@@ -44,46 +44,44 @@ float hingedLimbAlpha(vec2 p, vec2 pivot, float restAngle, float hingeAngle, flo
 
 // Deterministic pseudo-random 2D hash, used below to place one "feature point" per grid cell
 // for the Voronoi scute pattern (same cell coordinate always yields the same point/shade, so
-// the plate layout doesn't swim as the turtle moves).
-vec2 hash2(vec2 cell) {
-    vec2 h = vec2(dot(cell, vec2(127.1, 311.7)), dot(cell, vec2(269.5, 183.3)));
-    return fract(sin(h) * 43758.5453123);
+// the plate layout doesn't swim as the turtle moves). Fast, sine-free 2D hash based on Dave Hoskins.
+vec2 hash2(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
 }
 
 // Cellular/Voronoi lookup at `p`: returns (F1, F2, cellShade, cellSpot) where F1/F2 are the
-// distances to the nearest and second-nearest feature points (the classic building block for
-// scute/plate patterns - the shell's actual scute layout in real turtles is fairly regular, but
-// the ask here was specifically the Voronoi technique), and cellShade/cellSpot are two
-// independent, stable pseudo-random values in [0, 1) tied to the WINNING cell (the one F1 is
-// measured to) rather than recomputed from floor(p) - a fragment right at a plate boundary can
-// be closer to a neighboring cell's feature point than to its own cell's, so re-deriving the
-// cell from floor(p) instead of tracking which one actually won would occasionally tag that
-// fragment with the wrong plate's random values.
+// distances to the nearest and second-nearest feature points, and cellShade/cellSpot are two
+// independent, stable pseudo-random values in [0, 1) tied to the WINNING cell. Optimized to
+// use squared distances in the inner loop to save 9 square root operations, only taking the sqrt
+// at the very end.
 vec4 voronoi(vec2 p) {
     vec2 ip = floor(p);
     vec2 fp = fract(p);
 
-    float f1 = 8.0;
-    float f2 = 8.0;
+    float f1Sq = 64.0;
+    float f2Sq = 64.0;
     vec2 f1Cell = ip;
 
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
             vec2 neighbor = vec2(float(x), float(y));
             vec2 point = hash2(ip + neighbor);
-            float dist = length(neighbor + point - fp);
-            if (dist < f1) {
-                f2 = f1;
-                f1 = dist;
+            vec2 diff = neighbor + point - fp;
+            float distSq = dot(diff, diff);
+            if (distSq < f1Sq) {
+                f2Sq = f1Sq;
+                f1Sq = distSq;
                 f1Cell = ip + neighbor;
-            } else if (dist < f2) {
-                f2 = dist;
+            } else if (distSq < f2Sq) {
+                f2Sq = distSq;
             }
         }
     }
 
     vec2 cellRandom = hash2(f1Cell);
-    return vec4(f1, f2, cellRandom.x, cellRandom.y);
+    return vec4(sqrt(f1Sq), sqrt(f2Sq), cellRandom.x, cellRandom.y);
 }
 
 // Thin rim-light contribution for one ellipse-shaped part, as if lit from directly above.

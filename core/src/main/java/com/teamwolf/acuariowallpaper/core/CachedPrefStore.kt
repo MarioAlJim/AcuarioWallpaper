@@ -35,7 +35,7 @@ internal abstract class CachedPrefStore(protected val prefs: SharedPreferences) 
     }
 
     /** Drops the cached value for [key], if any, so the next read re-fetches from [prefs]. */
-    fun invalidate(key: String) {
+    open fun invalidate(key: String) {
         cache.remove(key)
     }
 }
