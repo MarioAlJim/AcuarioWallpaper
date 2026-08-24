@@ -137,20 +137,30 @@ void main() {
     shellColor = mix(shellColor, uShellColor * 0.45, groove);
 
     color = mix(color, shellColor, aShell);
+
+    // Flippers are re-asserted on top of the shell (rather than left to whatever mixed in
+    // above) because their sweep overlaps the shell's fixed boundary throughout most of their
+    // cycle - especially the back flippers, whose smaller amplitude means their lower edge
+    // dips below the shell's edge almost the entire stroke. Left as a plain mix(..., aShell)
+    // order, the shell would clip a varying bite out of them every frame, making their visible
+    // silhouette balloon and shrink independently of the actual flap motion - the "less fluid"
+    // look. Limbs simply aren't meant to be occluded by the carapace edge here.
+    color = mix(color, uFlipperColor, flippersAlpha);
     color = mix(color, eyeColor, aEye);
 
     // Rim lighting on the head and flippers only (per the design ask - the shell already gets
     // its own "domed plate" shading above): a fine sunlit highlight along their upper edges,
-    // helping the silhouette separate from a dark background. Masked by (1 - aShell) since the
-    // shell is drawn last and can cover part of the head/front flippers where they tuck under
-    // its front edge - without that mask this would incorrectly glow through the shell there.
+    // helping the silhouette separate from a dark background. Only the head's rim is masked by
+    // (1 - aShell) - the shell can still cover part of it where it tucks under the shell's
+    // front edge - since flippers are now always drawn on top of the shell above and are never
+    // actually occluded by it.
     float headRim = rimLight(p, vec2(0.75, 0.05), vec2(0.22, 0.22), aHead);
     float flipperTopFrontRim = rimLight(p, vec2(0.10, 0.46 + frontFlap), vec2(0.34, 0.14), aFlipperTopFront);
     float flipperBotFrontRim = rimLight(p, vec2(0.10, -0.46 - frontFlap), vec2(0.34, 0.14), aFlipperBotFront);
     float flipperTopBackRim = rimLight(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), aFlipperTopBack);
     float flipperBotBackRim = rimLight(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), aFlipperBotBack);
     float flipperRim = max(max(flipperTopFrontRim, flipperBotFrontRim), max(flipperTopBackRim, flipperBotBackRim));
-    float rimAmount = max(headRim, flipperRim) * (1.0 - aShell);
+    float rimAmount = max(headRim * (1.0 - aShell), flipperRim);
 
     const vec3 kRimColor = vec3(1.0, 0.98, 0.90);
     const float kRimIntensity = 0.55;
