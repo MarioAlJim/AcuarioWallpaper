@@ -10,6 +10,7 @@ import com.teamwolf.acuariowallpaper.core.GLRenderer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import kotlin.math.exp
 import kotlin.random.Random
 
 /**
@@ -32,6 +33,12 @@ import kotlin.random.Random
  * background. Coral barely sways at all (real coral is far stiffer than an anemone), sea grass
  * is short and sways quickly, kelp is tall and sways slowly.
  *
+ * Parallax: swiping between home screens (see [onOffsetsChanged]) pans every wandering
+ * creature/plant/bubble sideways by [foregroundParallax], while acuario_background.frag's own
+ * distant rock/kelp/animal silhouette layer shifts by only a small fraction of that same swipe -
+ * see the fields' own doc comment. The mismatch in how far each layer moves for the same swipe
+ * is what sells the tank as far deeper than the single flat plane it actually is.
+ *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
  * creatures) that those will build on, following the same shape as StormRenderer/SunnyRenderer
@@ -49,7 +56,29 @@ class AcuarioRenderer(
     private var bgTimeHandle = 0
     private var bgThemeHandle = 0
     private var bgAspectHandle = 0
+    private var bgParallaxHandle = 0
     private lateinit var fullscreenQuadBuffer: FloatBuffer
+
+    // Parallax (depth-of-tank illusion driven by home-screen swiping): [offsetX] is the eased,
+    // per-frame home-screen scroll position (0..1, 0.5 = centered/no swipe), smoothed from
+    // [targetOffsetX] - the raw value the launcher reports via onOffsetsChanged() - so an
+    // instantaneous jump (e.g. tapping an app icon snaps the position immediately, rather than a
+    // drag) glides briefly instead of snapping the whole scene sideways. [parallaxRaw] (that
+    // eased value re-centered to [-0.5, 0.5]) is uploaded to acuario_background.frag, which
+    // shifts its own distant rock/kelp/animal silhouette layer by only a small fraction of it -
+    // see that shader's comment. [foregroundParallax] is the much larger world-space shift
+    // applied to every wandering creature/plant/bubble's own x position at draw time (not their
+    // logical x - this is purely a render-time camera pan, so it can never affect movement/
+    // wander-bounds logic), so the foreground visibly shifts while the background barely moves -
+    // the core parallax cue that the tank is far deeper than the single flat plane it actually is.
+    private var offsetX = 0.5f
+    private var targetOffsetX = 0.5f
+    private var parallaxRaw = 0f
+    private var foregroundParallax = 0f
+    private val kForegroundParallaxRange = 0.10f
+    // Chosen so offsetX is ~95% of the way to a new swipe position in about 0.3s
+    // (1 - e^(-kParallaxEaseRate*0.3) ~= 0.95).
+    private val kParallaxEaseRate = 10f
 
     // Bubbles (instanced quads, same attribute layout as the "wallpaper" reference project's
     // particle.vert/frag)
@@ -317,6 +346,7 @@ class AcuarioRenderer(
             bgTimeHandle = GLES30.glGetUniformLocation(backgroundProgram, "uTime")
             bgThemeHandle = GLES30.glGetUniformLocation(backgroundProgram, "uTheme")
             bgAspectHandle = GLES30.glGetUniformLocation(backgroundProgram, "uAspectRatio")
+            bgParallaxHandle = GLES30.glGetUniformLocation(backgroundProgram, "uParallaxOffset")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -490,8 +520,18 @@ class AcuarioRenderer(
         Matrix.orthoM(projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f)
     }
 
+    override fun onOffsetsChanged(xOffset: Float, yOffset: Float) {
+        targetOffsetX = xOffset
+    }
+
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
+
+        val offsetLerp = 1f - exp(-kParallaxEaseRate * deltaTime)
+        offsetX += (targetOffsetX - offsetX) * offsetLerp
+        parallaxRaw = offsetX - 0.5f
+        foregroundParallax = parallaxRaw * kForegroundParallaxRange
+
         syncTurtleCount()
         syncFishCount()
         syncMantaCount()
@@ -676,7 +716,7 @@ class AcuarioRenderer(
             val tintAmount = f.depth * kMaxDepthTint
 
             Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, f.x, f.y, 0f)
+            Matrix.translateM(modelMatrix, 0, f.x + foregroundParallax, f.y, 0f)
             Matrix.scaleM(modelMatrix, 0, f.facingScale(), 1f, 1f)
             Matrix.rotateM(modelMatrix, 0, f.pitchDegrees, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
@@ -742,7 +782,7 @@ class AcuarioRenderer(
             val tintAmount = m.depth * kMaxDepthTint
 
             Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, m.x, m.y, 0f)
+            Matrix.translateM(modelMatrix, 0, m.x + foregroundParallax, m.y, 0f)
             Matrix.scaleM(modelMatrix, 0, m.facingScale(), 1f, 1f)
             Matrix.rotateM(modelMatrix, 0, m.pitchDegrees, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
@@ -890,7 +930,7 @@ class AcuarioRenderer(
             // height above kPlantFloorY) rather than to kPlantFloorY itself, so the *local* quad
             // bottom edge (y = -1 in kelp.frag) lands exactly on the floor instead of the quad's
             // center sitting there.
-            Matrix.translateM(modelMatrix, 0, k.x, kPlantFloorY + height * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, k.x + foregroundParallax, kPlantFloorY + height * 0.5f, 0f)
             Matrix.scaleM(modelMatrix, 0, width, height, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(kelpMVPHandle, 1, false, mvpMatrix, 0)
@@ -948,7 +988,7 @@ class AcuarioRenderer(
             Matrix.setIdentityM(modelMatrix, 0)
             // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
             // anemone.frag, where the foot/tentacle bases are anchored) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, a.x, kPlantFloorY + size * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, a.x + foregroundParallax, kPlantFloorY + size * 0.5f, 0f)
             Matrix.scaleM(modelMatrix, 0, size, size, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(anemoneMVPHandle, 1, false, mvpMatrix, 0)
@@ -1007,7 +1047,7 @@ class AcuarioRenderer(
             Matrix.setIdentityM(modelMatrix, 0)
             // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
             // seagrass.frag) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, g.x, kPlantFloorY + height * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, g.x + foregroundParallax, kPlantFloorY + height * 0.5f, 0f)
             Matrix.scaleM(modelMatrix, 0, width, height, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(seaGrassMVPHandle, 1, false, mvpMatrix, 0)
@@ -1065,7 +1105,7 @@ class AcuarioRenderer(
             Matrix.setIdentityM(modelMatrix, 0)
             // Same floor-anchoring as anemone: the local quad's bottom edge (y = -1 in
             // coral.frag, where the base/branches are anchored) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, c.x, kPlantFloorY + size * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, c.x + foregroundParallax, kPlantFloorY + size * 0.5f, 0f)
             Matrix.scaleM(modelMatrix, 0, size, size, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(coralMVPHandle, 1, false, mvpMatrix, 0)
@@ -1143,7 +1183,7 @@ class AcuarioRenderer(
             val tintAmount = t.depth * kMaxDepthTint
 
             Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, t.x, t.y, 0f)
+            Matrix.translateM(modelMatrix, 0, t.x + foregroundParallax, t.y, 0f)
             // Order matters here: Android's Matrix helpers post-multiply, so the LAST call
             // below is the FIRST one actually applied to each vertex. We want, in per-vertex
             // apply order: (1) uniform base scale, (2) pitch rotation (in the sprite's
@@ -1200,6 +1240,7 @@ class AcuarioRenderer(
         GLES30.glUniform1f(bgTimeHandle, time)
         GLES30.glUniform1i(bgThemeHandle, configProvider.getAcuarioTheme())
         GLES30.glUniform1f(bgAspectHandle, aspectRatio)
+        GLES30.glUniform1f(bgParallaxHandle, parallaxRaw)
 
         fullscreenQuadBuffer.position(0)
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 8, fullscreenQuadBuffer)
@@ -1219,7 +1260,7 @@ class AcuarioRenderer(
         bubbleInstanceBuffer.clear()
         for (i in bubbles.indices) {
             val bubble = bubbles[i]
-            bubbleInstanceBuffer.put(bubble.x)
+            bubbleInstanceBuffer.put(bubble.x + foregroundParallax)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
             bubbleInstanceBuffer.put(0.85f) // r
@@ -1229,7 +1270,7 @@ class AcuarioRenderer(
         }
         for (i in 0 until activeBurstCount) {
             val bubble = burstBubbles[i]
-            bubbleInstanceBuffer.put(bubble.x)
+            bubbleInstanceBuffer.put(bubble.x + foregroundParallax)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
             bubbleInstanceBuffer.put(0.85f) // r
