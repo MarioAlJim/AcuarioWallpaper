@@ -58,31 +58,34 @@ void main() {
         deepColor = vec3(0.012, 0.095, 0.130);
         shallowColor = vec3(0.10, 0.44, 0.40);
         causticStrength = 0.06;
-        rayStrength = 0.10;
+        // Roughly doubled from the original 0.10-0.22 range across every theme below: at the
+        // old strengths the rays were essentially invisible once the caustics mesh (sharper-
+        // edged, boosted by the same near-top mask) was layered on top of them.
+        rayStrength = 0.20;
     } else if (uTheme == 1) {
         // Azul Profundo: colder, deeper blue with stronger sunlight shafts
         deepColor = vec3(0.010, 0.045, 0.130);
         shallowColor = vec3(0.05, 0.34, 0.55);
         causticStrength = 0.10;
-        rayStrength = 0.22;
+        rayStrength = 0.42;
     } else if (uTheme == 2) {
         // Atardecer Violeta: warm pink/orange rays fading to dark violet at depth
         deepColor = vec3(0.08, 0.04, 0.15);
         shallowColor = vec3(0.70, 0.30, 0.40);
         causticStrength = 0.08;
-        rayStrength = 0.18;
+        rayStrength = 0.34;
     } else if (uTheme == 3) {
         // Fosa Abisal: near black abyss, faint dark purple rays at top
         deepColor = vec3(0.01, 0.01, 0.04);
         shallowColor = vec3(0.15, 0.05, 0.25);
         causticStrength = 0.04;
-        rayStrength = 0.08;
+        rayStrength = 0.16;
     } else {
         // Arrecife Coral: bright tropical cyan/turquoise water with high visibility
         deepColor = vec3(0.02, 0.08, 0.18);
         shallowColor = vec3(0.05, 0.65, 0.60);
         causticStrength = 0.09;
-        rayStrength = 0.20;
+        rayStrength = 0.38;
     }
 
     // Base vertical gradient: deep/dark at the bottom, brighter near the "surface" at top.
@@ -108,6 +111,10 @@ void main() {
         ray += sin(phase) * 0.5 + 0.5;
     }
     ray /= 3.0;
+    // Sharpens the averaged sine blend into more defined streaks instead of a smooth, low-
+    // contrast wash: without this, the caustics mesh below - much sharper-edged and boosted by
+    // this same raysMask near the top - visually drowned the rays out almost entirely.
+    ray = pow(ray, 1.8);
 
     // Occasional sun flashes (only in open-water themes: 1, 2, 4) fanning from the top edge.
     // Multiplying different frequencies creates occasional spikes/pulses, power of 4 sharpens them.
@@ -194,6 +201,37 @@ void main() {
 
     vec3 combinedCaustic = causticRGB + vec3(sineCaustic);
     color += shallowColor * combinedCaustic * causticStrength * (0.4 + raysMask * 0.8);
+
+    // Dynamic vignette: darkens the screen edges - the bottom corners more than the rest, since
+    // real underwater light falls off toward the substrate rather than symmetrically toward
+    // every edge - to pull focus toward the center and read as more cinematic. "Dynamic" means
+    // it breathes with the god rays instead of sitting at one fixed darkness: reuses raysMask
+    // (this pixel's height in the water column) and activeRayStrength (this theme's ray
+    // intensity, itself already boosted by the sun flare above) as a proxy for how much surface
+    // light is actually reaching here right now - when it's high the vignette relaxes back
+    // toward a normal, barely-there brightness; when it's low (dim theme, or just far from the
+    // surface) the vignette digs in further. Reusing these existing signals - rather than a
+    // fresh uniform - is what makes the vignette genuinely interact with the rays instead of
+    // just coexisting with them independently.
+    vec2 vc = vUv - 0.5;
+    vc.x *= uAspectRatio;
+    float vignetteDist = length(vc);
+    // Tuned for the portrait-ish aspect ratios this wallpaper actually renders at (see the x/y
+    // roaming bounds elsewhere, e.g. Fish.pickNewTarget) - a very wide landscape aspect would
+    // push the horizontal extent past this radius sooner than intended.
+    float vignetteShape = smoothstep(0.58, 0.16, vignetteDist);
+    // Extra darkening concentrated at the bottom corners specifically: strongest where y is
+    // small (near the substrate) AND x is far from center (an actual corner, not just the
+    // bottom edge's midpoint).
+    float bottomCornerBoost = (1.0 - smoothstep(0.0, 0.6, y)) * smoothstep(0.15, 0.55, abs(vUv.x - 0.5));
+    vignetteShape *= (1.0 - bottomCornerBoost * 0.35);
+
+    float lightLevel = clamp(raysMask * activeRayStrength / 0.45, 0.0, 1.0);
+    const float kVignetteFloorDim = 0.55; // corner brightness multiplier when little/no light reaches here
+    const float kVignetteFloorLit = 0.92; // corner brightness multiplier when well lit - restores near-normal
+    float vignetteFloor = mix(kVignetteFloorDim, kVignetteFloorLit, lightLevel);
+    float vignette = mix(vignetteFloor, 1.0, vignetteShape);
+    color *= vignette;
 
     fragColor = vec4(color, 1.0);
 }
