@@ -24,7 +24,10 @@ import kotlin.random.Random
  * small propulsion-bubble trail behind its front flippers ([Turtle.consumePowerStrokeEvent]).
  * Also 0-8 fish ([Fish], count via [ConfigProvider.getFishCount]) and 0-4 manta rays ([Manta],
  * count via [ConfigProvider.getMantaCount]) - mantas are bigger, slower gliders drawn first/
- * farthest-back among the creatures, each in a randomly-assigned [MantaPalette].
+ * farthest-back among the creatures, each in a randomly-assigned [MantaPalette]. Finally, 0-24
+ * anchored plants ([Kelp]/[Anemone], total density via [ConfigProvider.getPlantDensity], split
+ * ~65/35 between the two) grow from the tank floor and sway in place rather than wandering -
+ * drawn before every creature, right on top of the background.
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
@@ -115,6 +118,41 @@ class AcuarioRenderer(
     private val kMantaScale = 0.34f
     private val kMaxMantas = 4
 
+    // Vegetation (kelp + anemones): unlike the wandering creatures above, these are anchored to
+    // the tank floor and never move - see layoutPlants()'s comment for why the whole layout is
+    // rebuilt from scratch on any density/aspect-ratio change instead of incrementally adjusted.
+    private var kelpProgram = 0
+    private var kelpMVPHandle = 0
+    private var kelpSwayPhaseHandle = 0
+    private var kelpBladeColorHandle = 0
+    private var kelpTipColorHandle = 0
+    private var kelpBaseColorHandle = 0
+    private var kelpHighlightColorHandle = 0
+    private val kelps = mutableListOf<Kelp>()
+    private val kKelpWidth = 0.32f
+    private val kKelpBaseHeight = 0.55f
+
+    private var anemoneProgram = 0
+    private var anemoneMVPHandle = 0
+    private var anemoneSwayPhaseHandle = 0
+    private var anemoneFootColorHandle = 0
+    private var anemoneTentacleColorHandle = 0
+    private var anemoneTipColorHandle = 0
+    private var anemoneHighlightColorHandle = 0
+    private val anemones = mutableListOf<Anemone>()
+    private val kAnemoneSize = 0.30f
+
+    // Fraction of the total plant density budget spent on kelp clumps vs anemones.
+    private val kKelpShareOfDensity = 0.65f
+    private val kMaxPlantDensity = 24
+    // The floor plants are anchored to - low enough that a full-height kelp clump's tip stays
+    // comfortably inside the tank rather than poking past the turtles' own roaming floor.
+    private val kPlantFloorY = -1.0f
+    // Sentinel (an impossible real density) forcing layoutPlants() to run once on the very first
+    // syncPlants() call, regardless of what ConfigProvider.getPlantDensity() returns.
+    private var currentPlantDensity = -1
+    private var plantLayoutAspectRatio = -1f
+
     // Depth-of-field illusion on an otherwise flat 2D scene: a turtle at Turtle.depth == 1
     // (deep in the tank) is drawn at kMinScaleAtDepth of its normal size and its palette is
     // tinted toward the current theme's deep-water color by up to kMaxDepthTint - see
@@ -133,6 +171,14 @@ class AcuarioRenderer(
     private val scratchMantaWingColor = FloatArray(3)
     private val scratchMantaTailColor = FloatArray(3)
     private val scratchMantaMarkingColor = FloatArray(3)
+    private val scratchKelpBladeColor = FloatArray(3)
+    private val scratchKelpTipColor = FloatArray(3)
+    private val scratchKelpBaseColor = FloatArray(3)
+    private val scratchKelpHighlightColor = FloatArray(3)
+    private val scratchAnemoneFootColor = FloatArray(3)
+    private val scratchAnemoneTentacleColor = FloatArray(3)
+    private val scratchAnemoneTipColor = FloatArray(3)
+    private val scratchAnemoneHighlightColor = FloatArray(3)
 
     // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
     // toward the same color the background already fades to at depth.
@@ -278,6 +324,34 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/kelp.vert")
+            val frag = readAssetFile(context, "shaders/kelp.frag")
+            kelpProgram = createProgram(vert, frag)
+            kelpMVPHandle = GLES30.glGetUniformLocation(kelpProgram, "uMVPMatrix")
+            kelpSwayPhaseHandle = GLES30.glGetUniformLocation(kelpProgram, "uSwayPhase")
+            kelpBladeColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uBladeColor")
+            kelpTipColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uTipColor")
+            kelpBaseColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uBaseColor")
+            kelpHighlightColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uHighlightColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            val vert = readAssetFile(context, "shaders/anemone.vert")
+            val frag = readAssetFile(context, "shaders/anemone.frag")
+            anemoneProgram = createProgram(vert, frag)
+            anemoneMVPHandle = GLES30.glGetUniformLocation(anemoneProgram, "uMVPMatrix")
+            anemoneSwayPhaseHandle = GLES30.glGetUniformLocation(anemoneProgram, "uSwayPhase")
+            anemoneFootColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uFootColor")
+            anemoneTentacleColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uTentacleColor")
+            anemoneTipColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uTipColor")
+            anemoneHighlightColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uHighlightColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
             -1f, -1f,
@@ -324,6 +398,12 @@ class AcuarioRenderer(
 
         mantas.clear()
         syncMantaCount()
+
+        kelps.clear()
+        anemones.clear()
+        currentPlantDensity = -1
+        plantLayoutAspectRatio = -1f
+        syncPlants()
     }
 
     override fun onSurfaceChanged(width: Int, height: Int) {
@@ -337,12 +417,19 @@ class AcuarioRenderer(
         syncTurtleCount()
         syncFishCount()
         syncMantaCount()
+        syncPlants()
         syncBubbleCount()
         for (i in fishes.indices) {
             fishes[i].update(deltaTime, aspectRatio)
         }
         for (i in mantas.indices) {
             mantas[i].update(deltaTime, aspectRatio)
+        }
+        for (i in kelps.indices) {
+            kelps[i].update(deltaTime)
+        }
+        for (i in anemones.indices) {
+            anemones[i].update(deltaTime)
         }
         for (i in turtles.indices) {
             val t = turtles[i]
@@ -431,6 +518,7 @@ class AcuarioRenderer(
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         drawBackground()
+        drawPlants()
         drawMantas()
         drawFish()
         drawTurtles()
@@ -575,6 +663,170 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(mantaWingColorHandle, 1, scratchMantaWingColor, 0)
             GLES30.glUniform3fv(mantaTailColorHandle, 1, scratchMantaTailColor, 0)
             GLES30.glUniform3fv(mantaMarkingColorHandle, 1, scratchMantaMarkingColor, 0)
+
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
+    }
+
+    /**
+     * Rebuilds [kelps]/[anemones] from scratch whenever [ConfigProvider.getPlantDensity] or
+     * [aspectRatio] changes (tracked via [currentPlantDensity]/[plantLayoutAspectRatio]) - unlike
+     * the wandering creatures' sync*Count() functions, which only touch the size delta because
+     * existing ones keep wandering from wherever they already are, a plant's position IS its
+     * whole state: there's nothing worth preserving across a resize, and a full relayout is the
+     * simplest way to keep them evenly spread across the (possibly now different) tank width.
+     */
+    private fun syncPlants() {
+        val desired = configProvider.getPlantDensity().coerceIn(0, kMaxPlantDensity)
+        if (desired == currentPlantDensity && aspectRatio == plantLayoutAspectRatio) return
+
+        val kelpCount = (desired * kKelpShareOfDensity).toInt()
+        val anemoneCount = desired - kelpCount
+
+        kelps.clear()
+        repeat(kelpCount) {
+            val kelp = Kelp()
+            kelp.placeAt(
+                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
+                depth = Random.nextFloat(),
+                heightScale = 0.7f + Random.nextFloat() * 0.6f
+            )
+            kelps.add(kelp)
+        }
+
+        anemones.clear()
+        repeat(anemoneCount) {
+            val anemone = Anemone()
+            anemone.placeAt(
+                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
+                depth = Random.nextFloat(),
+                scale = 0.65f + Random.nextFloat() * 0.5f
+            )
+            anemones.add(anemone)
+        }
+
+        currentPlantDensity = desired
+        plantLayoutAspectRatio = aspectRatio
+    }
+
+    private fun drawPlants() {
+        drawKelp()
+        drawAnemones()
+    }
+
+    private fun drawKelp() {
+        if (kelpProgram == 0 || kelps.isEmpty()) return
+        GLES30.glUseProgram(kelpProgram)
+
+        // Farthest first, same back-to-front painter's-algorithm ordering the creatures use.
+        for (i in 1 until kelps.size) {
+            val key = kelps[i]
+            var j = i - 1
+            while (j >= 0 && kelps[j].depth < key.depth) {
+                kelps[j + 1] = kelps[j]
+                j--
+            }
+            kelps[j + 1] = key
+        }
+
+        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
+
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
+        for (i in kelps.indices) {
+            val k = kelps[i]
+            val depthScale = 1f - (1f - kMinScaleAtDepth) * k.depth
+            val tintAmount = k.depth * kMaxDepthTint
+            val width = kKelpWidth * depthScale
+            val height = kKelpBaseHeight * k.heightScale * depthScale
+
+            Matrix.setIdentityM(modelMatrix, 0)
+            // Anchored at the floor: translate to the clump's vertical center (half its own
+            // height above kPlantFloorY) rather than to kPlantFloorY itself, so the *local* quad
+            // bottom edge (y = -1 in kelp.frag) lands exactly on the floor instead of the quad's
+            // center sitting there.
+            Matrix.translateM(modelMatrix, 0, k.x, kPlantFloorY + height * 0.5f, 0f)
+            Matrix.scaleM(modelMatrix, 0, width, height, 1f)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            GLES30.glUniformMatrix4fv(kelpMVPHandle, 1, false, mvpMatrix, 0)
+
+            GLES30.glUniform1f(kelpSwayPhaseHandle, k.swayPhase % kTwoPi)
+
+            val palette = k.palette
+            mixColorInto(scratchKelpBladeColor, palette.bladeColor, deepColor, tintAmount)
+            mixColorInto(scratchKelpTipColor, palette.tipColor, deepColor, tintAmount)
+            mixColorInto(scratchKelpBaseColor, palette.baseColor, deepColor, tintAmount)
+            mixColorInto(scratchKelpHighlightColor, palette.highlightColor, deepColor, tintAmount)
+
+            GLES30.glUniform3fv(kelpBladeColorHandle, 1, scratchKelpBladeColor, 0)
+            GLES30.glUniform3fv(kelpTipColorHandle, 1, scratchKelpTipColor, 0)
+            GLES30.glUniform3fv(kelpBaseColorHandle, 1, scratchKelpBaseColor, 0)
+            GLES30.glUniform3fv(kelpHighlightColorHandle, 1, scratchKelpHighlightColor, 0)
+
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
+    }
+
+    private fun drawAnemones() {
+        if (anemoneProgram == 0 || anemones.isEmpty()) return
+        GLES30.glUseProgram(anemoneProgram)
+
+        for (i in 1 until anemones.size) {
+            val key = anemones[i]
+            var j = i - 1
+            while (j >= 0 && anemones[j].depth < key.depth) {
+                anemones[j + 1] = anemones[j]
+                j--
+            }
+            anemones[j + 1] = key
+        }
+
+        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
+
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
+        for (i in anemones.indices) {
+            val a = anemones[i]
+            val depthScale = 1f - (1f - kMinScaleAtDepth) * a.depth
+            val tintAmount = a.depth * kMaxDepthTint
+            val size = kAnemoneSize * a.scale * depthScale
+
+            Matrix.setIdentityM(modelMatrix, 0)
+            // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
+            // anemone.frag, where the foot/tentacle bases are anchored) lands on kPlantFloorY.
+            Matrix.translateM(modelMatrix, 0, a.x, kPlantFloorY + size * 0.5f, 0f)
+            Matrix.scaleM(modelMatrix, 0, size, size, 1f)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            GLES30.glUniformMatrix4fv(anemoneMVPHandle, 1, false, mvpMatrix, 0)
+
+            GLES30.glUniform1f(anemoneSwayPhaseHandle, a.swayPhase % kTwoPi)
+
+            val palette = a.palette
+            mixColorInto(scratchAnemoneFootColor, palette.footColor, deepColor, tintAmount)
+            mixColorInto(scratchAnemoneTentacleColor, palette.tentacleColor, deepColor, tintAmount)
+            mixColorInto(scratchAnemoneTipColor, palette.tipColor, deepColor, tintAmount)
+            mixColorInto(scratchAnemoneHighlightColor, palette.highlightColor, deepColor, tintAmount)
+
+            GLES30.glUniform3fv(anemoneFootColorHandle, 1, scratchAnemoneFootColor, 0)
+            GLES30.glUniform3fv(anemoneTentacleColorHandle, 1, scratchAnemoneTentacleColor, 0)
+            GLES30.glUniform3fv(anemoneTipColorHandle, 1, scratchAnemoneTipColor, 0)
+            GLES30.glUniform3fv(anemoneHighlightColorHandle, 1, scratchAnemoneHighlightColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
