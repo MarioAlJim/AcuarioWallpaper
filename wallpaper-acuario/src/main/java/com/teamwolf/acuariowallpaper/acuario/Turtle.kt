@@ -77,6 +77,12 @@ class Turtle {
     private var mirrorBlend = 1f
 
     private val speed = 0.10f + Random.nextFloat() * 0.05f
+    // Occasionally bursts faster or slower than the baseline above during normal wandering (not
+    // while surfacing/holding its breath) - see pickNewTarget()'s comment - eased toward its
+    // target the same way depth is, so a burst reads as a deliberate acceleration/deceleration
+    // rather than a snap.
+    private var speedMultiplier = 1f
+    private var targetSpeedMultiplier = 1f
 
     private enum class BreathPhase { SWIMMING, SURFACING, HOLDING_BREATH }
     private var breathPhase = BreathPhase.SWIMMING
@@ -124,7 +130,9 @@ class Turtle {
         // scene. Scales the whole travel speed (not just its horizontal share) since "lateral"
         // is by far the dominant component of most legs here anyway, and a uniform slowdown is
         // simpler than splitting it axis-by-axis for the same visual effect.
-        val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth)
+        val speedLerp = 1f - exp(-kSpeedEaseRate * deltaTime)
+        speedMultiplier += (targetSpeedMultiplier - speedMultiplier) * speedLerp
+        val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth) * speedMultiplier
         x += (dx / dist) * effectiveSpeed * deltaTime
         y += (dy / dist) * effectiveSpeed * deltaTime
 
@@ -168,7 +176,7 @@ class Turtle {
         depth += (targetDepth - depth) * depthLerp
 
         val previousSwimPhase = swimPhase
-        swimPhase += deltaTime * (2.2f + speed * 4f)
+        swimPhase += deltaTime * (2.2f + speed * 4f) * speedMultiplier
 
         // Power stroke: turtle.frag animates the front flippers as sin(swimPhase)*0.14, so
         // their downstroke - the actual "push" against the water - peaks in velocity exactly
@@ -277,6 +285,20 @@ class Turtle {
         hasTarget = true
         // A new "decision" to come closer or recede is made alongside every new waypoint.
         targetDepth = Random.nextFloat()
+
+        // Occasionally (kSpeedBurstChance) commit to a faster or slower pace for this leg -
+        // otherwise settle back to the normal cruising speed. Re-rolled at every waypoint change
+        // (but not when surfacing to breathe - see pickSurfaceTarget()) so a burst is a
+        // transient flourish rather than a permanent trait of this turtle.
+        targetSpeedMultiplier = if (Random.nextFloat() < kSpeedBurstChance) {
+            if (Random.nextBoolean()) {
+                kFastSpeedMultiplierMin + Random.nextFloat() * (kFastSpeedMultiplierMax - kFastSpeedMultiplierMin)
+            } else {
+                kSlowSpeedMultiplierMin + Random.nextFloat() * (kSlowSpeedMultiplierMax - kSlowSpeedMultiplierMin)
+            }
+        } else {
+            1f
+        }
     }
 
     /** Straight up to near the top of the screen to breathe - see class doc. */
@@ -335,5 +357,16 @@ class Turtle {
 
         const val kSurfaceHoldMin = 2f
         const val kSurfaceHoldMax = 3.5f
+
+        // Chance, at each new waypoint, of committing to a speed burst for that leg instead of
+        // cruising at the normal pace - see pickNewTarget()'s comment.
+        const val kSpeedBurstChance = 0.3f
+        const val kFastSpeedMultiplierMin = 1.35f
+        const val kFastSpeedMultiplierMax = 1.7f
+        const val kSlowSpeedMultiplierMin = 0.5f
+        const val kSlowSpeedMultiplierMax = 0.75f
+        // Chosen so speedMultiplier is ~95% of the way to a new burst/cruise target in about 2s
+        // (1 - e^(-kSpeedEaseRate*2) ~= 0.95) - a deliberate ease, not a snap.
+        const val kSpeedEaseRate = 1.5f
     }
 }

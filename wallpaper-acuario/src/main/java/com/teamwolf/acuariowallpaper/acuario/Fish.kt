@@ -16,6 +16,10 @@ import kotlin.random.Random
  *
  * Designed to be slightly faster and more agile than turtles, and without the need
  * to surface for breathing.
+ *
+ * [speedMultiplier] occasionally bursts faster or slower than [speed]'s own baseline pace - see
+ * [pickNewTarget]'s comment - eased toward its target the same way [depth] is, so a burst reads
+ * as a deliberate acceleration/deceleration rather than a snap.
  */
 class Fish {
     val palette: FishPalette = FishPalette.PALETTES.random()
@@ -49,6 +53,8 @@ class Fish {
     private var mirrorBlend = 1f
 
     private val speed = 0.14f + Random.nextFloat() * 0.08f
+    private var speedMultiplier = 1f
+    private var targetSpeedMultiplier = 1f
 
     fun update(deltaTime: Float, aspectRatio: Float) {
         if (!hasTarget) {
@@ -63,8 +69,10 @@ class Fish {
             return
         }
 
-        // Depth parallax
-        val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth)
+        // Depth parallax + occasional speed burst
+        val speedLerp = 1f - exp(-kSpeedEaseRate * deltaTime)
+        speedMultiplier += (targetSpeedMultiplier - speedMultiplier) * speedLerp
+        val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth) * speedMultiplier
         x += (dx / dist) * effectiveSpeed * deltaTime
         y += (dy / dist) * effectiveSpeed * deltaTime
 
@@ -91,8 +99,8 @@ class Fish {
         val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
         depth += (targetDepth - depth) * depthLerp
 
-        // Swim phase (tail-wag frequency scales slightly with travel speed)
-        swimPhase += deltaTime * (6.0f + speed * 12f)
+        // Swim phase (tail-wag frequency scales slightly with travel speed, including bursts)
+        swimPhase += deltaTime * (6.0f + speed * 12f) * speedMultiplier
     }
 
     private fun stepPitchSpring(desiredPitch: Float, deltaTime: Float) {
@@ -109,6 +117,19 @@ class Fish {
         targetY = -0.85f + Random.nextFloat() * 1.65f
         hasTarget = true
         targetDepth = Random.nextFloat()
+
+        // Occasionally (kSpeedBurstChance) commit to a faster or slower pace for this leg -
+        // otherwise settle back to the normal cruising speed. Re-rolled at every waypoint change
+        // so a burst is a transient flourish rather than a permanent trait of this fish.
+        targetSpeedMultiplier = if (Random.nextFloat() < kSpeedBurstChance) {
+            if (Random.nextBoolean()) {
+                kFastSpeedMultiplierMin + Random.nextFloat() * (kFastSpeedMultiplierMax - kFastSpeedMultiplierMin)
+            } else {
+                kSlowSpeedMultiplierMin + Random.nextFloat() * (kSlowSpeedMultiplierMax - kSlowSpeedMultiplierMin)
+            }
+        } else {
+            1f
+        }
     }
 
     companion object {
@@ -133,5 +154,16 @@ class Fish {
 
         const val kMinSpeedAtDepth = 0.45f
         const val kDepthEaseRate = 1.2f
+
+        // Chance, at each new waypoint, of committing to a speed burst for that leg instead of
+        // cruising at the normal pace - see pickNewTarget()'s comment.
+        const val kSpeedBurstChance = 0.3f
+        const val kFastSpeedMultiplierMin = 1.4f
+        const val kFastSpeedMultiplierMax = 1.9f
+        const val kSlowSpeedMultiplierMin = 0.5f
+        const val kSlowSpeedMultiplierMax = 0.75f
+        // Chosen so speedMultiplier is ~95% of the way to a new burst/cruise target in about 2s
+        // (1 - e^(-kSpeedEaseRate*2) ~= 0.95) - a deliberate ease, not a snap.
+        const val kSpeedEaseRate = 1.5f
     }
 }
