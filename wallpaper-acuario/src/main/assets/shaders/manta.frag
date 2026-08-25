@@ -59,8 +59,19 @@ void main() {
     // nose bump at the front. Approximated with ellipses, same trick as the rest of the cast.
     float aWings = ellipseAlpha(pWarped, vec2(0.02, 0.0), vec2(0.44, kWingRadiusY), 0.035);
     float aNose = ellipseAlpha(pWarped, vec2(0.42, 0.0), vec2(0.16, 0.14), 0.03);
-    // Long, thin whip tail trailing behind.
-    float aTail = ellipseAlpha(pWarped, vec2(-0.74, 0.0), vec2(0.32, 0.018), 0.015);
+
+    // Tail whip: a soft oval paddle (wider than the old razor-thin sliver) trailing behind,
+    // swaying smoothly side-to-side on its own slow cadence - independent from the wing
+    // undulation above (a much lower frequency, since a real tail whip is a slower, gentler
+    // motion than the wing beat), so it reads as the tail's own loose sway rather than just
+    // being dragged along with the wings. tailReach ramps the sway amplitude from ~0 right at
+    // the body (tailBaseX, where it attaches) up to full strength at the tip, like a pendulum -
+    // the base barely moves while the tip swings the widest arc.
+    const float tailBaseX = -0.42;
+    float tailReach = clamp((tailBaseX - p.x) / 0.64, 0.0, 1.0);
+    float tailSway = sin(uSwimPhase * 0.5) * 0.16 * tailReach;
+    vec2 pTail = vec2(p.x, p.y - tailSway);
+    float aTail = ellipseAlpha(pTail, vec2(-0.74, 0.0), vec2(0.32, 0.05), 0.02);
 
     float aBody = max(aWings, aNose);
 
@@ -98,7 +109,7 @@ void main() {
 
     // Soft rim lighting along the upper edges, separating the silhouette from the background.
     float wingsRim = rimLight(pWarped, vec2(0.02, 0.0), vec2(0.44, kWingRadiusY), aWings);
-    float tailRim = rimLight(pWarped, vec2(-0.74, 0.0), vec2(0.32, 0.018), aTail);
+    float tailRim = rimLight(pTail, vec2(-0.74, 0.0), vec2(0.32, 0.05), aTail);
     float rimAmount = max(wingsRim, tailRim) * (1.0 - aEye);
 
     const vec3 kRimColor = vec3(1.0, 0.98, 0.92);

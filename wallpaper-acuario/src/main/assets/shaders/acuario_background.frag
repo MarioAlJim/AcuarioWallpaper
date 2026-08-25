@@ -71,38 +71,43 @@ void main() {
         deepColor = vec3(0.012, 0.095, 0.130);
         shallowColor = vec3(0.10, 0.44, 0.40);
         causticStrength = 0.06;
-        // Roughly doubled from the original 0.10-0.22 range across every theme below: at the
-        // old strengths the rays were essentially invisible once the caustics mesh (sharper-
-        // edged, boosted by the same near-top mask) was layered on top of them.
-        rayStrength = 0.20;
+        // Bumped further still (was 0.10, then 0.20) - even doubled, the rays stayed too subtle
+        // against the old brighter/flatter gradient. Now paired with a properly-sharpened `ray`
+        // (see below, the previous "sharpening" via pow() actually dimmed it) and a darker base
+        // gradient for the rays to stand out against.
+        rayStrength = 0.32;
     } else if (uTheme == 1) {
         // Azul Profundo: colder, deeper blue with stronger sunlight shafts
         deepColor = vec3(0.010, 0.045, 0.130);
         shallowColor = vec3(0.05, 0.34, 0.55);
         causticStrength = 0.10;
-        rayStrength = 0.42;
+        rayStrength = 0.60;
     } else if (uTheme == 2) {
         // Atardecer Violeta: warm pink/orange rays fading to dark violet at depth
         deepColor = vec3(0.08, 0.04, 0.15);
         shallowColor = vec3(0.70, 0.30, 0.40);
         causticStrength = 0.08;
-        rayStrength = 0.34;
+        rayStrength = 0.50;
     } else if (uTheme == 3) {
         // Fosa Abisal: near black abyss, faint dark purple rays at top
         deepColor = vec3(0.01, 0.01, 0.04);
         shallowColor = vec3(0.15, 0.05, 0.25);
         causticStrength = 0.04;
-        rayStrength = 0.16;
+        rayStrength = 0.24;
     } else {
         // Arrecife Coral: bright tropical cyan/turquoise water with high visibility
         deepColor = vec3(0.02, 0.08, 0.18);
         shallowColor = vec3(0.05, 0.65, 0.60);
         causticStrength = 0.09;
-        rayStrength = 0.38;
+        rayStrength = 0.54;
     }
 
     // Base vertical gradient: deep/dark at the bottom, brighter near the "surface" at top.
-    vec3 color = mix(deepColor, shallowColor, pow(y, 1.4));
+    // Exponent raised from the original 1.4 to 2.0 so only the region right near the top
+    // actually approaches shallowColor's full brightness - the rest of the tank reads notably
+    // darker/moodier, which also gives the god rays below somewhere dark to visibly stand out
+    // against instead of blending into an already-bright base.
+    vec3 color = mix(deepColor, shallowColor, pow(y, 2.0));
 
     // Parallax layer: very blurry, darkened silhouettes of rocks/kelp/a distant animal shape
     // sitting far at the back of the tank, well behind everything else drawn (the creatures,
@@ -154,10 +159,15 @@ void main() {
         ray += sin(phase) * 0.5 + 0.5;
     }
     ray /= 3.0;
-    // Sharpens the averaged sine blend into more defined streaks instead of a smooth, low-
-    // contrast wash: without this, the caustics mesh below - much sharper-edged and boosted by
-    // this same raysMask near the top - visually drowned the rays out almost entirely.
-    ray = pow(ray, 1.8);
+    // Sharpens the averaged sine blend into distinct bright streaks separated by dark gaps,
+    // instead of a smooth, low-contrast wash that reads as a faint texture rather than rays.
+    // NOTE: pow(ray, N) with N > 1 was tried here first and made things worse, not better - for
+    // ray in [0, 1], raising it to any power > 1 only ever pulls values DOWN (e.g. 0.5^1.8 ~=
+    // 0.29), dimming the whole layer instead of adding contrast around a midpoint. smoothstep
+    // is the right tool: values below the low edge collapse to a true 0 (a dark gap) and values
+    // above the high edge saturate to a full 1 (a bright streak), carving clear bands out of the
+    // sine blend instead of just darkening it.
+    ray = smoothstep(0.35, 0.85, ray);
 
     // Occasional sun flashes (only in open-water themes: 1, 2, 4) fanning from the top edge.
     // Multiplying different frequencies creates occasional spikes/pulses, power of 4 sharpens them.
@@ -270,8 +280,11 @@ void main() {
     vignetteShape *= (1.0 - bottomCornerBoost * 0.35);
 
     float lightLevel = clamp(raysMask * activeRayStrength / 0.45, 0.0, 1.0);
-    const float kVignetteFloorDim = 0.55; // corner brightness multiplier when little/no light reaches here
-    const float kVignetteFloorLit = 0.92; // corner brightness multiplier when well lit - restores near-normal
+    // Darkened further (was 0.55/0.92) for a moodier overall background, on top of the steeper
+    // base gradient above - the corners now dig noticeably darker when little light reaches
+    // them, and even the "well lit" floor stays a touch below full brightness.
+    const float kVignetteFloorDim = 0.42; // corner brightness multiplier when little/no light reaches here
+    const float kVignetteFloorLit = 0.85; // corner brightness multiplier when well lit - restores near-normal
     float vignetteFloor = mix(kVignetteFloorDim, kVignetteFloorLit, lightLevel);
     float vignette = mix(vignetteFloor, 1.0, vignetteShape);
     color *= vignette;
