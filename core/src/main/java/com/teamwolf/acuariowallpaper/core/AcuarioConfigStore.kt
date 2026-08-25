@@ -21,6 +21,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     private var cachedFishCount: Int = prefs.getInt(ConfigManager.KEY_FISH_COUNT, ConfigManager.DEFAULT_FISH_COUNT)
 
     @Volatile
+    private var cachedMantaCount: Int = prefs.getInt(ConfigManager.KEY_MANTA_COUNT, ConfigManager.DEFAULT_MANTA_COUNT)
+
+    @Volatile
     private var cachedBubbleCount: Int = prefs.getInt(ConfigManager.KEY_BUBBLE_COUNT, ConfigManager.DEFAULT_BUBBLE_COUNT)
 
     fun getAcuarioTheme(): Int = cachedTheme
@@ -44,6 +47,13 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
         putInt(ConfigManager.KEY_FISH_COUNT, coerced)
     }
 
+    fun getMantaCount(): Int = cachedMantaCount
+    fun setMantaCount(count: Int) {
+        val coerced = count.coerceIn(0, 4)
+        cachedMantaCount = coerced
+        putInt(ConfigManager.KEY_MANTA_COUNT, coerced)
+    }
+
     // Range matches AcuarioRenderer's kMinAmbientBubbles/kMaxAmbientBubbles - keep both in sync.
     fun getBubbleCount(): Int = cachedBubbleCount
     fun setBubbleCount(count: Int) {
@@ -63,6 +73,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
             }
             ConfigManager.KEY_FISH_COUNT -> {
                 cachedFishCount = prefs.getInt(ConfigManager.KEY_FISH_COUNT, ConfigManager.DEFAULT_FISH_COUNT)
+            }
+            ConfigManager.KEY_MANTA_COUNT -> {
+                cachedMantaCount = prefs.getInt(ConfigManager.KEY_MANTA_COUNT, ConfigManager.DEFAULT_MANTA_COUNT)
             }
             ConfigManager.KEY_BUBBLE_COUNT -> {
                 cachedBubbleCount = prefs.getInt(ConfigManager.KEY_BUBBLE_COUNT, ConfigManager.DEFAULT_BUBBLE_COUNT)

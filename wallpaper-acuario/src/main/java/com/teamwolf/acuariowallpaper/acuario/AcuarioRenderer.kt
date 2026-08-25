@@ -22,6 +22,9 @@ import kotlin.random.Random
  * each turtle surfaces to breathe and releases a one-off burst of larger "exhale" bubbles
  * ([Turtle.consumeExhaleEvent]) on the way back down, and on every flap cycle it leaves a
  * small propulsion-bubble trail behind its front flippers ([Turtle.consumePowerStrokeEvent]).
+ * Also 0-8 fish ([Fish], count via [ConfigProvider.getFishCount]) and 0-4 manta rays ([Manta],
+ * count via [ConfigProvider.getMantaCount]) - mantas are bigger, slower gliders drawn first/
+ * farthest-back among the creatures, each in a randomly-assigned [MantaPalette].
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
@@ -98,6 +101,20 @@ class AcuarioRenderer(
     private val kFishScale = 0.18f
     private val kMaxFish = 8
 
+    // Manta rays (same single-transformed-quad shape as fish/turtles, but bigger and drawn
+    // first/farthest-back among the creatures - they're meant to read as big, majestic
+    // background gliders)
+    private var mantaProgram = 0
+    private var mantaMVPHandle = 0
+    private var mantaSwimPhaseHandle = 0
+    private var mantaBodyColorHandle = 0
+    private var mantaWingColorHandle = 0
+    private var mantaTailColorHandle = 0
+    private var mantaMarkingColorHandle = 0
+    private val mantas = mutableListOf<Manta>()
+    private val kMantaScale = 0.34f
+    private val kMaxMantas = 4
+
     // Depth-of-field illusion on an otherwise flat 2D scene: a turtle at Turtle.depth == 1
     // (deep in the tank) is drawn at kMinScaleAtDepth of its normal size and its palette is
     // tinted toward the current theme's deep-water color by up to kMaxDepthTint - see
@@ -112,6 +129,10 @@ class AcuarioRenderer(
     private val scratchFinColor = FloatArray(3)
     private val scratchTailColor = FloatArray(3)
     private val scratchStripeColor = FloatArray(3)
+    private val scratchMantaBodyColor = FloatArray(3)
+    private val scratchMantaWingColor = FloatArray(3)
+    private val scratchMantaTailColor = FloatArray(3)
+    private val scratchMantaMarkingColor = FloatArray(3)
 
     // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
     // toward the same color the background already fades to at depth.
@@ -243,6 +264,20 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/manta.vert")
+            val frag = readAssetFile(context, "shaders/manta.frag")
+            mantaProgram = createProgram(vert, frag)
+            mantaMVPHandle = GLES30.glGetUniformLocation(mantaProgram, "uMVPMatrix")
+            mantaSwimPhaseHandle = GLES30.glGetUniformLocation(mantaProgram, "uSwimPhase")
+            mantaBodyColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uBodyColor")
+            mantaWingColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uWingColor")
+            mantaTailColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uTailColor")
+            mantaMarkingColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uMarkingColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
             -1f, -1f,
@@ -286,6 +321,9 @@ class AcuarioRenderer(
 
         fishes.clear()
         syncFishCount()
+
+        mantas.clear()
+        syncMantaCount()
     }
 
     override fun onSurfaceChanged(width: Int, height: Int) {
@@ -298,9 +336,13 @@ class AcuarioRenderer(
         time += deltaTime
         syncTurtleCount()
         syncFishCount()
+        syncMantaCount()
         syncBubbleCount()
         for (i in fishes.indices) {
             fishes[i].update(deltaTime, aspectRatio)
+        }
+        for (i in mantas.indices) {
+            mantas[i].update(deltaTime, aspectRatio)
         }
         for (i in turtles.indices) {
             val t = turtles[i]
@@ -389,6 +431,7 @@ class AcuarioRenderer(
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         drawBackground()
+        drawMantas()
         drawFish()
         drawTurtles()
         drawBubbles()
@@ -466,6 +509,72 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(fishFinColorHandle, 1, scratchFinColor, 0)
             GLES30.glUniform3fv(fishTailColorHandle, 1, scratchTailColor, 0)
             GLES30.glUniform3fv(fishStripeColorHandle, 1, scratchStripeColor, 0)
+
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
+    }
+
+    private fun syncMantaCount() {
+        val desired = configProvider.getMantaCount().coerceIn(0, kMaxMantas)
+        when {
+            desired > mantas.size -> repeat(desired - mantas.size) { mantas.add(Manta()) }
+            desired < mantas.size -> while (mantas.size > desired) mantas.removeAt(mantas.size - 1)
+        }
+    }
+
+    private fun drawMantas() {
+        if (mantaProgram == 0 || mantas.isEmpty()) return
+        GLES30.glUseProgram(mantaProgram)
+
+        // Farthest first, manual insertion sort to avoid allocation
+        for (i in 1 until mantas.size) {
+            val key = mantas[i]
+            var j = i - 1
+            while (j >= 0 && mantas[j].depth < key.depth) {
+                mantas[j + 1] = mantas[j]
+                j--
+            }
+            mantas[j + 1] = key
+        }
+
+        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
+
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
+        for (i in mantas.indices) {
+            val m = mantas[i]
+            // Depth-of-field illusion
+            val depthScale = kMantaScale * (1f - (1f - kMinScaleAtDepth) * m.depth)
+            val tintAmount = m.depth * kMaxDepthTint
+
+            Matrix.setIdentityM(modelMatrix, 0)
+            Matrix.translateM(modelMatrix, 0, m.x, m.y, 0f)
+            Matrix.scaleM(modelMatrix, 0, m.facingScale(), 1f, 1f)
+            Matrix.rotateM(modelMatrix, 0, m.pitchDegrees, 0f, 0f, 1f)
+            Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            GLES30.glUniformMatrix4fv(mantaMVPHandle, 1, false, mvpMatrix, 0)
+
+            GLES30.glUniform1f(mantaSwimPhaseHandle, m.swimPhase % kTwoPi)
+
+            val palette = m.palette
+            mixColorInto(scratchMantaBodyColor, palette.bodyColor, deepColor, tintAmount)
+            mixColorInto(scratchMantaWingColor, palette.wingColor, deepColor, tintAmount)
+            mixColorInto(scratchMantaTailColor, palette.tailColor, deepColor, tintAmount)
+            mixColorInto(scratchMantaMarkingColor, palette.markingColor, deepColor, tintAmount)
+
+            GLES30.glUniform3fv(mantaBodyColorHandle, 1, scratchMantaBodyColor, 0)
+            GLES30.glUniform3fv(mantaWingColorHandle, 1, scratchMantaWingColor, 0)
+            GLES30.glUniform3fv(mantaTailColorHandle, 1, scratchMantaTailColor, 0)
+            GLES30.glUniform3fv(mantaMarkingColorHandle, 1, scratchMantaMarkingColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }

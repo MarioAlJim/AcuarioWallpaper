@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Settings for the Acuario effect. Only the environment (theme), turtle count and bubble
-    count selectors exist so far - add sliders/switches/card selectors here (see
-    SunnySettingsFragment/fragment_sunny_settings.xml in the "wallpaper" reference project for
-    the established patterns) as new knobs are designed: fish count, background, etc. Every new
-    effect should get its own selector here, following this same pattern.
+    Settings for the Acuario effect: environment (theme), turtle/fish/manta ray/bubble count
+    selectors - add sliders/switches/card selectors here (see SunnySettingsFragment/
+    fragment_sunny_settings.xml in the "wallpaper" reference project for the established
+    patterns) as new knobs are designed. Every new effect should get its own selector here,
+    following this same pattern.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -105,6 +105,40 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/settings_fish_color_note"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_section_manta_count"
+            android:textColor="?attr/colorOnSurface"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:requiresFadingEdge="horizontal"
+            android:fadingEdgeLength="24dp">
+
+            <LinearLayout
+                android:id="@+id/containerMantaCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingBottom="8dp"
+                android:paddingTop="4dp" />
+        </HorizontalScrollView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_manta_color_note"
             android:textColor="?android:attr/textColorSecondary"
             android:textSize="12sp"
             android:layout_marginTop="4dp" />
