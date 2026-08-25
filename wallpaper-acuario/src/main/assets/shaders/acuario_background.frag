@@ -139,35 +139,30 @@ void main() {
     // distracting shape competing with the actual creatures.
     color = mix(color, deepColor * 0.55, distantSilhouette * 0.55);
 
-    // God rays: soft slanted light shafts fanning down from the surface, strongest near the
-    // top and fading out with depth.
+    // God rays: distinct, soft-edged diagonal light-shaft LINES fanning down from the surface,
+    // strongest near the top and fading out with depth.
+    //
+    // Averaging several sine waves of different frequencies (the previous approach) creates
+    // interference - a mottled, low-contrast noise texture, not visible lines, since the peaks
+    // of one wave fall in the troughs of another about as often as they reinforce each other.
+    // The actual "line" comes from pow(max(0.0, sin(phase)), N): sin's own hump is already a
+    // smooth, soft-edged profile, and raising it to a high power squeezes everything except a
+    // narrow band right around the peak down toward 0 - carving one thin, blurred bright line
+    // per period instead of a wide wash. Two such beam families (different slant/frequency/
+    // speed) are combined with max() - not summed/averaged - so they read as two crossing sets
+    // of light lines instead of blending back into noise.
     float raysMask = pow(y, 2.2);
-    float ray = 0.0;
-    for (int i = 0; i < 3; i++) {
-        float fi = float(i);
-        float slant = 0.35 + fi * 0.15;
-        float freq = 6.0 + fi * 2.3;
-        float speed = 0.05 + fi * 0.02;
-        // highp: derived directly from uTime, which grows unboundedly for as long as the
-        // wallpaper runs. uTime itself is already highp, but that alone doesn't protect this -
-        // assigning a highp-derived expression into an (implicitly mediump, per this file's
-        // default precision) local truncates it right there. Without highp here, this
-        // rediscovers the exact same mediump-precision bug already fixed for Turtle.kt's
-        // swimPhase/turtle.frag's uSwimPhase, just one level removed behind an
-        // already-correct-looking `uniform highp float uTime`.
-        highp float phase = vUv.x * uAspectRatio * freq + y * slant * freq - uTime * speed * freq;
-        ray += sin(phase) * 0.5 + 0.5;
-    }
-    ray /= 3.0;
-    // Sharpens the averaged sine blend into distinct bright streaks separated by dark gaps,
-    // instead of a smooth, low-contrast wash that reads as a faint texture rather than rays.
-    // NOTE: pow(ray, N) with N > 1 was tried here first and made things worse, not better - for
-    // ray in [0, 1], raising it to any power > 1 only ever pulls values DOWN (e.g. 0.5^1.8 ~=
-    // 0.29), dimming the whole layer instead of adding contrast around a midpoint. smoothstep
-    // is the right tool: values below the low edge collapse to a true 0 (a dark gap) and values
-    // above the high edge saturate to a full 1 (a bright streak), carving clear bands out of the
-    // sine blend instead of just darkening it.
-    ray = smoothstep(0.35, 0.85, ray);
+    // highp: derived directly from uTime, which grows unboundedly for as long as the wallpaper
+    // runs. uTime itself is already highp, but that alone doesn't protect this - assigning a
+    // highp-derived expression into an (implicitly mediump, per this file's default precision)
+    // local truncates it right there. Without highp here, this rediscovers the exact same
+    // mediump-precision bug already fixed for Turtle.kt's swimPhase/turtle.frag's uSwimPhase,
+    // just one level removed behind an already-correct-looking `uniform highp float uTime`.
+    highp float rayPhase1 = vUv.x * uAspectRatio * 5.0 + y * 2.2 - uTime * 0.07;
+    highp float rayPhase2 = vUv.x * uAspectRatio * 8.0 - y * 3.0 - uTime * 0.10;
+    float beam1 = pow(max(0.0, sin(rayPhase1)), 6.0);
+    float beam2 = pow(max(0.0, sin(rayPhase2)), 10.0);
+    float ray = max(beam1, beam2 * 0.7);
 
     // Occasional sun flashes (only in open-water themes: 1, 2, 4) fanning from the top edge.
     // Multiplying different frequencies creates occasional spikes/pulses, power of 4 sharpens them.
