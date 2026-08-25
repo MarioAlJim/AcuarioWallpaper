@@ -25,9 +25,11 @@ import kotlin.random.Random
  * Also 0-8 fish ([Fish], count via [ConfigProvider.getFishCount]) and 0-4 manta rays ([Manta],
  * count via [ConfigProvider.getMantaCount]) - mantas are bigger, slower gliders drawn first/
  * farthest-back among the creatures, each in a randomly-assigned [MantaPalette]. Finally, 0-24
- * anchored plants ([Kelp]/[Anemone], total density via [ConfigProvider.getPlantDensity], split
- * ~65/35 between the two) grow from the tank floor and sway in place rather than wandering -
- * drawn before every creature, right on top of the background.
+ * anchored plants ([Kelp]/[Anemone]/[SeaGrass]/[Coral], total density via
+ * [ConfigProvider.getPlantDensity], split 35/20/30/15 between them) grow from the tank floor and
+ * sway in place rather than wandering - drawn before every creature, right on top of the
+ * background. Coral barely sways at all (real coral is far stiffer than an anemone), sea grass
+ * is short and sways quickly, kelp is tall and sways slowly.
  *
  * More fish, plants, sand, etc. are deliberately not here yet - this establishes the
  * rendering pipeline (shader compilation, instanced-quad particles, single transformed-quad
@@ -142,8 +144,33 @@ class AcuarioRenderer(
     private val anemones = mutableListOf<Anemone>()
     private val kAnemoneSize = 0.30f
 
-    // Fraction of the total plant density budget spent on kelp clumps vs anemones.
-    private val kKelpShareOfDensity = 0.65f
+    private var seaGrassProgram = 0
+    private var seaGrassMVPHandle = 0
+    private var seaGrassSwayPhaseHandle = 0
+    private var seaGrassBladeColorHandle = 0
+    private var seaGrassTipColorHandle = 0
+    private var seaGrassBaseColorHandle = 0
+    private var seaGrassHighlightColorHandle = 0
+    private val seaGrasses = mutableListOf<SeaGrass>()
+    private val kSeaGrassWidth = 0.20f
+    private val kSeaGrassBaseHeight = 0.22f
+
+    private var coralProgram = 0
+    private var coralMVPHandle = 0
+    private var coralSwayPhaseHandle = 0
+    private var coralBaseColorHandle = 0
+    private var coralBranchColorHandle = 0
+    private var coralPolypColorHandle = 0
+    private var coralHighlightColorHandle = 0
+    private val corals = mutableListOf<Coral>()
+    private val kCoralSize = 0.34f
+
+    // Fraction of the total plant density budget spent on each vegetation type - must sum to 1.
+    private val kKelpShareOfDensity = 0.35f
+    private val kAnemoneShareOfDensity = 0.20f
+    private val kSeaGrassShareOfDensity = 0.30f
+    // Coral gets whatever's left after the three shares above, so rounding always adds up to
+    // the full requested density instead of possibly dropping a plant to rounding error.
     private val kMaxPlantDensity = 24
     // The floor plants are anchored to - low enough that a full-height kelp clump's tip stays
     // comfortably inside the tank rather than poking past the turtles' own roaming floor.
@@ -179,6 +206,14 @@ class AcuarioRenderer(
     private val scratchAnemoneTentacleColor = FloatArray(3)
     private val scratchAnemoneTipColor = FloatArray(3)
     private val scratchAnemoneHighlightColor = FloatArray(3)
+    private val scratchSeaGrassBladeColor = FloatArray(3)
+    private val scratchSeaGrassTipColor = FloatArray(3)
+    private val scratchSeaGrassBaseColor = FloatArray(3)
+    private val scratchSeaGrassHighlightColor = FloatArray(3)
+    private val scratchCoralBaseColor = FloatArray(3)
+    private val scratchCoralBranchColor = FloatArray(3)
+    private val scratchCoralPolypColor = FloatArray(3)
+    private val scratchCoralHighlightColor = FloatArray(3)
 
     // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
     // toward the same color the background already fades to at depth.
@@ -352,6 +387,34 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/seagrass.vert")
+            val frag = readAssetFile(context, "shaders/seagrass.frag")
+            seaGrassProgram = createProgram(vert, frag)
+            seaGrassMVPHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uMVPMatrix")
+            seaGrassSwayPhaseHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uSwayPhase")
+            seaGrassBladeColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uBladeColor")
+            seaGrassTipColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uTipColor")
+            seaGrassBaseColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uBaseColor")
+            seaGrassHighlightColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uHighlightColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            val vert = readAssetFile(context, "shaders/coral.vert")
+            val frag = readAssetFile(context, "shaders/coral.frag")
+            coralProgram = createProgram(vert, frag)
+            coralMVPHandle = GLES30.glGetUniformLocation(coralProgram, "uMVPMatrix")
+            coralSwayPhaseHandle = GLES30.glGetUniformLocation(coralProgram, "uSwayPhase")
+            coralBaseColorHandle = GLES30.glGetUniformLocation(coralProgram, "uBaseColor")
+            coralBranchColorHandle = GLES30.glGetUniformLocation(coralProgram, "uBranchColor")
+            coralPolypColorHandle = GLES30.glGetUniformLocation(coralProgram, "uPolypColor")
+            coralHighlightColorHandle = GLES30.glGetUniformLocation(coralProgram, "uHighlightColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
             -1f, -1f,
@@ -401,6 +464,8 @@ class AcuarioRenderer(
 
         kelps.clear()
         anemones.clear()
+        seaGrasses.clear()
+        corals.clear()
         currentPlantDensity = -1
         plantLayoutAspectRatio = -1f
         syncPlants()
@@ -430,6 +495,12 @@ class AcuarioRenderer(
         }
         for (i in anemones.indices) {
             anemones[i].update(deltaTime)
+        }
+        for (i in seaGrasses.indices) {
+            seaGrasses[i].update(deltaTime)
+        }
+        for (i in corals.indices) {
+            corals[i].update(deltaTime)
         }
         for (i in turtles.indices) {
             val t = turtles[i]
@@ -672,7 +743,8 @@ class AcuarioRenderer(
     }
 
     /**
-     * Rebuilds [kelps]/[anemones] from scratch whenever [ConfigProvider.getPlantDensity] or
+     * Rebuilds [kelps]/[anemones]/[seaGrasses]/[corals] from scratch whenever
+     * [ConfigProvider.getPlantDensity] or
      * [aspectRatio] changes (tracked via [currentPlantDensity]/[plantLayoutAspectRatio]) - unlike
      * the wandering creatures' sync*Count() functions, which only touch the size delta because
      * existing ones keep wandering from wherever they already are, a plant's position IS its
@@ -684,7 +756,11 @@ class AcuarioRenderer(
         if (desired == currentPlantDensity && aspectRatio == plantLayoutAspectRatio) return
 
         val kelpCount = (desired * kKelpShareOfDensity).toInt()
-        val anemoneCount = desired - kelpCount
+        val anemoneCount = (desired * kAnemoneShareOfDensity).toInt()
+        val seaGrassCount = (desired * kSeaGrassShareOfDensity).toInt()
+        // Whatever's left after the three shares above, so rounding always adds up to the full
+        // requested density instead of possibly dropping a plant to rounding error.
+        val coralCount = desired - kelpCount - anemoneCount - seaGrassCount
 
         kelps.clear()
         repeat(kelpCount) {
@@ -708,12 +784,36 @@ class AcuarioRenderer(
             anemones.add(anemone)
         }
 
+        seaGrasses.clear()
+        repeat(seaGrassCount) {
+            val seaGrass = SeaGrass()
+            seaGrass.placeAt(
+                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
+                depth = Random.nextFloat(),
+                heightScale = 0.75f + Random.nextFloat() * 0.5f
+            )
+            seaGrasses.add(seaGrass)
+        }
+
+        corals.clear()
+        repeat(coralCount) {
+            val coral = Coral()
+            coral.placeAt(
+                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
+                depth = Random.nextFloat(),
+                scale = 0.7f + Random.nextFloat() * 0.5f
+            )
+            corals.add(coral)
+        }
+
         currentPlantDensity = desired
         plantLayoutAspectRatio = aspectRatio
     }
 
     private fun drawPlants() {
+        drawCorals()
         drawKelp()
+        drawSeaGrass()
         drawAnemones()
     }
 
@@ -827,6 +927,121 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(anemoneTentacleColorHandle, 1, scratchAnemoneTentacleColor, 0)
             GLES30.glUniform3fv(anemoneTipColorHandle, 1, scratchAnemoneTipColor, 0)
             GLES30.glUniform3fv(anemoneHighlightColorHandle, 1, scratchAnemoneHighlightColor, 0)
+
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
+    }
+
+    private fun drawSeaGrass() {
+        if (seaGrassProgram == 0 || seaGrasses.isEmpty()) return
+        GLES30.glUseProgram(seaGrassProgram)
+
+        for (i in 1 until seaGrasses.size) {
+            val key = seaGrasses[i]
+            var j = i - 1
+            while (j >= 0 && seaGrasses[j].depth < key.depth) {
+                seaGrasses[j + 1] = seaGrasses[j]
+                j--
+            }
+            seaGrasses[j + 1] = key
+        }
+
+        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
+
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
+        for (i in seaGrasses.indices) {
+            val g = seaGrasses[i]
+            val depthScale = 1f - (1f - kMinScaleAtDepth) * g.depth
+            val tintAmount = g.depth * kMaxDepthTint
+            val width = kSeaGrassWidth * depthScale
+            val height = kSeaGrassBaseHeight * g.heightScale * depthScale
+
+            Matrix.setIdentityM(modelMatrix, 0)
+            // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
+            // seagrass.frag) lands on kPlantFloorY.
+            Matrix.translateM(modelMatrix, 0, g.x, kPlantFloorY + height * 0.5f, 0f)
+            Matrix.scaleM(modelMatrix, 0, width, height, 1f)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            GLES30.glUniformMatrix4fv(seaGrassMVPHandle, 1, false, mvpMatrix, 0)
+
+            GLES30.glUniform1f(seaGrassSwayPhaseHandle, g.swayPhase % kTwoPi)
+
+            val palette = g.palette
+            mixColorInto(scratchSeaGrassBladeColor, palette.bladeColor, deepColor, tintAmount)
+            mixColorInto(scratchSeaGrassTipColor, palette.tipColor, deepColor, tintAmount)
+            mixColorInto(scratchSeaGrassBaseColor, palette.baseColor, deepColor, tintAmount)
+            mixColorInto(scratchSeaGrassHighlightColor, palette.highlightColor, deepColor, tintAmount)
+
+            GLES30.glUniform3fv(seaGrassBladeColorHandle, 1, scratchSeaGrassBladeColor, 0)
+            GLES30.glUniform3fv(seaGrassTipColorHandle, 1, scratchSeaGrassTipColor, 0)
+            GLES30.glUniform3fv(seaGrassBaseColorHandle, 1, scratchSeaGrassBaseColor, 0)
+            GLES30.glUniform3fv(seaGrassHighlightColorHandle, 1, scratchSeaGrassHighlightColor, 0)
+
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
+    }
+
+    private fun drawCorals() {
+        if (coralProgram == 0 || corals.isEmpty()) return
+        GLES30.glUseProgram(coralProgram)
+
+        for (i in 1 until corals.size) {
+            val key = corals[i]
+            var j = i - 1
+            while (j >= 0 && corals[j].depth < key.depth) {
+                corals[j + 1] = corals[j]
+                j--
+            }
+            corals[j + 1] = key
+        }
+
+        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
+
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
+        for (i in corals.indices) {
+            val c = corals[i]
+            val depthScale = 1f - (1f - kMinScaleAtDepth) * c.depth
+            val tintAmount = c.depth * kMaxDepthTint
+            val size = kCoralSize * c.scale * depthScale
+
+            Matrix.setIdentityM(modelMatrix, 0)
+            // Same floor-anchoring as anemone: the local quad's bottom edge (y = -1 in
+            // coral.frag, where the base/branches are anchored) lands on kPlantFloorY.
+            Matrix.translateM(modelMatrix, 0, c.x, kPlantFloorY + size * 0.5f, 0f)
+            Matrix.scaleM(modelMatrix, 0, size, size, 1f)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            GLES30.glUniformMatrix4fv(coralMVPHandle, 1, false, mvpMatrix, 0)
+
+            GLES30.glUniform1f(coralSwayPhaseHandle, c.swayPhase % kTwoPi)
+
+            val palette = c.palette
+            mixColorInto(scratchCoralBaseColor, palette.baseColor, deepColor, tintAmount)
+            mixColorInto(scratchCoralBranchColor, palette.branchColor, deepColor, tintAmount)
+            mixColorInto(scratchCoralPolypColor, palette.polypColor, deepColor, tintAmount)
+            mixColorInto(scratchCoralHighlightColor, palette.highlightColor, deepColor, tintAmount)
+
+            GLES30.glUniform3fv(coralBaseColorHandle, 1, scratchCoralBaseColor, 0)
+            GLES30.glUniform3fv(coralBranchColorHandle, 1, scratchCoralBranchColor, 0)
+            GLES30.glUniform3fv(coralPolypColorHandle, 1, scratchCoralPolypColor, 0)
+            GLES30.glUniform3fv(coralHighlightColorHandle, 1, scratchCoralHighlightColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
