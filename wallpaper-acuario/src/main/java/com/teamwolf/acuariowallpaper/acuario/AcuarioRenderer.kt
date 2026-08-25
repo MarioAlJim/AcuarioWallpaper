@@ -221,6 +221,15 @@ class AcuarioRenderer(
     // syncPlants() call, regardless of what ConfigProvider.getPlantDensity() returns.
     private var currentPlantDensity = -1
     private var plantLayoutAspectRatio = -1f
+    // Each list is sorted farthest-first (descending depth) once, in syncPlants() - never
+    // per-frame, since a plant's depth is fixed for life (see Kelp/Anemone/etc.'s class docs) -
+    // so [0, backCount) is always the back layer and [backCount, size) is always the front
+    // layer; the draw*(backLayer) functions below just index into the matching range instead of
+    // re-sorting/re-filtering every frame. See syncPlants()'s comment for how these are computed.
+    private var kelpBackCount = 0
+    private var anemoneBackCount = 0
+    private var seaGrassBackCount = 0
+    private var coralBackCount = 0
 
     // Depth-of-field illusion on an otherwise flat 2D scene: a turtle at Turtle.depth == 1
     // (deep in the tank) is drawn at kMinScaleAtDepth of its normal size and its palette is
@@ -651,6 +660,22 @@ class AcuarioRenderer(
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         drawBackground()
+
+        // Every draw call below this point (both plant-layer passes, every creature, and the
+        // bubbles' shared per-instance quad) reads its base quad geometry from the same
+        // unitQuadBuffer with the same layout - locations 0/1 are bound here ONCE for the whole
+        // frame instead of separately in each draw*() function (as they used to be): vertex
+        // attribute bindings are global GL state, not per-shader-program state, so rebinding the
+        // exact same buffer/format 10 times per frame (once per creature/plant-layer/bubble
+        // call, each immediately un-binding it again at its own end) was pure overhead that
+        // never actually needed to change between these calls.
+        unitQuadBuffer.position(0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(0)
+        unitQuadBuffer.position(2)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
+        GLES30.glEnableVertexAttribArray(1)
+
         // Vegetation is split into a back layer (deeper plants, drawn first) and a front layer
         // (plants nearer the glass, drawn last) with every creature sandwiched in between - see
         // drawPlants()'s comment - so fish/turtles/mantas can pass behind some plants and in
@@ -661,6 +686,9 @@ class AcuarioRenderer(
         drawTurtles()
         drawPlants(backLayer = false)
         drawBubbles()
+
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glDisableVertexAttribArray(1)
     }
 
     /**
@@ -702,13 +730,6 @@ class AcuarioRenderer(
 
         val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
-
         for (i in fishes.indices) {
             val f = fishes[i]
             // Depth-of-field illusion
@@ -738,9 +759,6 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
     private fun syncMantaCount() {
@@ -767,13 +785,6 @@ class AcuarioRenderer(
         }
 
         val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
-
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
 
         for (i in mantas.indices) {
             val m = mantas[i]
@@ -804,9 +815,6 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
     /**
@@ -817,6 +825,12 @@ class AcuarioRenderer(
      * existing ones keep wandering from wherever they already are, a plant's position IS its
      * whole state: there's nothing worth preserving across a resize, and a full relayout is the
      * simplest way to keep them evenly spread across the (possibly now different) tank width.
+     *
+     * Each list is also sorted farthest-first (descending depth) right here, once, and split
+     * into a back-layer/front-layer count (see [kelpBackCount] etc.'s doc) - since a plant's
+     * depth never changes after this, that ordering/split stays valid for as long as the layout
+     * does, so the draw*(backLayer) functions don't need to re-sort or re-filter every frame the
+     * way the wandering creatures (whose depth actually drifts over time) still have to.
      */
     private fun syncPlants() {
         val desired = configProvider.getPlantDensity().coerceIn(0, kMaxPlantDensity)
@@ -873,6 +887,15 @@ class AcuarioRenderer(
             corals.add(coral)
         }
 
+        kelps.sortByDescending { it.depth }
+        anemones.sortByDescending { it.depth }
+        seaGrasses.sortByDescending { it.depth }
+        corals.sortByDescending { it.depth }
+        kelpBackCount = kelps.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) kelps.size else it }
+        anemoneBackCount = anemones.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) anemones.size else it }
+        seaGrassBackCount = seaGrasses.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) seaGrasses.size else it }
+        coralBackCount = corals.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) corals.size else it }
+
         currentPlantDensity = desired
         plantLayoutAspectRatio = aspectRatio
     }
@@ -894,32 +917,15 @@ class AcuarioRenderer(
     }
 
     private fun drawKelp(backLayer: Boolean) {
-        if (kelpProgram == 0 || kelps.isEmpty()) return
+        val startIndex = if (backLayer) 0 else kelpBackCount
+        val endIndex = if (backLayer) kelpBackCount else kelps.size
+        if (kelpProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(kelpProgram)
-
-        // Farthest first, same back-to-front painter's-algorithm ordering the creatures use.
-        for (i in 1 until kelps.size) {
-            val key = kelps[i]
-            var j = i - 1
-            while (j >= 0 && kelps[j].depth < key.depth) {
-                kelps[j + 1] = kelps[j]
-                j--
-            }
-            kelps[j + 1] = key
-        }
 
         val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
-
-        for (i in kelps.indices) {
+        for (i in startIndex until endIndex) {
             val k = kelps[i]
-            if ((k.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * k.depth
             val tintAmount = k.depth * kMaxDepthTint
             val width = kKelpWidth * depthScale
@@ -950,37 +956,18 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
     private fun drawAnemones(backLayer: Boolean) {
-        if (anemoneProgram == 0 || anemones.isEmpty()) return
+        val startIndex = if (backLayer) 0 else anemoneBackCount
+        val endIndex = if (backLayer) anemoneBackCount else anemones.size
+        if (anemoneProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(anemoneProgram)
-
-        for (i in 1 until anemones.size) {
-            val key = anemones[i]
-            var j = i - 1
-            while (j >= 0 && anemones[j].depth < key.depth) {
-                anemones[j + 1] = anemones[j]
-                j--
-            }
-            anemones[j + 1] = key
-        }
 
         val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
-
-        for (i in anemones.indices) {
+        for (i in startIndex until endIndex) {
             val a = anemones[i]
-            if ((a.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * a.depth
             val tintAmount = a.depth * kMaxDepthTint
             val size = kAnemoneSize * a.scale * depthScale
@@ -1008,37 +995,18 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
     private fun drawSeaGrass(backLayer: Boolean) {
-        if (seaGrassProgram == 0 || seaGrasses.isEmpty()) return
+        val startIndex = if (backLayer) 0 else seaGrassBackCount
+        val endIndex = if (backLayer) seaGrassBackCount else seaGrasses.size
+        if (seaGrassProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(seaGrassProgram)
-
-        for (i in 1 until seaGrasses.size) {
-            val key = seaGrasses[i]
-            var j = i - 1
-            while (j >= 0 && seaGrasses[j].depth < key.depth) {
-                seaGrasses[j + 1] = seaGrasses[j]
-                j--
-            }
-            seaGrasses[j + 1] = key
-        }
 
         val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
-
-        for (i in seaGrasses.indices) {
+        for (i in startIndex until endIndex) {
             val g = seaGrasses[i]
-            if ((g.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * g.depth
             val tintAmount = g.depth * kMaxDepthTint
             val width = kSeaGrassWidth * depthScale
@@ -1067,37 +1035,18 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
     private fun drawCorals(backLayer: Boolean) {
-        if (coralProgram == 0 || corals.isEmpty()) return
+        val startIndex = if (backLayer) 0 else coralBackCount
+        val endIndex = if (backLayer) coralBackCount else corals.size
+        if (coralProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(coralProgram)
-
-        for (i in 1 until corals.size) {
-            val key = corals[i]
-            var j = i - 1
-            while (j >= 0 && corals[j].depth < key.depth) {
-                corals[j + 1] = corals[j]
-                j--
-            }
-            corals[j + 1] = key
-        }
 
         val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
-
-        for (i in corals.indices) {
+        for (i in startIndex until endIndex) {
             val c = corals[i]
-            if ((c.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * c.depth
             val tintAmount = c.depth * kMaxDepthTint
             val size = kCoralSize * c.scale * depthScale
@@ -1125,9 +1074,6 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
     /**
@@ -1166,13 +1112,6 @@ class AcuarioRenderer(
         }
 
         val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
-
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
 
         for (i in turtles.indices) {
             val t = turtles[i]
@@ -1222,9 +1161,6 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
     /** Writes `mix(from, toward, amount)` component-wise into [out] (avoids a per-call allocation). */
@@ -1281,13 +1217,7 @@ class AcuarioRenderer(
         bubbleInstanceBuffer.position(0)
 
         // Shared quad geometry (locations 0/1, divisor 0 -> same 4 vertices for every instance)
-        unitQuadBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-        unitQuadBuffer.position(2)
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
-        GLES30.glEnableVertexAttribArray(1)
-
+        // is already bound for the whole frame by onDrawFrame() - no need to re-set it here.
         val stride = instanceFloatsPerEntry * 4
         bubbleInstanceBuffer.position(0)
         GLES30.glVertexAttribPointer(2, 2, GLES30.GL_FLOAT, false, stride, bubbleInstanceBuffer)
@@ -1311,8 +1241,6 @@ class AcuarioRenderer(
 
         GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, totalBubbles)
 
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
         GLES30.glDisableVertexAttribArray(2)
         GLES30.glDisableVertexAttribArray(3)
         GLES30.glDisableVertexAttribArray(4)
