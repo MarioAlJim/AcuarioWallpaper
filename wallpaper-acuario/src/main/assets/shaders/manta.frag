@@ -40,12 +40,24 @@ void main() {
     // from nose to tail, and multiplying by p.y (not a fixed amplitude) means the displacement
     // grows with distance from the spine - the spine barely moves while the wingtips sweep
     // through the widest excursion, same as a real ray's undulating pectoral fin.
+    //
+    // kWingFlapAmplitude and the wings' own y-radius below are chosen together: this warp
+    // rescales p.y by a factor of (1 +/- kWingFlapAmplitude), so at full spread (factor
+    // 1 - kWingFlapAmplitude) the wingtip's *true* silhouette edge would sit at
+    // wingRadiusY / (1 - kWingFlapAmplitude) in unwarped space. If that exceeds 1.0 - the quad's
+    // own hard edge - the tip gets sliced off flat by the geometry boundary instead of tapering
+    // naturally, which is exactly what a too-large radius/amplitude combination looked like
+    // before this comment (wings visibly clipped by a flat top/bottom edge mid-flap). Keeping
+    // wingRadiusY / (1 - kWingFlapAmplitude) comfortably under 1.0 leaves room for the whole
+    // flap cycle to render without ever touching the quad's edge.
+    const float kWingFlapAmplitude = 0.16;
+    const float kWingRadiusY = 0.80; // 0.80 / (1 - 0.16) = 0.952 - safely inside the quad's [-1, 1]
     float flapWave = sin(uSwimPhase - p.x * 1.8);
-    vec2 pWarped = vec2(p.x, p.y + flapWave * p.y * 0.32);
+    vec2 pWarped = vec2(p.x, p.y + flapWave * p.y * kWingFlapAmplitude);
 
     // Body: a wide diamond-ish wingspan (much wider in y than long in x) plus a small pointed
     // nose bump at the front. Approximated with ellipses, same trick as the rest of the cast.
-    float aWings = ellipseAlpha(pWarped, vec2(0.02, 0.0), vec2(0.44, 0.85), 0.035);
+    float aWings = ellipseAlpha(pWarped, vec2(0.02, 0.0), vec2(0.44, kWingRadiusY), 0.035);
     float aNose = ellipseAlpha(pWarped, vec2(0.42, 0.0), vec2(0.16, 0.14), 0.03);
     // Long, thin whip tail trailing behind.
     float aTail = ellipseAlpha(pWarped, vec2(-0.74, 0.0), vec2(0.32, 0.018), 0.015);
@@ -85,7 +97,7 @@ void main() {
     color = mix(color, eyeColor, aEye);
 
     // Soft rim lighting along the upper edges, separating the silhouette from the background.
-    float wingsRim = rimLight(pWarped, vec2(0.02, 0.0), vec2(0.44, 0.85), aWings);
+    float wingsRim = rimLight(pWarped, vec2(0.02, 0.0), vec2(0.44, kWingRadiusY), aWings);
     float tailRim = rimLight(pWarped, vec2(-0.74, 0.0), vec2(0.32, 0.018), aTail);
     float rimAmount = max(wingsRim, tailRim) * (1.0 - aEye);
 
