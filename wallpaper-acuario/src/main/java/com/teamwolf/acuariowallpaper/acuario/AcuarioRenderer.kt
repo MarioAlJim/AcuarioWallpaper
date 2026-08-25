@@ -20,8 +20,9 @@ import kotlin.random.Random
  * ([Turtle], count via [ConfigProvider.getTurtleCount]) wandering around the tank with
  * animated flippers, each in a randomly-assigned [TurtlePalette]. Every so often (30-120s)
  * each turtle surfaces to breathe and releases a one-off burst of larger "exhale" bubbles
- * ([Turtle.consumeExhaleEvent]) on the way back down, and on every flap cycle it leaves a
- * small propulsion-bubble trail behind its front flippers ([Turtle.consumePowerStrokeEvent]).
+ * ([Turtle.consumeExhaleEvent]) on the way back down, and occasionally (~30% of flap cycles,
+ * 1-2 bubbles - see kPropulsionBubbleChance) leaves a small propulsion puff behind a front
+ * flipper ([Turtle.consumePowerStrokeEvent]).
  * Also 0-8 fish ([Fish], count via [ConfigProvider.getFishCount]) and 0-4 manta rays ([Manta],
  * count via [ConfigProvider.getMantaCount]) - mantas are bigger, slower gliders drawn first/
  * farthest-back among the creatures, each in a randomly-assigned [MantaPalette]. Finally, 0-24
@@ -72,10 +73,15 @@ class AcuarioRenderer(
     // these are NOT recycled forever - once one drifts off the top of the screen it's simply
     // removed, since each is a momentary event, not a permanent part of the water's atmosphere.
     // kMaxBurstBubbles is a safety cap on the shared instance buffer below, not a tuning knob -
-    // sized generously since up to kMaxTurtles turtles can each be adding a small propulsion
-    // pair roughly once per stroke cycle (every ~2s), on top of occasional exhale bursts.
+    // sized generously even though propulsion bubbles are now the rare exception rather than
+    // the rule (see kPropulsionBubbleChance), since occasional exhale bursts can still stack up
+    // across kMaxTurtles turtles.
     private val kExhaleBubblesPerBreath = 2
-    private val kPropulsionBubblesPerStroke = 2
+    // Chance, per power stroke, that a propulsion bubble is spawned at all - firing on every
+    // single stroke across every turtle read as constant bubble clutter saturating the screen,
+    // so this makes the trail an occasional flourish (1-2 bubbles, see spawnPropulsionBubbles())
+    // instead of a guaranteed one every ~2s per turtle.
+    private val kPropulsionBubbleChance = 0.30f
     private val kMaxBurstBubbles = 40
     private val burstBubbles = mutableListOf<Bubble>()
     private var activeBurstCount = 0
@@ -508,7 +514,10 @@ class AcuarioRenderer(
             if (t.consumeExhaleEvent()) {
                 spawnExhaleBubbles(t.x, t.y)
             }
-            if (t.consumePowerStrokeEvent()) {
+            // consumePowerStrokeEvent() must run every frame regardless of the chance roll - it
+            // consumes the pending flag - so it stays the left operand of this short-circuiting
+            // &&, evaluated exactly once either way.
+            if (t.consumePowerStrokeEvent() && Random.nextFloat() < kPropulsionBubbleChance) {
                 spawnPropulsionBubbles(t)
             }
         }
@@ -561,14 +570,20 @@ class AcuarioRenderer(
     }
 
     /**
-     * [kPropulsionBubblesPerStroke] small, subtle bubbles released right at [t]'s front-top and
-     * front-bottom flippers - the "push" of a downstroke - reinforcing the effort of swimming.
+     * 1-2 small, subtle bubbles released right at [t]'s front flippers - the "push" of a
+     * downstroke - reinforcing the effort of swimming. Only called on the ~30% of strokes that
+     * pass [kPropulsionBubbleChance]'s roll, and even then a coin flip decides whether both
+     * flippers get one or just a single (randomly chosen) one does, so a full pair is the
+     * exception rather than the rule.
      */
     private fun spawnPropulsionBubbles(t: Turtle) {
-        val (topX, topY) = t.frontFlipperWorldPosition(top = true, turtleScale = kTurtleScale)
-        val (botX, botY) = t.frontFlipperWorldPosition(top = false, turtleScale = kTurtleScale)
-        spawnPropulsionBubbleAt(topX, topY)
-        spawnPropulsionBubbleAt(botX, botY)
+        val top = Random.nextBoolean()
+        val (x, y) = t.frontFlipperWorldPosition(top = top, turtleScale = kTurtleScale)
+        spawnPropulsionBubbleAt(x, y)
+        if (Random.nextBoolean()) {
+            val (otherX, otherY) = t.frontFlipperWorldPosition(top = !top, turtleScale = kTurtleScale)
+            spawnPropulsionBubbleAt(otherX, otherY)
+        }
     }
 
     private fun spawnPropulsionBubbleAt(originX: Float, originY: Float) {
