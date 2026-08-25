@@ -659,7 +659,14 @@ class AcuarioRenderer(
 
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
-        drawBackground()
+
+        // Read once and threaded through every draw*() call below as a parameter, instead of
+        // each of them separately calling configProvider.getAcuarioTheme()/
+        // getDeepColorForTheme() (8 redundant reads of the exact same value every single frame).
+        val theme = configProvider.getAcuarioTheme()
+        val deepColor = getDeepColorForTheme(theme)
+
+        drawBackground(theme)
 
         // Every draw call below this point (both plant-layer passes, every creature, and the
         // bubbles' shared per-instance quad) reads its base quad geometry from the same
@@ -680,11 +687,11 @@ class AcuarioRenderer(
         // (plants nearer the glass, drawn last) with every creature sandwiched in between - see
         // drawPlants()'s comment - so fish/turtles/mantas can pass behind some plants and in
         // front of others instead of always sitting on top of the whole tank floor.
-        drawPlants(backLayer = true)
-        drawMantas()
-        drawFish()
-        drawTurtles()
-        drawPlants(backLayer = false)
+        drawPlants(backLayer = true, deepColor)
+        drawMantas(deepColor)
+        drawFish(deepColor)
+        drawTurtles(deepColor)
+        drawPlants(backLayer = false, deepColor)
         drawBubbles()
 
         GLES30.glDisableVertexAttribArray(0)
@@ -713,7 +720,7 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawFish() {
+    private fun drawFish(deepColor: FloatArray) {
         if (fishProgram == 0 || fishes.isEmpty()) return
         GLES30.glUseProgram(fishProgram)
 
@@ -727,8 +734,6 @@ class AcuarioRenderer(
             }
             fishes[j + 1] = key
         }
-
-        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         for (i in fishes.indices) {
             val f = fishes[i]
@@ -769,7 +774,7 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawMantas() {
+    private fun drawMantas(deepColor: FloatArray) {
         if (mantaProgram == 0 || mantas.isEmpty()) return
         GLES30.glUseProgram(mantaProgram)
 
@@ -783,8 +788,6 @@ class AcuarioRenderer(
             }
             mantas[j + 1] = key
         }
-
-        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         for (i in mantas.indices) {
             val m = mantas[i]
@@ -909,20 +912,18 @@ class AcuarioRenderer(
      * the front layer, drawn after the creatures; anything deeper belongs in the back layer,
      * drawn before them. [backLayer] selects which half this call draws.
      */
-    private fun drawPlants(backLayer: Boolean) {
-        drawCorals(backLayer)
-        drawKelp(backLayer)
-        drawSeaGrass(backLayer)
-        drawAnemones(backLayer)
+    private fun drawPlants(backLayer: Boolean, deepColor: FloatArray) {
+        drawCorals(backLayer, deepColor)
+        drawKelp(backLayer, deepColor)
+        drawSeaGrass(backLayer, deepColor)
+        drawAnemones(backLayer, deepColor)
     }
 
-    private fun drawKelp(backLayer: Boolean) {
+    private fun drawKelp(backLayer: Boolean, deepColor: FloatArray) {
         val startIndex = if (backLayer) 0 else kelpBackCount
         val endIndex = if (backLayer) kelpBackCount else kelps.size
         if (kelpProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(kelpProgram)
-
-        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         for (i in startIndex until endIndex) {
             val k = kelps[i]
@@ -958,13 +959,11 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawAnemones(backLayer: Boolean) {
+    private fun drawAnemones(backLayer: Boolean, deepColor: FloatArray) {
         val startIndex = if (backLayer) 0 else anemoneBackCount
         val endIndex = if (backLayer) anemoneBackCount else anemones.size
         if (anemoneProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(anemoneProgram)
-
-        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         for (i in startIndex until endIndex) {
             val a = anemones[i]
@@ -997,13 +996,11 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawSeaGrass(backLayer: Boolean) {
+    private fun drawSeaGrass(backLayer: Boolean, deepColor: FloatArray) {
         val startIndex = if (backLayer) 0 else seaGrassBackCount
         val endIndex = if (backLayer) seaGrassBackCount else seaGrasses.size
         if (seaGrassProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(seaGrassProgram)
-
-        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         for (i in startIndex until endIndex) {
             val g = seaGrasses[i]
@@ -1037,13 +1034,11 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawCorals(backLayer: Boolean) {
+    private fun drawCorals(backLayer: Boolean, deepColor: FloatArray) {
         val startIndex = if (backLayer) 0 else coralBackCount
         val endIndex = if (backLayer) coralBackCount else corals.size
         if (coralProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(coralProgram)
-
-        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         for (i in startIndex until endIndex) {
             val c = corals[i]
@@ -1093,7 +1088,7 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawTurtles() {
+    private fun drawTurtles(deepColor: FloatArray) {
         if (turtleProgram == 0 || turtles.isEmpty()) return
         GLES30.glUseProgram(turtleProgram)
 
@@ -1110,8 +1105,6 @@ class AcuarioRenderer(
             }
             turtles[j + 1] = key
         }
-
-        val deepColor = getDeepColorForTheme(configProvider.getAcuarioTheme())
 
         for (i in turtles.indices) {
             val t = turtles[i]
@@ -1170,11 +1163,11 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawBackground() {
+    private fun drawBackground(theme: Int) {
         if (backgroundProgram == 0) return
         GLES30.glUseProgram(backgroundProgram)
         GLES30.glUniform1f(bgTimeHandle, time)
-        GLES30.glUniform1i(bgThemeHandle, configProvider.getAcuarioTheme())
+        GLES30.glUniform1i(bgThemeHandle, theme)
         GLES30.glUniform1f(bgAspectHandle, aspectRatio)
         GLES30.glUniform1f(bgParallaxHandle, parallaxRaw)
 
