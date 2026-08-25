@@ -30,7 +30,10 @@ float rimLight(vec2 p, vec2 center, vec2 radii, float alpha) {
 
 void main() {
     // Center UV to [-1, 1] space. Fish faces right.
-    vec2 p = (vUV - 0.5) * 2.0;
+    // The shared quad's V axis runs top(0)->bottom(1) on screen, opposite of this
+    // shader's local +y-is-up convention (dorsal fin at +y, ventral at -y), so the
+    // vertical component is flipped here to keep the fish right-side up.
+    vec2 p = vec2((vUV.x - 0.5) * 2.0, (0.5 - vUV.y) * 2.0);
 
     // Organic swimming tail-wag: Warp coordinate y-axis based on x-axis and swim phase.
     // Bending is 0 at the head (p.x > 0.2) and reaches maximum at the tail (p.x < -0.6).
