@@ -45,8 +45,19 @@ float hingedLimbAlpha(vec2 p, vec2 pivot, float restAngle, float hingeAngle, flo
 // Deterministic pseudo-random 2D hash, used below to place one "feature point" per grid cell
 // for the Voronoi scute pattern (same cell coordinate always yields the same point/shade, so
 // the plate layout doesn't swim as the turtle moves). Fast, sine-free 2D hash based on Dave Hoskins.
-vec2 hash2(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+//
+// highp throughout (parameter, return type, and every local) despite this file's default
+// `precision mediump float` - GLSL ES only guarantees mediump as AT LEAST ~16-bit half-float,
+// and plenty of real mobile GPUs implement it as exactly that. This hash's fract()-then-
+// (+33.33)-then-fract() chain needs many bits of mantissa to keep nearby inputs from collapsing
+// to the same output; at 16-bit half-float precision it visibly does exactly that, and the
+// intended irregular Voronoi rhombi degrade into a coarse, regular-looking grid on whichever
+// device's GPU actually implements mediump that narrowly (this is the same root cause as the
+// mediump-precision bug already fixed for swimPhase/uSwimPhase elsewhere - too little mantissa
+// for what's being computed - just showing up as a spatial hash artifact here instead of a
+// stalled time-based animation).
+highp vec2 hash2(highp vec2 p) {
+    highp vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.xx + p3.yz) * p3.zy);
 }
@@ -55,21 +66,22 @@ vec2 hash2(vec2 p) {
 // distances to the nearest and second-nearest feature points, and cellShade/cellSpot are two
 // independent, stable pseudo-random values in [0, 1) tied to the WINNING cell. Optimized to
 // use squared distances in the inner loop to save 9 square root operations, only taking the sqrt
-// at the very end.
-vec4 voronoi(vec2 p) {
-    vec2 ip = floor(p);
-    vec2 fp = fract(p);
+// at the very end. highp for the same reason as hash2() above - it calls hash2() in its inner
+// loop and needs to preserve that same precision through the distance comparisons.
+highp vec4 voronoi(highp vec2 p) {
+    highp vec2 ip = floor(p);
+    highp vec2 fp = fract(p);
 
-    float f1Sq = 64.0;
-    float f2Sq = 64.0;
-    vec2 f1Cell = ip;
+    highp float f1Sq = 64.0;
+    highp float f2Sq = 64.0;
+    highp vec2 f1Cell = ip;
 
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
-            vec2 neighbor = vec2(float(x), float(y));
-            vec2 point = hash2(ip + neighbor);
-            vec2 diff = neighbor + point - fp;
-            float distSq = dot(diff, diff);
+            highp vec2 neighbor = vec2(float(x), float(y));
+            highp vec2 point = hash2(ip + neighbor);
+            highp vec2 diff = neighbor + point - fp;
+            highp float distSq = dot(diff, diff);
             if (distSq < f1Sq) {
                 f2Sq = f1Sq;
                 f1Sq = distSq;
@@ -80,7 +92,7 @@ vec4 voronoi(vec2 p) {
         }
     }
 
-    vec2 cellRandom = hash2(f1Cell);
+    highp vec2 cellRandom = hash2(f1Cell);
     return vec4(sqrt(f1Sq), sqrt(f2Sq), cellRandom.x, cellRandom.y);
 }
 
