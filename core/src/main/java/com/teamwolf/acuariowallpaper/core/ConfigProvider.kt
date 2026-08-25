@@ -12,4 +12,5 @@ interface ConfigProvider {
     fun getBubbleCount(): Int  // 4-45 ambient bubbles on screen at once
     fun getFishCount(): Int    // 0-8
     fun getMantaCount(): Int   // 0-4
+    fun getPlantDensity(): Int // 0-24 anchored plants (kelp + anemones) on the tank floor
 }

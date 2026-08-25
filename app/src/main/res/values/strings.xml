@@ -17,6 +17,12 @@
     <string name="settings_fish_color_note">Cada pez toma un color de una paleta tropical al azar.</string>
     <string name="settings_section_manta_count">Cantidad de mantarrayas</string>
     <string name="settings_manta_color_note">Cada mantarraya toma un color de una especie real al azar.</string>
+    <string name="settings_section_plant_density">Vegetación</string>
+    <string name="settings_plant_color_note">Cada planta toma un color de una especie real al azar.</string>
+    <string name="plant_density_poca">Poca</string>
+    <string name="plant_density_media">Media</string>
+    <string name="plant_density_alta">Alta</string>
+    <string name="plant_density_muy_alta">Muy alta</string>
     <string name="settings_section_bubble_count">Cantidad de burbujas</string>
     <string name="bubble_density_poco">Poco</string>
     <string name="bubble_density_medio">Medio</string>

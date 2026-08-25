@@ -52,12 +52,57 @@ class MantaPalette(
             markingColor = floatArrayOf(0.75f, 0.78f, 0.90f)
         )
 
+        /** Giant (pelagic) manta ray: warm charcoal body, broad soft-grey shoulder patches. */
+        private val GIANT_MANTA = MantaPalette(
+            bodyColor = floatArrayOf(0.10f, 0.10f, 0.11f),
+            wingColor = floatArrayOf(0.14f, 0.14f, 0.15f),
+            tailColor = floatArrayOf(0.09f, 0.09f, 0.10f),
+            markingColor = floatArrayOf(0.65f, 0.64f, 0.62f)
+        )
+
+        /** Blue-spotted ribbontail ray: warm tan body scattered with vivid electric-blue spots. */
+        private val BLUE_SPOTTED_RIBBONTAIL = MantaPalette(
+            bodyColor = floatArrayOf(0.60f, 0.42f, 0.20f),
+            wingColor = floatArrayOf(0.52f, 0.36f, 0.16f),
+            tailColor = floatArrayOf(0.48f, 0.32f, 0.14f),
+            markingColor = floatArrayOf(0.10f, 0.35f, 0.90f)
+        )
+
+        /** Southern stingray: smooth dark olive-brown body, pale undertone edges. */
+        private val SOUTHERN_STINGRAY = MantaPalette(
+            bodyColor = floatArrayOf(0.20f, 0.20f, 0.14f),
+            wingColor = floatArrayOf(0.26f, 0.25f, 0.17f),
+            tailColor = floatArrayOf(0.16f, 0.16f, 0.11f),
+            markingColor = floatArrayOf(0.55f, 0.52f, 0.40f)
+        )
+
+        /** Bat ray: dark brown body, coppery-tan wing undertones. */
+        private val BAT_RAY = MantaPalette(
+            bodyColor = floatArrayOf(0.24f, 0.15f, 0.09f),
+            wingColor = floatArrayOf(0.34f, 0.22f, 0.12f),
+            tailColor = floatArrayOf(0.18f, 0.11f, 0.06f),
+            markingColor = floatArrayOf(0.48f, 0.34f, 0.18f)
+        )
+
+        /** Butterfly ray: pale sandy-grey body with a fine dark mottled diamond pattern. */
+        private val BUTTERFLY_RAY = MantaPalette(
+            bodyColor = floatArrayOf(0.55f, 0.52f, 0.46f),
+            wingColor = floatArrayOf(0.48f, 0.45f, 0.40f),
+            tailColor = floatArrayOf(0.40f, 0.38f, 0.33f),
+            markingColor = floatArrayOf(0.22f, 0.20f, 0.16f)
+        )
+
         val PALETTES: List<MantaPalette> = listOf(
             REEF_MANTA,
             OCEANIC_MANTA,
             SPOTTED_EAGLE_RAY,
             COWNOSE_RAY,
-            DEVIL_RAY
+            DEVIL_RAY,
+            GIANT_MANTA,
+            BLUE_SPOTTED_RIBBONTAIL,
+            SOUTHERN_STINGRAY,
+            BAT_RAY,
+            BUTTERFLY_RAY
         )
     }
 }

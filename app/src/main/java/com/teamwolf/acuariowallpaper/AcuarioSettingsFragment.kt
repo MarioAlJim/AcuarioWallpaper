@@ -13,10 +13,10 @@ import com.teamwolf.acuariowallpaper.core.ConfigManager
 
 /**
  * Settings screen for the Acuario effect. Currently wires the "Ambiente" (Acuario / Mar
- * abierto) theme selector, the turtle/fish/manta ray count selectors, and the ambient bubble
- * count (Poco/Medio/Alto/Muy alto) selector - see fragment_acuario_settings.xml's comment for
- * what to add next as the effect grows more knobs. Every new effect should get its own selector
- * here, mirroring one of these.
+ * abierto) theme selector, the turtle/fish/manta ray count selectors, the plant (vegetation)
+ * density selector, and the ambient bubble count (Poco/Medio/Alto/Muy alto) selector - see
+ * fragment_acuario_settings.xml's comment for what to add next as the effect grows more knobs.
+ * Every new effect should get its own selector here, mirroring one of these.
  */
 class AcuarioSettingsFragment : Fragment() {
 
@@ -38,6 +38,7 @@ class AcuarioSettingsFragment : Fragment() {
         setupTurtleCountCards(view)
         setupFishCountCards(view)
         setupMantaCountCards(view)
+        setupPlantDensityCards(view)
         setupBubbleCountCards(view)
     }
 
@@ -151,6 +152,36 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setMantaCount(selectedIndex)
+        }
+    }
+
+    // Like bubble density below, each tier maps to an actual plant count (kept in sync with
+    // AcuarioRenderer's kMaxPlantDensity) rather than storing the card index directly.
+    private fun setupPlantDensityCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerPlantDensity)
+        val options = arrayOf(
+            getString(R.string.plant_density_poca),
+            getString(R.string.plant_density_media),
+            getString(R.string.plant_density_alta),
+            getString(R.string.plant_density_muy_alta)
+        )
+        val values = intArrayOf(0, 6, 12, 20)
+        val initialIndex = SettingsCardSelectorHelper.closestValueIndex(values, configManager.getPlantDensity())
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            initialIndex,
+            previewFactory = {
+                TextView(requireContext()).apply {
+                    text = "🌿"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setPlantDensity(values[selectedIndex])
         }
     }
 
