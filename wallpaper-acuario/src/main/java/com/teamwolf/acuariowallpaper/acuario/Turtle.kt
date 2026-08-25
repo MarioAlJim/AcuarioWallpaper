@@ -261,8 +261,14 @@ class Turtle {
      * propulsion bubble trail spawns right where the flipper visually is regardless of the
      * turtle's current facing/pitch. [turtleScale] must be the same uniform scale
      * AcuarioRenderer draws this turtle at (its kTurtleScale).
+     *
+     * Writes the result into [out] (`out[0]` = x, `out[1]` = y) instead of returning a
+     * `Pair<Float, Float>` - Kotlin boxes both Floats to build one, and this is called from
+     * AcuarioRenderer's spawnPropulsionBubbles() on every qualifying power stroke, so a caller-
+     * owned scratch array (the same pattern [AcuarioRenderer.mixColorInto] already uses for its
+     * own per-frame color math) avoids that allocation entirely.
      */
-    fun frontFlipperWorldPosition(top: Boolean, turtleScale: Float): Pair<Float, Float> {
+    fun frontFlipperWorldPosition(top: Boolean, turtleScale: Float, out: FloatArray) {
         val frontFlap = kotlin.math.sin(swimPhase) * 0.14f
         val localX = 0.10f
         val localY = if (top) 0.46f + frontFlap else -0.46f - frontFlap
@@ -274,7 +280,8 @@ class Turtle {
         val rotatedY = localX * sinP + localY * cosP
 
         val mirroredX = rotatedX * facingScale()
-        return (x + turtleScale * mirroredX) to (y + turtleScale * rotatedY)
+        out[0] = x + turtleScale * mirroredX
+        out[1] = y + turtleScale * rotatedY
     }
 
     private fun pickNewTarget(aspectRatio: Float) {

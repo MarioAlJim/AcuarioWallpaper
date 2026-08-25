@@ -80,6 +80,14 @@ class GLRenderThread(
             renderer.onSurfaceCreated()
 
             var lastTime = System.nanoTime()
+            // Last values actually delivered to the renderer - lets the loop below skip
+            // onOffsetsChanged()/onSensorValuesChanged() entirely on the (overwhelmingly common)
+            // frames where neither has moved since the last one, instead of calling them
+            // unconditionally 60x/sec for as long as the wallpaper is visible.
+            var lastDeliveredXOffset = xOffset
+            var lastDeliveredYOffset = yOffset
+            var lastDeliveredTiltX = tiltX
+            var lastDeliveredTiltY = tiltY
 
             while (running) {
                 synchronized(lock) {
@@ -135,8 +143,16 @@ class GLRenderThread(
                     renderer.onTouchEvent(touch.first, touch.second)
                 }
 
-                renderer.onOffsetsChanged(localXOffset, localYOffset)
-                renderer.onSensorValuesChanged(localTiltX, localTiltY)
+                if (localXOffset != lastDeliveredXOffset || localYOffset != lastDeliveredYOffset) {
+                    renderer.onOffsetsChanged(localXOffset, localYOffset)
+                    lastDeliveredXOffset = localXOffset
+                    lastDeliveredYOffset = localYOffset
+                }
+                if (localTiltX != lastDeliveredTiltX || localTiltY != lastDeliveredTiltY) {
+                    renderer.onSensorValuesChanged(localTiltX, localTiltY)
+                    lastDeliveredTiltX = localTiltX
+                    lastDeliveredTiltY = localTiltY
+                }
 
                 val currentTime = System.nanoTime()
                 val deltaTime = (currentTime - lastTime) / 1_000_000_000f
