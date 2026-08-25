@@ -137,8 +137,9 @@ class AcuarioRenderer(
     private var kelpBaseColorHandle = 0
     private var kelpHighlightColorHandle = 0
     private val kelps = mutableListOf<Kelp>()
-    private val kKelpWidth = 0.32f
-    private val kKelpBaseHeight = 0.55f
+    // +25% over the original 0.32/0.55 - vegetation reads too small/sparse at the original size.
+    private val kKelpWidth = 0.40f
+    private val kKelpBaseHeight = 0.6875f
 
     private var anemoneProgram = 0
     private var anemoneMVPHandle = 0
@@ -148,7 +149,8 @@ class AcuarioRenderer(
     private var anemoneTipColorHandle = 0
     private var anemoneHighlightColorHandle = 0
     private val anemones = mutableListOf<Anemone>()
-    private val kAnemoneSize = 0.30f
+    // +25% over the original 0.30.
+    private val kAnemoneSize = 0.375f
 
     private var seaGrassProgram = 0
     private var seaGrassMVPHandle = 0
@@ -158,8 +160,9 @@ class AcuarioRenderer(
     private var seaGrassBaseColorHandle = 0
     private var seaGrassHighlightColorHandle = 0
     private val seaGrasses = mutableListOf<SeaGrass>()
-    private val kSeaGrassWidth = 0.20f
-    private val kSeaGrassBaseHeight = 0.22f
+    // +25% over the original 0.20/0.22.
+    private val kSeaGrassWidth = 0.25f
+    private val kSeaGrassBaseHeight = 0.275f
 
     private var coralProgram = 0
     private var coralMVPHandle = 0
@@ -169,7 +172,8 @@ class AcuarioRenderer(
     private var coralPolypColorHandle = 0
     private var coralHighlightColorHandle = 0
     private val corals = mutableListOf<Coral>()
-    private val kCoralSize = 0.34f
+    // +25% over the original 0.34.
+    private val kCoralSize = 0.425f
 
     // Fraction of the total plant density budget spent on each vegetation type - must sum to 1.
     private val kKelpShareOfDensity = 0.35f
@@ -181,6 +185,9 @@ class AcuarioRenderer(
     // The floor plants are anchored to - low enough that a full-height kelp clump's tip stays
     // comfortably inside the tank rather than poking past the turtles' own roaming floor.
     private val kPlantFloorY = -1.0f
+    // Splits every plant list into a back layer (depth >= this, drawn before the creatures) and
+    // a front layer (depth < this, drawn after) - see drawPlants()'s comment.
+    private val kPlantLayerSplitDepth = 0.5f
     // Sentinel (an impossible real density) forcing layoutPlants() to run once on the very first
     // syncPlants() call, regardless of what ConfigProvider.getPlantDensity() returns.
     private var currentPlantDensity = -1
@@ -604,10 +611,15 @@ class AcuarioRenderer(
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
         drawBackground()
-        drawPlants()
+        // Vegetation is split into a back layer (deeper plants, drawn first) and a front layer
+        // (plants nearer the glass, drawn last) with every creature sandwiched in between - see
+        // drawPlants()'s comment - so fish/turtles/mantas can pass behind some plants and in
+        // front of others instead of always sitting on top of the whole tank floor.
+        drawPlants(backLayer = true)
         drawMantas()
         drawFish()
         drawTurtles()
+        drawPlants(backLayer = false)
         drawBubbles()
     }
 
@@ -825,14 +837,23 @@ class AcuarioRenderer(
         plantLayoutAspectRatio = aspectRatio
     }
 
-    private fun drawPlants() {
-        drawCorals()
-        drawKelp()
-        drawSeaGrass()
-        drawAnemones()
+    /**
+     * Draws vegetation split into two calls around the creatures (see [onDrawFrame]) so fish/
+     * turtles/mantas can pass in front of some plants and behind others instead of always being
+     * layered on top of every plant. Each plant's own [Kelp.depth]/[Anemone.depth]/etc (already
+     * used for the water's near-glass/deep-background parallax tint) doubles as its layer
+     * assignment: anything shallower than [kPlantLayerSplitDepth] (nearer the glass) belongs in
+     * the front layer, drawn after the creatures; anything deeper belongs in the back layer,
+     * drawn before them. [backLayer] selects which half this call draws.
+     */
+    private fun drawPlants(backLayer: Boolean) {
+        drawCorals(backLayer)
+        drawKelp(backLayer)
+        drawSeaGrass(backLayer)
+        drawAnemones(backLayer)
     }
 
-    private fun drawKelp() {
+    private fun drawKelp(backLayer: Boolean) {
         if (kelpProgram == 0 || kelps.isEmpty()) return
         GLES30.glUseProgram(kelpProgram)
 
@@ -858,6 +879,7 @@ class AcuarioRenderer(
 
         for (i in kelps.indices) {
             val k = kelps[i]
+            if ((k.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * k.depth
             val tintAmount = k.depth * kMaxDepthTint
             val width = kKelpWidth * depthScale
@@ -893,7 +915,7 @@ class AcuarioRenderer(
         GLES30.glDisableVertexAttribArray(1)
     }
 
-    private fun drawAnemones() {
+    private fun drawAnemones(backLayer: Boolean) {
         if (anemoneProgram == 0 || anemones.isEmpty()) return
         GLES30.glUseProgram(anemoneProgram)
 
@@ -918,6 +940,7 @@ class AcuarioRenderer(
 
         for (i in anemones.indices) {
             val a = anemones[i]
+            if ((a.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * a.depth
             val tintAmount = a.depth * kMaxDepthTint
             val size = kAnemoneSize * a.scale * depthScale
@@ -950,7 +973,7 @@ class AcuarioRenderer(
         GLES30.glDisableVertexAttribArray(1)
     }
 
-    private fun drawSeaGrass() {
+    private fun drawSeaGrass(backLayer: Boolean) {
         if (seaGrassProgram == 0 || seaGrasses.isEmpty()) return
         GLES30.glUseProgram(seaGrassProgram)
 
@@ -975,6 +998,7 @@ class AcuarioRenderer(
 
         for (i in seaGrasses.indices) {
             val g = seaGrasses[i]
+            if ((g.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * g.depth
             val tintAmount = g.depth * kMaxDepthTint
             val width = kSeaGrassWidth * depthScale
@@ -1008,7 +1032,7 @@ class AcuarioRenderer(
         GLES30.glDisableVertexAttribArray(1)
     }
 
-    private fun drawCorals() {
+    private fun drawCorals(backLayer: Boolean) {
         if (coralProgram == 0 || corals.isEmpty()) return
         GLES30.glUseProgram(coralProgram)
 
@@ -1033,6 +1057,7 @@ class AcuarioRenderer(
 
         for (i in corals.indices) {
             val c = corals[i]
+            if ((c.depth >= kPlantLayerSplitDepth) != backLayer) continue
             val depthScale = 1f - (1f - kMinScaleAtDepth) * c.depth
             val tintAmount = c.depth * kMaxDepthTint
             val size = kCoralSize * c.scale * depthScale
