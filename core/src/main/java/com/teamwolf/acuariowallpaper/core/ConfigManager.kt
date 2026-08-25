@@ -37,6 +37,9 @@ class ConfigManager(context: Context) : ConfigProvider {
         const val KEY_FISH_COUNT = "fish_count"
         const val DEFAULT_FISH_COUNT = 3
 
+        const val KEY_MANTA_COUNT = "manta_count"
+        const val DEFAULT_MANTA_COUNT = 1
+
         const val KEY_BUBBLE_COUNT = "bubble_count"
         const val DEFAULT_BUBBLE_COUNT = 28
 
@@ -54,6 +57,9 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getFishCount(): Int = acuario.getFishCount()
     fun setFishCount(count: Int) = acuario.setFishCount(count)
+
+    override fun getMantaCount(): Int = acuario.getMantaCount()
+    fun setMantaCount(count: Int) = acuario.setMantaCount(count)
 
     override fun getBubbleCount(): Int = acuario.getBubbleCount()
     fun setBubbleCount(count: Int) = acuario.setBubbleCount(count)

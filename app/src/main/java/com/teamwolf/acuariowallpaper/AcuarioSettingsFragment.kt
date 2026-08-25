@@ -13,10 +13,10 @@ import com.teamwolf.acuariowallpaper.core.ConfigManager
 
 /**
  * Settings screen for the Acuario effect. Currently wires the "Ambiente" (Acuario / Mar
- * abierto) theme selector, the turtle count (0-5) selector, and the ambient bubble count
- * (Poco/Medio/Alto/Muy alto) selector - see fragment_acuario_settings.xml's comment for what to
- * add next as the effect grows more knobs. Every new effect should get its own selector here,
- * mirroring one of these three.
+ * abierto) theme selector, the turtle/fish/manta ray count selectors, and the ambient bubble
+ * count (Poco/Medio/Alto/Muy alto) selector - see fragment_acuario_settings.xml's comment for
+ * what to add next as the effect grows more knobs. Every new effect should get its own selector
+ * here, mirroring one of these.
  */
 class AcuarioSettingsFragment : Fragment() {
 
@@ -37,6 +37,7 @@ class AcuarioSettingsFragment : Fragment() {
         setupThemeCards(view)
         setupTurtleCountCards(view)
         setupFishCountCards(view)
+        setupMantaCountCards(view)
         setupBubbleCountCards(view)
     }
 
@@ -126,6 +127,30 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setFishCount(selectedIndex)
+        }
+    }
+
+    // Index == manta count (0-4), same as turtle/fish count above. No dedicated manta ray emoji
+    // exists in Unicode, so the UFO glyph stands in - it's the closest common emoji to a wide,
+    // flat, wing-tipped silhouette.
+    private fun setupMantaCountCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerMantaCount)
+        val options = (0..4).map { it.toString() }.toTypedArray()
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getMantaCount(),
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = if (index == 0) "🚫" else "🛸"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setMantaCount(selectedIndex)
         }
     }
 
