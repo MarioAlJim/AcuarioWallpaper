@@ -209,30 +209,37 @@ void main() {
 
     // Chromatic aberration: real underwater caustics separate slightly by wavelength right at
     // their sharp edges. With no texture to sample here, we fake it by re-running the same
-    // cellular lookup at a small position offset for red/blue (green stays on the un-shifted
-    // sample) - since the pattern is ~0 everywhere except right at a light-net seam, this only
-    // produces a visible red/blue fringe exactly where the pattern itself has contrast, never as
-    // a flat screen-wide tint.
+    // cellular lookup at a small position offset - since the pattern is ~0 everywhere except
+    // right at a light-net seam, this only produces a visible red/blue fringe exactly where the
+    // pattern itself has contrast, never as a flat screen-wide tint.
     //
-    // The R/B *deviation* from the green (centered) sample is boosted by kAberrationBoost
-    // independently of causticStrength/kAberrationOffset below, so the fringe stays clearly
-    // visible even though causticStrength dims the whole caustic layer - without this, turning
-    // the mesh down would also (wrongly) fade the color separation to invisible right along with it.
+    // voronoiCaustic() is the single most expensive thing in this shader (a 3x3 = 9-iteration
+    // hashed search per call) and this ran it THREE times per fragment - once for green, and
+    // once more each for red/blue at their own independent offsets. Real chromatic aberration
+    // only needs one separation axis, though, so a single extra sample - mirrored around the
+    // green (centered) sample to get red on one side and blue on the other, instead of two
+    // independent offset samples - gives visually the same fringe for one less full Voronoi
+    // evaluation per pixel (2 total instead of 3, over every pixel of a full-screen background
+    // quad, every frame).
+    //
+    // The deviation from the green sample is boosted by kAberrationBoost independently of
+    // causticStrength/kAberrationOffset below, so the fringe stays clearly visible even though
+    // causticStrength dims the whole caustic layer - without this, turning the mesh down would
+    // also (wrongly) fade the color separation to invisible right along with it.
     const vec2 kAberrationOffset = vec2(0.05, 0.02);
     const float kAberrationBoost = 1.6;
     vec2 cellG = voronoiCaustic(cp);
-    vec2 cellR = voronoiCaustic(cp + kAberrationOffset);
-    vec2 cellB = voronoiCaustic(cp - kAberrationOffset);
+    vec2 cellShifted = voronoiCaustic(cp + kAberrationOffset);
     float caustic = pow(1.0 - smoothstep(0.0, 0.2, cellG.y - cellG.x), 1.5);
-    float causticR = pow(1.0 - smoothstep(0.0, 0.2, cellR.y - cellR.x), 1.5);
-    float causticB = pow(1.0 - smoothstep(0.0, 0.2, cellB.y - cellB.x), 1.5);
+    float causticShifted = pow(1.0 - smoothstep(0.0, 0.2, cellShifted.y - cellShifted.x), 1.5);
+    float aberrationDelta = (causticShifted - caustic) * kAberrationBoost;
     // Clamped to >= 0: near a sharp seam corner the boosted deviation could in principle push a
     // channel negative, which would subtract from `color` instead of tinting it - a dark halo
     // where a bright fringe was intended.
     vec3 causticRGB = vec3(
-        max(caustic + (causticR - caustic) * kAberrationBoost, 0.0),
+        max(caustic + aberrationDelta, 0.0),
         caustic,
-        max(caustic + (causticB - caustic) * kAberrationBoost, 0.0)
+        max(caustic - aberrationDelta, 0.0)
     );
 
     // Layered back in alongside the Voronoi net (not replacing it): the original two-sine
