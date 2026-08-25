@@ -241,6 +241,9 @@ class AcuarioRenderer(
     private val scratchHeadColor = FloatArray(3)
     private val scratchFlipperColor = FloatArray(3)
     private val scratchSpotColor = FloatArray(3)
+    // Reused by spawnPropulsionBubbles() to receive Turtle.frontFlipperWorldPosition()'s [x, y]
+    // output without allocating a Pair<Float, Float> (which boxes both values) on every call.
+    private val scratchFlipperPosition = FloatArray(2)
     private val scratchBodyColor = FloatArray(3)
     private val scratchFinColor = FloatArray(3)
     private val scratchTailColor = FloatArray(3)
@@ -634,11 +637,11 @@ class AcuarioRenderer(
      */
     private fun spawnPropulsionBubbles(t: Turtle) {
         val top = Random.nextBoolean()
-        val (x, y) = t.frontFlipperWorldPosition(top = top, turtleScale = kTurtleScale)
-        spawnPropulsionBubbleAt(x, y)
+        t.frontFlipperWorldPosition(top = top, turtleScale = kTurtleScale, out = scratchFlipperPosition)
+        spawnPropulsionBubbleAt(scratchFlipperPosition[0], scratchFlipperPosition[1])
         if (Random.nextBoolean()) {
-            val (otherX, otherY) = t.frontFlipperWorldPosition(top = !top, turtleScale = kTurtleScale)
-            spawnPropulsionBubbleAt(otherX, otherY)
+            t.frontFlipperWorldPosition(top = !top, turtleScale = kTurtleScale, out = scratchFlipperPosition)
+            spawnPropulsionBubbleAt(scratchFlipperPosition[0], scratchFlipperPosition[1])
         }
     }
 

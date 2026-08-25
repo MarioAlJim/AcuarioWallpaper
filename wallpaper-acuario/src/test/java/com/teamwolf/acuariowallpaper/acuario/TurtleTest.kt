@@ -209,8 +209,12 @@ class TurtleTest {
         repeat(120) { turtle.update(1f / 60f, aspectRatio = 1.7f) }
 
         val turtleScale = 0.28f
-        val (topX, topY) = turtle.frontFlipperWorldPosition(top = true, turtleScale)
-        val (botX, botY) = turtle.frontFlipperWorldPosition(top = false, turtleScale)
+        val topOut = FloatArray(2)
+        val botOut = FloatArray(2)
+        turtle.frontFlipperWorldPosition(top = true, turtleScale, topOut)
+        turtle.frontFlipperWorldPosition(top = false, turtleScale, botOut)
+        val (topX, topY) = topOut[0] to topOut[1]
+        val (botX, botY) = botOut[0] to botOut[1]
 
         // Both anchors are a small local offset scaled by turtleScale, so they must stay close
         // to the turtle's own position, not drift off arbitrarily far.
