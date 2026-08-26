@@ -16,4 +16,5 @@ interface ConfigProvider {
     fun getDayNightCycleDuration(): Int // duration of day/night cycle in seconds (60, 180, 600, or -1 for real-time)
     fun getCustomShallowColor(): Int   // Custom top gradient color
     fun getCustomDeepColor(): Int      // Custom bottom gradient color
+    fun getSubmarineColor(): Int       // 0: Amarillo, 1: Rojo, 2: Azul, 3: Verde, 4: Rosa, 5: Naranja
 }
