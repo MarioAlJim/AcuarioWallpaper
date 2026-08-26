@@ -24,6 +24,7 @@ import kotlin.random.Random
 class Fish {
     val shinyType: Int
     val palette: FishPalette
+    val fishType: Int
 
     init {
         shinyType = if (Random.nextFloat() < 0.01f) {
@@ -31,11 +32,13 @@ class Fish {
         } else {
             0
         }
+        val normalPalette = FishPalette.PALETTES.random()
         palette = when (shinyType) {
             1 -> FishPalette.SHINY_GOLD
             2 -> FishPalette.SHINY_DIAMOND
-            else -> FishPalette.PALETTES.random()
+            else -> normalPalette
         }
+        fishType = normalPalette.fishType
     }
 
     var x = Random.nextFloat() * 1.2f - 0.6f

@@ -16,7 +16,8 @@ class FishPalette(
     val finColor: FloatArray,
     val tailColor: FloatArray,
     val stripeColor: FloatArray,
-    val glowColor: FloatArray
+    val glowColor: FloatArray,
+    val fishType: Int = 0
 ) {
     companion object {
         /** Clownfish: Orange body, white stripes, slightly darker/black fin tips. */
@@ -52,7 +53,8 @@ class FishPalette(
             finColor = floatArrayOf(0.10f, 0.10f, 0.10f),
             tailColor = floatArrayOf(0.90f, 0.80f, 0.05f),
             stripeColor = floatArrayOf(0.08f, 0.08f, 0.08f),
-            glowColor = floatArrayOf(0.0f, 0.85f, 0.65f) // Neon teal
+            glowColor = floatArrayOf(0.0f, 0.85f, 0.65f), // Neon teal
+            fishType = 3
         )
 
         /** Royal Gramma: Vibrant purple front, yellow tail/rear. */
@@ -61,7 +63,8 @@ class FishPalette(
             finColor = floatArrayOf(0.95f, 0.80f, 0.02f),
             tailColor = floatArrayOf(0.95f, 0.80f, 0.02f),
             stripeColor = floatArrayOf(0.85f, 0.40f, 0.02f),
-            glowColor = floatArrayOf(1.0f, 0.15f, 0.65f) // Neon hot pink
+            glowColor = floatArrayOf(1.0f, 0.15f, 0.65f), // Neon hot pink
+            fishType = 1
         )
 
         /** Queen Angelfish: blue-green body, vivid yellow tail/fin edges. */
@@ -70,7 +73,8 @@ class FishPalette(
             finColor = floatArrayOf(0.95f, 0.75f, 0.05f),
             tailColor = floatArrayOf(0.95f, 0.80f, 0.10f),
             stripeColor = floatArrayOf(0.05f, 0.70f, 0.55f),
-            glowColor = floatArrayOf(0.15f, 0.45f, 1.0f) // Neon electric blue
+            glowColor = floatArrayOf(0.15f, 0.45f, 1.0f), // Neon electric blue
+            fishType = 2
         )
 
         /** Stoplight Parrotfish: teal-green body, coral-orange highlights. */
@@ -88,7 +92,8 @@ class FishPalette(
             finColor = floatArrayOf(0.90f, 0.55f, 0.10f),
             tailColor = floatArrayOf(0.92f, 0.90f, 0.82f),
             stripeColor = floatArrayOf(0.85f, 0.45f, 0.05f),
-            glowColor = floatArrayOf(1.0f, 0.30f, 0.20f) // Neon coral-red
+            glowColor = floatArrayOf(1.0f, 0.30f, 0.20f), // Neon coral-red
+            fishType = 2
         )
 
         /** Lionfish: creamy body, deep maroon-red banding. */
@@ -97,7 +102,8 @@ class FishPalette(
             finColor = floatArrayOf(0.55f, 0.10f, 0.08f),
             tailColor = floatArrayOf(0.60f, 0.15f, 0.10f),
             stripeColor = floatArrayOf(0.45f, 0.06f, 0.05f),
-            glowColor = floatArrayOf(1.0f, 0.10f, 0.20f) // Neon crimson
+            glowColor = floatArrayOf(1.0f, 0.10f, 0.20f), // Neon crimson
+            fishType = 2
         )
 
         /** Mandarinfish: teal body, swirling orange psychedelic markings. */
@@ -115,7 +121,8 @@ class FishPalette(
             finColor = floatArrayOf(0.15f, 0.25f, 0.75f),
             tailColor = floatArrayOf(0.85f, 0.30f, 0.10f),
             stripeColor = floatArrayOf(0.20f, 0.30f, 0.80f),
-            glowColor = floatArrayOf(0.35f, 0.15f, 0.95f) // Neon indigo
+            glowColor = floatArrayOf(0.35f, 0.15f, 0.95f), // Neon indigo
+            fishType = 2
         )
 
         /** Foxface Rabbitfish: bright yellow body, dark brown/black masked face pattern. */
@@ -151,7 +158,8 @@ class FishPalette(
             finColor = floatArrayOf(0.90f, 0.10f, 0.10f),
             tailColor = floatArrayOf(0.85f, 0.10f, 0.10f),
             stripeColor = floatArrayOf(0.85f, 0.90f, 0.95f),
-            glowColor = floatArrayOf(0.10f, 0.60f, 1.0f) // Neon electric blue
+            glowColor = floatArrayOf(0.10f, 0.60f, 1.0f), // Neon electric blue
+            fishType = 1
         )
 
         /** Red Discus: deep red-maroon body with darker banding. */
@@ -160,7 +168,8 @@ class FishPalette(
             finColor = floatArrayOf(0.55f, 0.05f, 0.08f),
             tailColor = floatArrayOf(0.60f, 0.08f, 0.10f),
             stripeColor = floatArrayOf(0.30f, 0.02f, 0.03f),
-            glowColor = floatArrayOf(1.0f, 0.05f, 0.30f) // Neon red-pink
+            glowColor = floatArrayOf(1.0f, 0.05f, 0.30f), // Neon red-pink
+            fishType = 2
         )
 
         /** Green Chromis: silvery-green iridescent schooling body. */
@@ -196,7 +205,8 @@ class FishPalette(
             finColor = floatArrayOf(0.10f, 0.10f, 0.35f),
             tailColor = floatArrayOf(0.08f, 0.08f, 0.28f),
             stripeColor = floatArrayOf(0.20f, 0.30f, 0.90f),
-            glowColor = floatArrayOf(0.40f, 0.10f, 1.0f) // Neon deep violet
+            glowColor = floatArrayOf(0.40f, 0.10f, 1.0f), // Neon deep violet
+            fishType = 2
         )
 
         /** Flame Angelfish: fiery red-orange body with black vertical stripes. */
@@ -205,7 +215,8 @@ class FishPalette(
             finColor = floatArrayOf(0.08f, 0.12f, 0.55f),
             tailColor = floatArrayOf(0.90f, 0.25f, 0.05f),
             stripeColor = floatArrayOf(0.08f, 0.08f, 0.08f),
-            glowColor = floatArrayOf(1.0f, 0.20f, 0.0f) // Neon reddish-orange
+            glowColor = floatArrayOf(1.0f, 0.20f, 0.0f), // Neon reddish-orange
+            fishType = 2
         )
 
         /** Harlequin Tuskfish: alternating orange and blue/white bands. */
@@ -223,7 +234,8 @@ class FishPalette(
             finColor = floatArrayOf(0.12f, 0.12f, 0.12f),
             tailColor = floatArrayOf(0.80f, 0.80f, 0.80f),
             stripeColor = floatArrayOf(0.05f, 0.05f, 0.05f),
-            glowColor = floatArrayOf(0.90f, 0.95f, 1.0f) // Bright white glow
+            glowColor = floatArrayOf(0.90f, 0.95f, 1.0f), // Bright white glow
+            fishType = 2
         )
 
         /** Koran Angelfish (Juvenile): deep blue-black with electric blue and white concentric stripes. */
@@ -232,7 +244,8 @@ class FishPalette(
             finColor = floatArrayOf(0.05f, 0.35f, 0.85f),
             tailColor = floatArrayOf(0.10f, 0.45f, 0.90f),
             stripeColor = floatArrayOf(0.95f, 0.95f, 0.95f),
-            glowColor = floatArrayOf(0.0f, 0.60f, 1.0f) // Neon bright blue
+            glowColor = floatArrayOf(0.0f, 0.60f, 1.0f), // Neon bright blue
+            fishType = 2
         )
 
         /** Firefish Goby: creamy white front fading to a bright orange/red rear and tail. */
@@ -241,7 +254,8 @@ class FishPalette(
             finColor = floatArrayOf(0.90f, 0.90f, 0.90f),
             tailColor = floatArrayOf(0.85f, 0.05f, 0.15f),
             stripeColor = floatArrayOf(0.95f, 0.45f, 0.10f),
-            glowColor = floatArrayOf(1.0f, 0.10f, 0.10f) // Neon red
+            glowColor = floatArrayOf(1.0f, 0.10f, 0.10f), // Neon red
+            fishType = 1
         )
 
         /** Gem Tang: deep black body with brilliant white spots, yellow tail. */

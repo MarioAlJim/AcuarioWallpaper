@@ -148,15 +148,15 @@ class AcuarioRenderer(
     private val kMaxTurtles = 5
 
     // Fish (drawn in back-to-front order by depth, single draw call per fish)
-    private var fishProgram = 0
-    private var fishMVPHandle = 0
-    private var fishSwimPhaseHandle = 0
-    private var fishBodyColorHandle = 0
-    private var fishFinColorHandle = 0
-    private var fishTailColorHandle = 0
-    private var fishStripeColorHandle = 0
-    private var fishDayNightHandle = 0
-    private var fishGlowColorHandle = 0
+    private val fishPrograms = IntArray(4)
+    private val fishMVPHandles = IntArray(4)
+    private val fishSwimPhaseHandles = IntArray(4)
+    private val fishBodyColorHandles = IntArray(4)
+    private val fishFinColorHandles = IntArray(4)
+    private val fishTailColorHandles = IntArray(4)
+    private val fishStripeColorHandles = IntArray(4)
+    private val fishDayNightHandles = IntArray(4)
+    private val fishGlowColorHandles = IntArray(4)
     private val fishes = mutableListOf<Fish>()
     private val kFishScale = 0.18f
     private val kMaxFish = 8
@@ -467,20 +467,29 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
-        try {
-            val vert = readAssetFile(context, "shaders/fish.vert")
-            val frag = readAssetFile(context, "shaders/fish.frag")
-            fishProgram = createProgram(vert, frag)
-            fishMVPHandle = GLES30.glGetUniformLocation(fishProgram, "uMVPMatrix")
-            fishSwimPhaseHandle = GLES30.glGetUniformLocation(fishProgram, "uSwimPhase")
-            fishBodyColorHandle = GLES30.glGetUniformLocation(fishProgram, "uBodyColor")
-            fishFinColorHandle = GLES30.glGetUniformLocation(fishProgram, "uFinColor")
-            fishTailColorHandle = GLES30.glGetUniformLocation(fishProgram, "uTailColor")
-            fishStripeColorHandle = GLES30.glGetUniformLocation(fishProgram, "uStripeColor")
-            fishDayNightHandle = GLES30.glGetUniformLocation(fishProgram, "uDayNight")
-            fishGlowColorHandle = GLES30.glGetUniformLocation(fishProgram, "uGlowColor")
-        } catch (e: Exception) {
-            e.printStackTrace()
+        val fishShaders = listOf(
+            "shaders/fish.frag",
+            "shaders/slender_fish.frag",
+            "shaders/deep_fish.frag",
+            "shaders/thread_fish.frag"
+        )
+        for (i in 0 until 4) {
+            try {
+                val vert = readAssetFile(context, "shaders/fish.vert")
+                val frag = readAssetFile(context, fishShaders[i])
+                val prog = createProgram(vert, frag)
+                fishPrograms[i] = prog
+                fishMVPHandles[i] = GLES30.glGetUniformLocation(prog, "uMVPMatrix")
+                fishSwimPhaseHandles[i] = GLES30.glGetUniformLocation(prog, "uSwimPhase")
+                fishBodyColorHandles[i] = GLES30.glGetUniformLocation(prog, "uBodyColor")
+                fishFinColorHandles[i] = GLES30.glGetUniformLocation(prog, "uFinColor")
+                fishTailColorHandles[i] = GLES30.glGetUniformLocation(prog, "uTailColor")
+                fishStripeColorHandles[i] = GLES30.glGetUniformLocation(prog, "uStripeColor")
+                fishDayNightHandles[i] = GLES30.glGetUniformLocation(prog, "uDayNight")
+                fishGlowColorHandles[i] = GLES30.glGetUniformLocation(prog, "uGlowColor")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
         try {
@@ -1064,9 +1073,7 @@ class AcuarioRenderer(
     }
 
     private fun drawFish(deepColor: FloatArray) {
-        if (fishProgram == 0 || fishes.isEmpty()) return
-        GLES30.glUseProgram(fishProgram)
-        GLES30.glUniform1f(fishDayNightHandle, dayNight)
+        if (fishes.isEmpty()) return
 
         // Farthest first, manual insertion sort to avoid allocation
         for (i in 1 until fishes.size) {
@@ -1081,6 +1088,13 @@ class AcuarioRenderer(
 
         for (i in fishes.indices) {
             val f = fishes[i]
+            val type = f.fishType.coerceIn(0, 3)
+            val prog = fishPrograms[type]
+            if (prog == 0) continue
+
+            GLES30.glUseProgram(prog)
+            GLES30.glUniform1f(fishDayNightHandles[type], dayNight)
+
             // Depth-of-field illusion
             val depthScale = kFishScale * (1f - (1f - kMinScaleAtDepth) * f.depth)
             val tintAmount = f.depth * kMaxDepthTint
@@ -1091,9 +1105,9 @@ class AcuarioRenderer(
             Matrix.rotateM(modelMatrix, 0, f.pitchDegrees + f.spinAngle, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-            GLES30.glUniformMatrix4fv(fishMVPHandle, 1, false, mvpMatrix, 0)
+            GLES30.glUniformMatrix4fv(fishMVPHandles[type], 1, false, mvpMatrix, 0)
 
-            GLES30.glUniform1f(fishSwimPhaseHandle, f.swimPhase % kTwoPi)
+            GLES30.glUniform1f(fishSwimPhaseHandles[type], f.swimPhase % kTwoPi)
 
             val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = f.palette
@@ -1102,13 +1116,13 @@ class AcuarioRenderer(
             mixColorInto(scratchTailColor, palette.tailColor, deepColor, tintAmount, ambientFactor)
             mixColorInto(scratchStripeColor, palette.stripeColor, deepColor, tintAmount, ambientFactor)
 
-            GLES30.glUniform3fv(fishBodyColorHandle, 1, scratchBodyColor, 0)
-            GLES30.glUniform3fv(fishFinColorHandle, 1, scratchFinColor, 0)
-            GLES30.glUniform3fv(fishTailColorHandle, 1, scratchTailColor, 0)
-            GLES30.glUniform3fv(fishStripeColorHandle, 1, scratchStripeColor, 0)
+            GLES30.glUniform3fv(fishBodyColorHandles[type], 1, scratchBodyColor, 0)
+            GLES30.glUniform3fv(fishFinColorHandles[type], 1, scratchFinColor, 0)
+            GLES30.glUniform3fv(fishTailColorHandles[type], 1, scratchTailColor, 0)
+            GLES30.glUniform3fv(fishStripeColorHandles[type], 1, scratchStripeColor, 0)
             // Not depth-tinted like the colors above - bioluminescence is its own light source,
             // not reflected ambient light, so it doesn't fade toward deepColor with distance.
-            GLES30.glUniform3fv(fishGlowColorHandle, 1, palette.glowColor, 0)
+            GLES30.glUniform3fv(fishGlowColorHandles[type], 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
