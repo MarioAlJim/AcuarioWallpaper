@@ -9,6 +9,9 @@ uniform vec3 uFinColor;
 uniform vec3 uTailColor;
 uniform vec3 uStripeColor;
 uniform float uDayNight;
+// Per-palette bioluminescent tint (see FishPalette.glowColor) - each species glows its own
+// color instead of every fish sharing one fixed neon hue.
+uniform vec3 uGlowColor;
 
 out vec4 fragColor;
 
@@ -91,9 +94,8 @@ void main() {
     // background - see the same fix in manta.frag/turtle.frag.
     const float kNightGlowEdge = 0.25;
     float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
-    vec3 glowColor = vec3(0.0, 1.0, 0.85); // Neon cyan glow
     float glowStrength = nightGlow * 1.2;
-    color += glowColor * stripesAlpha * glowStrength;
+    color += uGlowColor * stripesAlpha * glowStrength;
 
     // Eye colors
     vec3 eyeRingColor = vec3(0.95, 0.95, 0.95);
