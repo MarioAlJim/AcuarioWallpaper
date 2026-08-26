@@ -22,7 +22,21 @@ import kotlin.random.Random
  * as a deliberate acceleration/deceleration rather than a snap.
  */
 class Fish {
-    val palette: FishPalette = FishPalette.PALETTES.random()
+    val shinyType: Int
+    val palette: FishPalette
+
+    init {
+        shinyType = if (Random.nextFloat() < 0.01f) {
+            if (Random.nextBoolean()) 1 else 2
+        } else {
+            0
+        }
+        palette = when (shinyType) {
+            1 -> FishPalette.SHINY_GOLD
+            2 -> FishPalette.SHINY_DIAMOND
+            else -> FishPalette.PALETTES.random()
+        }
+    }
 
     var x = Random.nextFloat() * 1.2f - 0.6f
         private set
@@ -43,11 +57,19 @@ class Fish {
         private set
     private var targetDepth = depth
 
-    private var targetX = 0f
+    var targetX = 0f
         private set
-    private var targetY = 0f
+    var targetY = 0f
         private set
     private var hasTarget = false
+
+    var isTargetingFood = false
+    var isSpinning = false
+        private set
+    var spinAngle = 0f
+        private set
+    private var spinProgress = 0f
+    private val spinDuration = 0.6f
 
     private var facingSign = 1f
     private var mirrorBlend = 1f
@@ -56,7 +78,35 @@ class Fish {
     private var speedMultiplier = 1f
     private var targetSpeedMultiplier = 1f
 
+    fun setTarget(tx: Float, ty: Float) {
+        targetX = tx
+        targetY = ty
+        hasTarget = true
+    }
+
+    fun startSpin() {
+        isSpinning = true
+        spinProgress = 0f
+        spinAngle = 0f
+    }
+
+    fun stopTargetingFood(aspectRatio: Float) {
+        isTargetingFood = false
+        pickNewTarget(aspectRatio)
+    }
+
+
     fun update(deltaTime: Float, aspectRatio: Float) {
+        if (isSpinning) {
+            spinProgress += deltaTime / spinDuration
+            spinAngle = spinProgress * 360f
+            if (spinProgress >= 1f) {
+                isSpinning = false
+                spinAngle = 0f
+                pickNewTarget(aspectRatio)
+            }
+        }
+
         if (!hasTarget) {
             pickNewTarget(aspectRatio)
         }
@@ -64,24 +114,31 @@ class Fish {
         val dx = targetX - x
         val dy = targetY - y
         val dist = sqrt(dx * dx + dy * dy)
-        if (dist < 0.05f) {
+        if (dist < 0.05f && !isTargetingFood) {
             pickNewTarget(aspectRatio)
             return
         }
 
         // Depth parallax + occasional speed burst
+        if (isTargetingFood) {
+            targetSpeedMultiplier = 1.8f
+        }
         val speedLerp = 1f - exp(-kSpeedEaseRate * deltaTime)
         speedMultiplier += (targetSpeedMultiplier - speedMultiplier) * speedLerp
         val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth) * speedMultiplier
-        x += (dx / dist) * effectiveSpeed * deltaTime
-        y += (dy / dist) * effectiveSpeed * deltaTime
+        
+        if (dist > 0.001f) {
+            x += (dx / dist) * effectiveSpeed * deltaTime
+            y += (dy / dist) * effectiveSpeed * deltaTime
+        }
 
         // Heading steering
-        val targetHeading = atan2(dy, dx)
+        val targetHeading = if (dist > 0.001f) atan2(dy, dx) else heading
         var angleDiff = targetHeading - heading
         while (angleDiff > PI) angleDiff -= TWO_PI
         while (angleDiff < -PI) angleDiff += TWO_PI
-        val turnLerp = 1f - exp(-kTurnRate * deltaTime)
+        val turnRate = if (isTargetingFood) 9.0f else kTurnRate
+        val turnLerp = 1f - exp(-turnRate * deltaTime)
         heading += angleDiff * turnLerp
 
         // Mirror flip
@@ -92,10 +149,13 @@ class Fish {
         mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
 
         // Pitch spring
-        val desiredPitch = (dy / dist) * kMaxPitchDegrees
+        val desiredPitch = if (dist > 0.001f) (dy / dist) * kMaxPitchDegrees else 0f
         stepPitchSpring(desiredPitch, deltaTime)
 
         // Depth drift
+        if (isTargetingFood) {
+            targetDepth = 0f
+        }
         val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
         depth += (targetDepth - depth) * depthLerp
 

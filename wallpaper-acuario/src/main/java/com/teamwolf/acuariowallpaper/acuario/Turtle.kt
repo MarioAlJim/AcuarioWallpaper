@@ -54,7 +54,21 @@ import kotlin.random.Random
  */
 class Turtle {
     /** Randomly assigned at construction and fixed for the turtle's lifetime - not user-selectable. */
-    val palette: TurtlePalette = TurtlePalette.PALETTES.random()
+    val shinyType: Int
+    val palette: TurtlePalette
+
+    init {
+        shinyType = if (Random.nextFloat() < 0.01f) {
+            if (Random.nextBoolean()) 1 else 2
+        } else {
+            0
+        }
+        palette = when (shinyType) {
+            1 -> TurtlePalette.SHINY_GOLD
+            2 -> TurtlePalette.SHINY_DIAMOND
+            else -> TurtlePalette.PALETTES.random()
+        }
+    }
 
     // Randomized (instead of a fixed spot) so multiple turtles don't all start stacked on top
     // of each other; aspectRatio isn't known yet at construction time, so this uses a

@@ -144,6 +144,24 @@ class MantaPalette(
             glowColor = floatArrayOf(1.0f, 0.10f, 0.15f) // Neon crimson
         )
 
+        /** Shiny Gold: majestic gold body with bright golden accents. */
+        val SHINY_GOLD = MantaPalette(
+            bodyColor = floatArrayOf(0.85f, 0.65f, 0.05f),
+            wingColor = floatArrayOf(0.95f, 0.75f, 0.10f),
+            tailColor = floatArrayOf(0.85f, 0.65f, 0.05f),
+            markingColor = floatArrayOf(1.0f, 0.85f, 0.20f),
+            glowColor = floatArrayOf(1.0f, 0.75f, 0.0f)
+        )
+
+        /** Shiny Diamond: ice blue/diamond color with shimmering diamond white markings. */
+        val SHINY_DIAMOND = MantaPalette(
+            bodyColor = floatArrayOf(0.70f, 0.90f, 0.98f),
+            wingColor = floatArrayOf(0.80f, 0.95f, 1.0f),
+            tailColor = floatArrayOf(0.70f, 0.90f, 0.98f),
+            markingColor = floatArrayOf(0.95f, 1.0f, 1.0f),
+            glowColor = floatArrayOf(0.50f, 0.90f, 1.0f)
+        )
+
         val PALETTES: List<MantaPalette> = listOf(
             REEF_MANTA,
             OCEANIC_MANTA,

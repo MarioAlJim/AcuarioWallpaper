@@ -199,6 +199,78 @@ class FishPalette(
             glowColor = floatArrayOf(0.40f, 0.10f, 1.0f) // Neon deep violet
         )
 
+        /** Flame Angelfish: fiery red-orange body with black vertical stripes. */
+        private val FLAME_ANGELFISH = FishPalette(
+            bodyColor = floatArrayOf(0.95f, 0.20f, 0.05f),
+            finColor = floatArrayOf(0.08f, 0.12f, 0.55f),
+            tailColor = floatArrayOf(0.90f, 0.25f, 0.05f),
+            stripeColor = floatArrayOf(0.08f, 0.08f, 0.08f),
+            glowColor = floatArrayOf(1.0f, 0.20f, 0.0f) // Neon reddish-orange
+        )
+
+        /** Harlequin Tuskfish: alternating orange and blue/white bands. */
+        private val HARLEQUIN_TUSKFISH = FishPalette(
+            bodyColor = floatArrayOf(0.92f, 0.45f, 0.10f),
+            finColor = floatArrayOf(0.15f, 0.55f, 0.85f),
+            tailColor = floatArrayOf(0.95f, 0.65f, 0.35f),
+            stripeColor = floatArrayOf(0.70f, 0.85f, 0.95f),
+            glowColor = floatArrayOf(0.0f, 0.80f, 1.0f) // Neon electric blue
+        )
+
+        /** Banggai Cardinalfish: elegant silver with bold black bands. */
+        private val BANGGAI_CARDINALFISH = FishPalette(
+            bodyColor = floatArrayOf(0.85f, 0.85f, 0.85f),
+            finColor = floatArrayOf(0.12f, 0.12f, 0.12f),
+            tailColor = floatArrayOf(0.80f, 0.80f, 0.80f),
+            stripeColor = floatArrayOf(0.05f, 0.05f, 0.05f),
+            glowColor = floatArrayOf(0.90f, 0.95f, 1.0f) // Bright white glow
+        )
+
+        /** Koran Angelfish (Juvenile): deep blue-black with electric blue and white concentric stripes. */
+        private val KORAN_ANGELFISH = FishPalette(
+            bodyColor = floatArrayOf(0.02f, 0.05f, 0.25f),
+            finColor = floatArrayOf(0.05f, 0.35f, 0.85f),
+            tailColor = floatArrayOf(0.10f, 0.45f, 0.90f),
+            stripeColor = floatArrayOf(0.95f, 0.95f, 0.95f),
+            glowColor = floatArrayOf(0.0f, 0.60f, 1.0f) // Neon bright blue
+        )
+
+        /** Firefish Goby: creamy white front fading to a bright orange/red rear and tail. */
+        private val FIREFISH_GOBY = FishPalette(
+            bodyColor = floatArrayOf(0.95f, 0.95f, 0.95f),
+            finColor = floatArrayOf(0.90f, 0.90f, 0.90f),
+            tailColor = floatArrayOf(0.85f, 0.05f, 0.15f),
+            stripeColor = floatArrayOf(0.95f, 0.45f, 0.10f),
+            glowColor = floatArrayOf(1.0f, 0.10f, 0.10f) // Neon red
+        )
+
+        /** Gem Tang: deep black body with brilliant white spots, yellow tail. */
+        private val GEM_TANG = FishPalette(
+            bodyColor = floatArrayOf(0.08f, 0.08f, 0.10f),
+            finColor = floatArrayOf(0.08f, 0.08f, 0.10f),
+            tailColor = floatArrayOf(0.95f, 0.85f, 0.05f),
+            stripeColor = floatArrayOf(0.95f, 0.95f, 0.95f),
+            glowColor = floatArrayOf(0.95f, 0.95f, 0.0f) // Neon yellow
+        )
+
+        /** Shiny Gold: beautiful gold hues with golden-white accents. */
+        val SHINY_GOLD = FishPalette(
+            bodyColor = floatArrayOf(1.0f, 0.75f, 0.05f),
+            finColor = floatArrayOf(1.0f, 0.85f, 0.15f),
+            tailColor = floatArrayOf(1.0f, 0.80f, 0.10f),
+            stripeColor = floatArrayOf(1.0f, 0.95f, 0.40f),
+            glowColor = floatArrayOf(1.0f, 0.80f, 0.0f)
+        )
+
+        /** Shiny Diamond: ice blue/diamond color with shimmering diamond white stripes. */
+        val SHINY_DIAMOND = FishPalette(
+            bodyColor = floatArrayOf(0.75f, 0.95f, 1.0f),
+            finColor = floatArrayOf(0.85f, 1.0f, 1.0f),
+            tailColor = floatArrayOf(0.80f, 0.98f, 1.0f),
+            stripeColor = floatArrayOf(1.0f, 1.0f, 1.0f),
+            glowColor = floatArrayOf(0.70f, 0.95f, 1.0f)
+        )
+
         val PALETTES: List<FishPalette> = listOf(
             CLOWNFISH,
             BLUE_TANG,
@@ -219,7 +291,13 @@ class FishPalette(
             GREEN_CHROMIS,
             ACHILLES_TANG,
             PINK_SKUNK_CLOWNFISH,
-            MIDNIGHT_ANGELFISH
+            MIDNIGHT_ANGELFISH,
+            FLAME_ANGELFISH,
+            HARLEQUIN_TUSKFISH,
+            BANGGAI_CARDINALFISH,
+            KORAN_ANGELFISH,
+            FIREFISH_GOBY,
+            GEM_TANG
         )
     }
 }

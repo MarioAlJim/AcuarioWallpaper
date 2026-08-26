@@ -154,6 +154,24 @@ class TurtlePalette(
             glowColor = floatArrayOf(1.0f, 0.30f, 0.45f) // Neon coral-pink
         )
 
+        /** Shiny Gold: beautiful gold hues with golden-yellow accents. */
+        val SHINY_GOLD = TurtlePalette(
+            shellColor = floatArrayOf(0.85f, 0.65f, 0.05f),
+            headColor = floatArrayOf(0.95f, 0.75f, 0.10f),
+            flipperColor = floatArrayOf(0.90f, 0.70f, 0.08f),
+            spotColor = floatArrayOf(0.60f, 0.45f, 0.02f),
+            glowColor = floatArrayOf(1.0f, 0.80f, 0.0f)
+        )
+
+        /** Shiny Diamond: ice blue/diamond color with shimmering diamond white highlights. */
+        val SHINY_DIAMOND = TurtlePalette(
+            shellColor = floatArrayOf(0.70f, 0.90f, 0.98f),
+            headColor = floatArrayOf(0.80f, 0.95f, 1.0f),
+            flipperColor = floatArrayOf(0.75f, 0.92f, 1.0f),
+            spotColor = floatArrayOf(0.95f, 1.0f, 1.0f),
+            glowColor = floatArrayOf(0.50f, 0.90f, 1.0f)
+        )
+
         val PALETTES: List<TurtlePalette> = listOf(
             GREEN_SEA_TURTLE,
             LOGGERHEAD,
