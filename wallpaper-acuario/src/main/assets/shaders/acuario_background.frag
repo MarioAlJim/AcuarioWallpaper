@@ -19,6 +19,10 @@ float distantBlobAlpha(vec2 p, vec2 center, vec2 radii, float softness) {
     vec2 q = (p - center) / radii;
     float d = length(q) - 1.0;
     float w = softness / min(radii.x, radii.y);
+    // Clamp the softness width so that the blur isn't so wide that the silhouette
+    // washes out completely. Sized to guarantee that the center of the blob reaches
+    // full opacity (1.0) instead of being stuck in the middle of a too-wide transition.
+    w = min(w, 0.80);
     return smoothstep(w, -w, d);
 }
 
@@ -143,10 +147,11 @@ void main() {
     float animal = distantBlobAlpha(bp, vec2(animalX, 0.42), vec2(0.15, 0.05), 0.10);
 
     float distantSilhouette = max(max(max(rock1, rock2), max(rock3, kelpBlur1)), max(kelpBlur2, animal));
-    // Darkened rather than colored - a silhouette, not a distinctly-colored object - and capped
-    // well below full strength so it stays a subtle "something's back there" cue instead of a
-    // distracting shape competing with the actual creatures.
-    color = mix(color, deepColor * 0.55, distantSilhouette * 0.55);
+    // Darkened rather than colored - a silhouette, not a distinctly-colored object.
+    // Boosted the mix strength (was 0.55, now 0.70) and target color darkness (was deepColor * 0.55,
+    // now deepColor * 0.35) so the distant shapes read as clearly visible, out-of-focus silhouettes
+    // rather than fading to near-invisible under the overlaying god rays and caustics.
+    color = mix(color, deepColor * 0.35, distantSilhouette * 0.70);
 
     // God rays: distinct, soft-edged diagonal light-shaft LINES fanning down from the surface,
     // strongest near the top and fading out with depth.
@@ -160,7 +165,7 @@ void main() {
     // per period instead of a wide wash. Two such beam families (different slant/frequency/
     // speed) are combined with max() - not summed/averaged - so they read as two crossing sets
     // of light lines instead of blending back into noise.
-    float raysMask = pow(y, 2.2);
+    float raysMask = pow(y, 1.4);
     // highp: derived directly from uTime, which grows unboundedly for as long as the wallpaper
     // runs. uTime itself is already highp, but that alone doesn't protect this - assigning a
     // highp-derived expression into an (implicitly mediump, per this file's default precision)
@@ -264,7 +269,9 @@ void main() {
     float sineCaustic = smoothstep(0.55, 1.0, c1 * c2) * 0.7;
 
     vec3 combinedCaustic = causticRGB + vec3(sineCaustic);
-    color += shallowColor * combinedCaustic * causticStrength * (0.4 + raysMask * 0.8);
+    // Boost caustics when the sun flares up
+    float activeCausticStrength = causticStrength * (1.0 + flare * 1.2);
+    color += shallowColor * combinedCaustic * activeCausticStrength * (0.4 + raysMask * 0.8);
 
     // Dynamic vignette: darkens the screen edges - the bottom corners more than the rest, since
     // real underwater light falls off toward the substrate rather than symmetrically toward
@@ -290,13 +297,16 @@ void main() {
     float bottomCornerBoost = (1.0 - smoothstep(0.0, 0.6, y)) * smoothstep(0.15, 0.55, abs(vUv.x - 0.5));
     vignetteShape *= (1.0 - bottomCornerBoost * 0.35);
 
-    float lightLevel = clamp(raysMask * activeRayStrength / 0.45, 0.0, 1.0);
+    // Replaced the y-dependent raysMask in lightLevel with a global surface light level.
+    // This allows the vignette at the bottom of the screen to dynamically relax and brighten
+    // when a sun flare occurs, making the entire background respond to the rays.
+    float globalLightLevel = clamp(activeRayStrength / 0.65, 0.0, 1.0);
     // Darkened further (was 0.55/0.92) for a moodier overall background, on top of the steeper
     // base gradient above - the corners now dig noticeably darker when little light reaches
     // them, and even the "well lit" floor stays a touch below full brightness.
     const float kVignetteFloorDim = 0.42; // corner brightness multiplier when little/no light reaches here
     const float kVignetteFloorLit = 0.85; // corner brightness multiplier when well lit - restores near-normal
-    float vignetteFloor = mix(kVignetteFloorDim, kVignetteFloorLit, lightLevel);
+    float vignetteFloor = mix(kVignetteFloorDim, kVignetteFloorLit, globalLightLevel);
     float vignette = mix(vignetteFloor, 1.0, vignetteShape);
     color *= vignette;
 
