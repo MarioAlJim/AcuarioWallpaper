@@ -145,6 +145,60 @@ class FishPalette(
             glowColor = floatArrayOf(0.10f, 1.0f, 0.45f) // Neon emerald
         )
 
+        /** Neon Tetra: electric-blue body with a vivid red rear half, silvery belly stripe. */
+        private val NEON_TETRA = FishPalette(
+            bodyColor = floatArrayOf(0.05f, 0.35f, 0.95f),
+            finColor = floatArrayOf(0.90f, 0.10f, 0.10f),
+            tailColor = floatArrayOf(0.85f, 0.10f, 0.10f),
+            stripeColor = floatArrayOf(0.85f, 0.90f, 0.95f),
+            glowColor = floatArrayOf(0.10f, 0.60f, 1.0f) // Neon electric blue
+        )
+
+        /** Red Discus: deep red-maroon body with darker banding. */
+        private val DISCUS = FishPalette(
+            bodyColor = floatArrayOf(0.75f, 0.10f, 0.12f),
+            finColor = floatArrayOf(0.55f, 0.05f, 0.08f),
+            tailColor = floatArrayOf(0.60f, 0.08f, 0.10f),
+            stripeColor = floatArrayOf(0.30f, 0.02f, 0.03f),
+            glowColor = floatArrayOf(1.0f, 0.05f, 0.30f) // Neon red-pink
+        )
+
+        /** Green Chromis: silvery-green iridescent schooling body. */
+        private val GREEN_CHROMIS = FishPalette(
+            bodyColor = floatArrayOf(0.55f, 0.75f, 0.65f),
+            finColor = floatArrayOf(0.60f, 0.80f, 0.70f),
+            tailColor = floatArrayOf(0.50f, 0.72f, 0.62f),
+            stripeColor = floatArrayOf(0.80f, 0.95f, 0.85f),
+            glowColor = floatArrayOf(0.30f, 1.0f, 0.55f) // Neon mint green
+        )
+
+        /** Achilles Tang: near-black body, bold orange/white tail patch. */
+        private val ACHILLES_TANG = FishPalette(
+            bodyColor = floatArrayOf(0.08f, 0.08f, 0.10f),
+            finColor = floatArrayOf(0.90f, 0.35f, 0.05f),
+            tailColor = floatArrayOf(0.95f, 0.55f, 0.05f),
+            stripeColor = floatArrayOf(0.90f, 0.90f, 0.90f),
+            glowColor = floatArrayOf(1.0f, 0.50f, 0.0f) // Neon orange
+        )
+
+        /** Pink Skunk Clownfish: pale peach-pink body, crisp white stripe. */
+        private val PINK_SKUNK_CLOWNFISH = FishPalette(
+            bodyColor = floatArrayOf(0.95f, 0.75f, 0.70f),
+            finColor = floatArrayOf(0.90f, 0.55f, 0.50f),
+            tailColor = floatArrayOf(0.95f, 0.70f, 0.65f),
+            stripeColor = floatArrayOf(0.98f, 0.98f, 0.98f),
+            glowColor = floatArrayOf(1.0f, 0.40f, 0.85f) // Neon pink
+        )
+
+        /** Midnight Angelfish: deep indigo-black body with bright blue rings. */
+        private val MIDNIGHT_ANGELFISH = FishPalette(
+            bodyColor = floatArrayOf(0.05f, 0.05f, 0.20f),
+            finColor = floatArrayOf(0.10f, 0.10f, 0.35f),
+            tailColor = floatArrayOf(0.08f, 0.08f, 0.28f),
+            stripeColor = floatArrayOf(0.20f, 0.30f, 0.90f),
+            glowColor = floatArrayOf(0.40f, 0.10f, 1.0f) // Neon deep violet
+        )
+
         val PALETTES: List<FishPalette> = listOf(
             CLOWNFISH,
             BLUE_TANG,
@@ -159,7 +213,13 @@ class FishPalette(
             CORAL_BEAUTY,
             FOXFACE_RABBITFISH,
             POWDER_BLUE_TANG,
-            PICASSO_TRIGGERFISH
+            PICASSO_TRIGGERFISH,
+            NEON_TETRA,
+            DISCUS,
+            GREEN_CHROMIS,
+            ACHILLES_TANG,
+            PINK_SKUNK_CLOWNFISH,
+            MIDNIGHT_ANGELFISH
         )
     }
 }
