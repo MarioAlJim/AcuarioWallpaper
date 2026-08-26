@@ -104,9 +104,16 @@ void main() {
     float markingsAlpha = max(max(shoulderTop, shoulderBot), max(max(spot1, spot2), spot3)) * aWings;
     color = mix(color, uMarkingColor, markingsAlpha);
     
-    // Bioluminescent glow on markings (spots & chevrons) at night
+    // Bioluminescent glow on markings (spots & chevrons) at night. Ramped through
+    // smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a plain (1.0 - uDayNight) - see
+    // fish.frag's identical fix for why: the raw linear version made the glow already partway
+    // visible as soon as the sun started dipping, well before the background actually looked
+    // dark. This keeps it at 0 through day/dusk/dawn and only fades it in once it's genuinely
+    // dark, in sync with the background.
+    const float kNightGlowEdge = 0.25;
+    float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
     vec3 glowColor = vec3(0.65, 0.25, 1.0); // Neon violet/purple glow
-    float glowStrength = (1.0 - uDayNight) * 1.2;
+    float glowStrength = nightGlow * 1.2;
     color += glowColor * markingsAlpha * glowStrength;
 
     // Eye colors (simple dark dot, no separate pupil - mantas' eyes read small at this scale).

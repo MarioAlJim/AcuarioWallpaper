@@ -232,4 +232,75 @@ class TurtleTest {
             (topY - turtle.y) * (botY - turtle.y) < 0f
         )
     }
+
+    @Test
+    fun touch_withdrawsIntoTheShellThenFullyUnfoldsAgain() {
+        val turtle = Turtle()
+        val deltaTime = 1f / 60f
+        // A few warm-up frames so touch() interrupts an actual mid-swim state, not just the
+        // freshly-constructed one.
+        repeat(30) { turtle.update(deltaTime, aspectRatio = 1.7f) }
+
+        turtle.touch(turtle.x + 0.5f, turtle.y)
+        assertTrue("retraction should start easing up right away", turtle.retraction >= 0f)
+
+        var maxRetraction = 0f
+        // ~10 simulated seconds: comfortably past the ~0.35s retract time, the 2.5-4s hide, and
+        // the ~0.35s unfold, with room to spare for the flee leg to land back on a normal waypoint.
+        repeat(600) {
+            turtle.update(deltaTime, aspectRatio = 1.7f)
+            maxRetraction = maxOf(maxRetraction, turtle.retraction)
+            assertTrue("retraction out of [0, 1]: ${turtle.retraction}", turtle.retraction in -0.001f..1.001f)
+        }
+
+        assertTrue("expected the turtle to fully withdraw into its shell at some point, max was $maxRetraction", maxRetraction > 0.95f)
+        assertTrue("expected the turtle to have unfolded back out by the end, got ${turtle.retraction}", turtle.retraction < 0.05f)
+    }
+
+    @Test
+    fun touch_fleesAwayFromTheTouchPointBeforeSettling() {
+        val turtle = Turtle()
+        val deltaTime = 1f / 60f
+        repeat(30) { turtle.update(deltaTime, aspectRatio = 1.7f) }
+
+        val touchX = turtle.x - 0.3f
+        val touchY = turtle.y
+        turtle.touch(touchX, touchY)
+
+        var maxDistanceFromTouch = 0f
+        repeat(600) {
+            turtle.update(deltaTime, aspectRatio = 1.7f)
+            val dx = turtle.x - touchX
+            val dy = turtle.y - touchY
+            maxDistanceFromTouch = maxOf(maxDistanceFromTouch, kotlin.math.sqrt(dx * dx + dy * dy))
+        }
+
+        // The flee leg alone covers 0.9-1.4 world units away from the touch point, so the
+        // turtle should have gotten well clear of it at some point during the sequence.
+        assertTrue(
+            "expected the turtle to dart away from the touch point, max distance was $maxDistanceFromTouch",
+            maxDistanceFromTouch > 0.6f
+        )
+    }
+
+    @Test
+    fun touch_isIgnoredWhileAlreadyReactingToAPreviousTouch() {
+        val turtle = Turtle()
+        val deltaTime = 1f / 60f
+        repeat(30) { turtle.update(deltaTime, aspectRatio = 1.7f) }
+
+        turtle.touch(turtle.x + 0.5f, turtle.y)
+        repeat(10) { turtle.update(deltaTime, aspectRatio = 1.7f) }
+        val retractionBeforeSecondTouch = turtle.retraction
+
+        // A second touch mid-sequence must not reset anything - retraction should keep easing
+        // upward on the same schedule as if this call had never happened.
+        turtle.touch(turtle.x - 0.5f, turtle.y)
+        turtle.update(deltaTime, aspectRatio = 1.7f)
+
+        assertTrue(
+            "a touch mid-reaction should not restart the sequence",
+            turtle.retraction >= retractionBeforeSecondTouch
+        )
+    }
 }

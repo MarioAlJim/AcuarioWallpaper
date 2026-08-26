@@ -37,6 +37,20 @@ import kotlin.random.Random
  * Propulsion: once per flap cycle, right at the front flippers' downstroke (their peak
  * velocity - see [consumePowerStrokeEvent]'s comment), AcuarioRenderer spawns a couple of
  * small bubbles at [frontFlipperWorldPosition], emphasizing the effort of the stroke.
+ *
+ * Startle response: [touch] (called by AcuarioRenderer when the user taps directly on this
+ * turtle) overrides everything else - even a breathing pause mid-surface/mid-hold - and drives
+ * three phases via [startleState]: RETRACTING eases [retraction] from 0 to 1 while the turtle
+ * coasts on whatever momentum it had (see [driftVX]/[driftVY]), HIDING then holds fully
+ * retracted for [kHideDurationMin]-[kHideDurationMax] seconds, drifting further on that same
+ * decaying momentum - both read as an inert shell floating passively, not a paused sprite -
+ * and FLEEING picks a waypoint straight away from the touch point and darts toward it at
+ * [kFleeSpeedMultiplier], unfolding back out of the shell as it goes, via the normal
+ * waypoint-chasing code in [update] (reusing hasTarget/targetX/targetY exactly like a regular
+ * wander leg). Landing back on a normal waypoint at the end of FLEEING resumes ordinary
+ * wandering/breathing as if nothing happened. [retraction] itself eases back toward 0 on its
+ * own regardless of state once the startle sequence is behind it, so turtle.frag (which reads
+ * it as uRetraction) always shows a smooth pose whether the turtle is mid-flee or long done.
  */
 class Turtle {
     /** Randomly assigned at construction and fixed for the turtle's lifetime - not user-selectable. */
@@ -91,13 +105,45 @@ class Turtle {
     private var exhalePending = false
     private var powerStrokePending = false
 
+    private enum class StartleState { NONE, RETRACTING, HIDING, FLEEING }
+    private var startleState = StartleState.NONE
+    private var startleTimer = 0f
+
+    // Residual velocity the turtle keeps coasting on while withdrawn (RETRACTING/HIDING),
+    // decaying toward 0 in updateStartled() - see [touch].
+    private var driftVX = 0f
+    private var driftVY = 0f
+
+    // Where the touch that triggered the current startle landed, in world space - pickFleeTarget()
+    // steers straight away from this point.
+    private var touchOriginX = 0f
+    private var touchOriginY = 0f
+
+    /** 0 = normal swimming pose, 1 = fully withdrawn into the shell - see class doc and [touch]. */
+    var retraction = 0f
+        private set
+
     fun update(deltaTime: Float, aspectRatio: Float) {
+        if (startleState == StartleState.RETRACTING || startleState == StartleState.HIDING) {
+            updateStartled(deltaTime)
+            return
+        }
+
+        // Relaxes back out of the shell on its own timescale once it's not actively withdrawing
+        // above - covers unfolding mid-flee and guards against any leftover retraction if a new
+        // breath cycle happens to land before it's fully back to 0.
+        if (retraction > 0f) {
+            val retractLerp = 1f - exp(-kRetractRate * deltaTime)
+            retraction += (0f - retraction) * retractLerp
+            if (retraction < 0.01f) retraction = 0f
+        }
+
         if (breathPhase == BreathPhase.HOLDING_BREATH) {
             updateHoldingBreath(deltaTime)
             return
         }
 
-        if (breathPhase == BreathPhase.SWIMMING) {
+        if (breathPhase == BreathPhase.SWIMMING && startleState == StartleState.NONE) {
             oxygenTimer -= deltaTime
             if (oxygenTimer <= 0f) {
                 // Overrides whatever waypoint it was chasing - breathing takes priority.
@@ -107,20 +153,30 @@ class Turtle {
         }
 
         if (!hasTarget) {
-            if (breathPhase == BreathPhase.SURFACING) pickSurfaceTarget() else pickNewTarget(aspectRatio)
+            when {
+                startleState == StartleState.FLEEING -> pickFleeTarget(aspectRatio)
+                breathPhase == BreathPhase.SURFACING -> pickSurfaceTarget()
+                else -> pickNewTarget(aspectRatio)
+            }
         }
 
         val dx = targetX - x
         val dy = targetY - y
         val dist = sqrt(dx * dx + dy * dy)
         if (dist < 0.05f) {
-            if (breathPhase == BreathPhase.SURFACING) {
-                // Arrived at the surface: pause and level out instead of immediately picking
-                // the next normal waypoint.
-                breathPhase = BreathPhase.HOLDING_BREATH
-                surfaceHoldTimer = kSurfaceHoldMin + Random.nextFloat() * (kSurfaceHoldMax - kSurfaceHoldMin)
-            } else {
-                pickNewTarget(aspectRatio)
+            when {
+                breathPhase == BreathPhase.SURFACING -> {
+                    // Arrived at the surface: pause and level out instead of immediately picking
+                    // the next normal waypoint.
+                    breathPhase = BreathPhase.HOLDING_BREATH
+                    surfaceHoldTimer = kSurfaceHoldMin + Random.nextFloat() * (kSurfaceHoldMax - kSurfaceHoldMin)
+                }
+                startleState == StartleState.FLEEING -> {
+                    // Reached safety - the scare is over, resume ordinary wandering.
+                    startleState = StartleState.NONE
+                    pickNewTarget(aspectRatio)
+                }
+                else -> pickNewTarget(aspectRatio)
             }
             return
         }
@@ -211,6 +267,69 @@ class Turtle {
         }
     }
 
+    /**
+     * RETRACTING/HIDING: no waypoint-chasing at all, just [retraction] easing toward 1 and the
+     * turtle coasting on [driftVX]/[driftVY] (set once in [touch], decaying here toward 0) - an
+     * inert shell floating passively rather than a puppet frozen in place. Pitch relaxes toward
+     * level the same way it does while holding a breath. swimPhase is deliberately left untouched
+     * (not advanced) so the flippers stop flapping mid-fold instead of continuing to cycle while
+     * they shrink into the shell.
+     */
+    private fun updateStartled(deltaTime: Float) {
+        x += driftVX * deltaTime
+        y += driftVY * deltaTime - kInertSinkSpeed * deltaTime
+        val dampLerp = 1f - exp(-kDriftDampRate * deltaTime)
+        driftVX -= driftVX * dampLerp
+        driftVY -= driftVY * dampLerp
+
+        stepPitchSpring(desiredPitch = 0f, deltaTime)
+
+        val retractLerp = 1f - exp(-kRetractRate * deltaTime)
+        retraction += (1f - retraction) * retractLerp
+
+        if (startleState == StartleState.RETRACTING) {
+            if (retraction > 0.97f) {
+                retraction = 1f
+                startleState = StartleState.HIDING
+                startleTimer = kHideDurationMin + Random.nextFloat() * (kHideDurationMax - kHideDurationMin)
+            }
+            return
+        }
+
+        // HIDING
+        startleTimer -= deltaTime
+        if (startleTimer <= 0f) {
+            startleState = StartleState.FLEEING
+            hasTarget = false
+        }
+    }
+
+    /**
+     * Straight away from wherever the turtle was touched: extends the touch-to-turtle vector
+     * outward by a random flee distance and clamps it into the normal roaming bounds (falls back
+     * to fleeing along the turtle's current heading if it was touched dead-on, i.e. that vector
+     * is ~zero). Sets [Turtle.speedMultiplier] directly (not just its target) so the dart-off
+     * reads as an immediate burst of speed rather than an ease-in.
+     */
+    private fun pickFleeTarget(aspectRatio: Float) {
+        var dirX = x - touchOriginX
+        var dirY = y - touchOriginY
+        val len = sqrt(dirX * dirX + dirY * dirY)
+        if (len < 0.001f) {
+            dirX = kotlin.math.cos(heading)
+            dirY = kotlin.math.sin(heading)
+        } else {
+            dirX /= len
+            dirY /= len
+        }
+        val fleeDist = kFleeDistanceMin + Random.nextFloat() * (kFleeDistanceMax - kFleeDistanceMin)
+        targetX = (x + dirX * fleeDist).coerceIn(-aspectRatio * 0.9f, aspectRatio * 0.9f)
+        targetY = (y + dirY * fleeDist).coerceIn(-0.9f, 0.2f)
+        hasTarget = true
+        targetSpeedMultiplier = kFleeSpeedMultiplier
+        speedMultiplier = kFleeSpeedMultiplier
+    }
+
     private fun stepPitchSpring(desiredPitch: Float, deltaTime: Float) {
         // Driven as a lightly underdamped spring (not a plain ease) so it doesn't just glide
         // to a stop: it overshoots the target pitch and settles with a small bounce/wobble,
@@ -250,6 +369,26 @@ class Turtle {
         if (!powerStrokePending) return false
         powerStrokePending = false
         return true
+    }
+
+    /**
+     * Called by AcuarioRenderer when the user taps directly on this turtle, with the tap's own
+     * world-space position. Kicks off the startle sequence described in the class doc - ignored
+     * while already mid-reaction (startleState != NONE) so a flurry of taps doesn't restart it
+     * over and over. Interrupts breathing outright, even mid-surface/mid-hold - being grabbed
+     * takes priority over everything else the turtle was doing.
+     */
+    fun touch(touchX: Float, touchY: Float) {
+        if (startleState != StartleState.NONE) return
+        startleState = StartleState.RETRACTING
+        touchOriginX = touchX
+        touchOriginY = touchY
+        // Keeps a bit of whatever momentum it had, decaying quickly in updateStartled() - reads
+        // as gliding to an inert stop rather than snapping still.
+        driftVX = kotlin.math.cos(heading) * speed * 0.5f
+        driftVY = kotlin.math.sin(heading) * speed * 0.5f
+        breathPhase = BreathPhase.SWIMMING
+        hasTarget = false
     }
 
     /**
@@ -375,5 +514,22 @@ class Turtle {
         // Chosen so speedMultiplier is ~95% of the way to a new burst/cruise target in about 2s
         // (1 - e^(-kSpeedEaseRate*2) ~= 0.95) - a deliberate ease, not a snap.
         const val kSpeedEaseRate = 1.5f
+
+        // Startle response (see class doc). Chosen so retraction is ~95% of the way to its
+        // target (0 or 1) in about 0.35s (1 - e^(-kRetractRate*0.35) ≈ 0.95) - quick enough to
+        // read as a startled flinch, not a lazy fade.
+        const val kRetractRate = 8.5f
+        // Chosen so the residual drift velocity is ~95% decayed in about 1.5s
+        // (1 - e^(-kDriftDampRate*1.5) ≈ 0.95) - a gliding-to-a-stop feel, not an instant halt.
+        const val kDriftDampRate = 2f
+        // Gentle passive sink while withdrawn, like a heavy, inert shell settling.
+        const val kInertSinkSpeed = 0.02f
+        const val kHideDurationMin = 2.5f
+        const val kHideDurationMax = 4f
+        // Well above even the fastest normal cruising burst (kFastSpeedMultiplierMax) - the
+        // whole point is that fleeing reads as dramatically faster than any ordinary swim.
+        const val kFleeSpeedMultiplier = 2.4f
+        const val kFleeDistanceMin = 0.9f
+        const val kFleeDistanceMax = 1.4f
     }
 }

@@ -82,9 +82,17 @@ void main() {
     float stripesAlpha = max(max(stripe1, stripe2), stripe3) * aBody;
     color = mix(color, uStripeColor, stripesAlpha);
     
-    // Bioluminescent glow on stripes at night
+    // Bioluminescent glow on stripes at night. Ramped through smoothstep(0.0, kNightGlowEdge,
+    // uDayNight) rather than a plain (1.0 - uDayNight) - the raw linear version made the glow
+    // already partway visible as soon as the sun started dipping, well before the background
+    // (acuario_background.frag, which itself darkens roughly linearly in uDayNight) actually
+    // looked dark. Clamping the ramp to uDayNight's bottom slice instead keeps the glow at 0
+    // through day/dusk/dawn and only fades it in once it's genuinely dark, in sync with the
+    // background - see the same fix in manta.frag/turtle.frag.
+    const float kNightGlowEdge = 0.25;
+    float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
     vec3 glowColor = vec3(0.0, 1.0, 0.85); // Neon cyan glow
-    float glowStrength = (1.0 - uDayNight) * 1.2;
+    float glowStrength = nightGlow * 1.2;
     color += glowColor * stripesAlpha * glowStrength;
 
     // Eye colors
