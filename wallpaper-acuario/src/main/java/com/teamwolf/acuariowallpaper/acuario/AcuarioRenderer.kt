@@ -187,6 +187,18 @@ class AcuarioRenderer(
     private val submarine = Submarine()
     private val kSubmarineScale = 0.28f
 
+    // Food (Feeding Time)
+    private var foodProgram = 0
+    private var foodMVPHandle = 0
+    private var foodActive = false
+    private var foodX = 0f
+    private var foodY = 0f
+    private val kFoodScale = 0.05f
+    private val foodSpeed = 0.22f
+    private val kFeedingCooldownSeconds = 15f
+    private var feedingCooldownRemaining = 0f
+
+
     // Vegetation (kelp + anemones): unlike the wandering creatures above, these are anchored to
     // the tank floor and never move - see layoutPlants()'s comment for why the whole layout is
     // rebuilt from scratch on any density/aspect-ratio change instead of incrementally adjusted.
@@ -350,6 +362,9 @@ class AcuarioRenderer(
         var wobbleSpeed: Float = 0f,
         var wobbleSeed: Float = 0f,
         var alpha: Float = 0f,
+        var r: Float = 0.85f,
+        var g: Float = 0.95f,
+        var b: Float = 1.0f,
         // True only for bubbles spawned by triggerBubbleStorm() - lets the burst-removal loop in
         // onUpdate() track activeStormBubbleCount separately from ordinary exhale/propulsion
         // bursts sharing the same burstBubbles pool, so the storm cooldown can tell exactly when
@@ -365,7 +380,7 @@ class AcuarioRenderer(
             wobbleSpeed: Float,
             wobbleSeed: Float,
             alpha: Float
-        ) {
+        ): Bubble {
             this.x = startX
             this.y = startY
             this.baseX = startX
@@ -375,11 +390,15 @@ class AcuarioRenderer(
             this.wobbleSpeed = wobbleSpeed
             this.wobbleSeed = wobbleSeed
             this.alpha = alpha
+            this.r = 0.85f
+            this.g = 0.95f
+            this.b = 1.0f
             // Always cleared here (not left to the caller) so a pooled instance previously used
             // for a storm bubble can't stay mismarked once it's recycled for an unrelated
             // exhale/propulsion burst - triggerBubbleStorm() sets it back to true right after
             // calling this, for the instances it actually spawns.
             this.isStorm = false
+            return this
         }
 
         fun resetRandom(spawnAnywhere: Boolean, aspectRatio: Float) {
@@ -549,6 +568,16 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/food.vert")
+            val frag = readAssetFile(context, "shaders/food.frag")
+            foodProgram = createProgram(vert, frag)
+            foodMVPHandle = GLES30.glGetUniformLocation(foodProgram, "uMVPMatrix")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
             -1f, -1f,
@@ -627,18 +656,47 @@ class AcuarioRenderer(
      * resolves to whichever one is actually drawn on top, like a real tap would.
      */
     override fun onTouchEvent(x: Float, y: Float) {
-        if (screenWidth <= 0 || screenHeight <= 0 || turtles.isEmpty()) return
+        if (screenWidth <= 0 || screenHeight <= 0) return
         val worldX = (x / screenWidth * 2f - 1f) * aspectRatio
         val worldY = 1f - (y / screenHeight * 2f)
 
-        for (i in turtles.indices.reversed()) {
-            val t = turtles[i]
-            val hitRadius = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
-            val dx = worldX - (t.x + foregroundParallax)
-            val dy = worldY - t.y
-            if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-                t.touch(worldX, worldY)
-                break
+        // Spawning food with 15-second cooldown
+        if (feedingCooldownRemaining <= 0f) {
+            feedingCooldownRemaining = kFeedingCooldownSeconds
+            foodActive = true
+            foodX = worldX - foregroundParallax
+            foodY = 1.1f
+
+            // Clean up any previously targeted fish, just in case
+            for (f in fishes) {
+                if (f.isTargetingFood) {
+                    f.stopTargetingFood(aspectRatio)
+                }
+            }
+
+            // Find the 2 or 3 closest fish
+            val sortedFish = fishes.filter { !it.isSpinning }.sortedBy { f ->
+                val dx = foodX - f.x
+                val dy = foodY - f.y
+                dx * dx + dy * dy
+            }
+            val countToTarget = minOf(3, sortedFish.size)
+            for (i in 0 until countToTarget) {
+                sortedFish[i].isTargetingFood = true
+                sortedFish[i].setTarget(foodX, foodY)
+            }
+        }
+
+        if (turtles.isNotEmpty()) {
+            for (i in turtles.indices.reversed()) {
+                val t = turtles[i]
+                val hitRadius = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
+                val dx = worldX - (t.x + foregroundParallax)
+                val dy = worldY - t.y
+                if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                    t.touch(worldX, worldY)
+                    break
+                }
             }
         }
     }
@@ -649,6 +707,48 @@ class AcuarioRenderer(
         if (stormCooldownRemaining > 0f) {
             stormCooldownRemaining -= deltaTime
         }
+
+        if (feedingCooldownRemaining > 0f) {
+            feedingCooldownRemaining -= deltaTime
+        }
+
+        if (foodActive) {
+            foodY -= deltaTime * foodSpeed
+            if (foodY < -1.1f) {
+                foodActive = false
+                for (f in fishes) {
+                    if (f.isTargetingFood) {
+                        f.stopTargetingFood(aspectRatio)
+                    }
+                }
+            } else {
+                var foodEaten = false
+                var eaterFish: Fish? = null
+                for (f in fishes) {
+                    if (f.isTargetingFood) {
+                        f.setTarget(foodX, foodY)
+                        val dx = foodX - f.x
+                        val dy = foodY - f.y
+                        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                        if (dist < 0.08f) {
+                            foodEaten = true
+                            eaterFish = f
+                            break
+                        }
+                    }
+                }
+                if (foodEaten && eaterFish != null) {
+                    foodActive = false
+                    eaterFish.startSpin()
+                    for (f in fishes) {
+                        if (f.isTargetingFood) {
+                            f.stopTargetingFood(aspectRatio)
+                        }
+                    }
+                }
+            }
+        }
+
 
         val cycleDuration = configProvider.getDayNightCycleDuration()
         if (cycleDuration == -1) {
@@ -675,10 +775,18 @@ class AcuarioRenderer(
         syncBubbleCount()
         submarine.update(deltaTime, aspectRatio)
         for (i in fishes.indices) {
-            fishes[i].update(deltaTime, aspectRatio)
+            val f = fishes[i]
+            f.update(deltaTime, aspectRatio)
+            if (f.shinyType > 0 && Random.nextFloat() < 0.1f) {
+                spawnSparkleAt(f.x, f.y, f.shinyType)
+            }
         }
         for (i in mantas.indices) {
-            mantas[i].update(deltaTime, aspectRatio)
+            val m = mantas[i]
+            m.update(deltaTime, aspectRatio)
+            if (m.shinyType > 0 && Random.nextFloat() < 0.15f) {
+                spawnSparkleAt(m.x, m.y, m.shinyType)
+            }
         }
         for (i in kelps.indices) {
             kelps[i].update(deltaTime)
@@ -703,6 +811,9 @@ class AcuarioRenderer(
             // &&, evaluated exactly once either way.
             if (t.consumePowerStrokeEvent() && Random.nextFloat() < kPropulsionBubbleChance) {
                 spawnPropulsionBubbles(t)
+            }
+            if (t.shinyType > 0 && Random.nextFloat() < 0.12f) {
+                spawnSparkleAt(t.x, t.y, t.shinyType)
             }
         }
         for (i in bubbles.indices) {
@@ -824,6 +935,47 @@ class AcuarioRenderer(
         activeBurstCount++
     }
 
+    private fun spawnSparkleAt(originX: Float, originY: Float, shinyType: Int) {
+        if (activeBurstCount >= kMaxBurstBubbles) return
+        val bubble = burstBubbles[activeBurstCount]
+        bubble.reset(
+            startX = originX + (Random.nextFloat() - 0.5f) * 0.12f,
+            startY = originY + (Random.nextFloat() - 0.5f) * 0.08f,
+            size = 0.006f + Random.nextFloat() * 0.010f,
+            speed = 0.05f + Random.nextFloat() * 0.08f,
+            wobbleAmplitude = 0.003f + Random.nextFloat() * 0.005f,
+            wobbleSpeed = 2.0f + Random.nextFloat() * 3.0f,
+            wobbleSeed = Random.nextFloat() * 6.2832f,
+            alpha = 0.85f + Random.nextFloat() * 0.15f
+        )
+        if (shinyType == 1) { // Gold
+            bubble.r = 1.0f
+            bubble.g = 0.85f + Random.nextFloat() * 0.1f
+            bubble.b = 0.1f + Random.nextFloat() * 0.1f
+        } else if (shinyType == 2) { // Diamond
+            val coin = Random.nextInt(3)
+            when (coin) {
+                0 -> { // White-cyan
+                    bubble.r = 0.85f
+                    bubble.g = 0.95f
+                    bubble.b = 1.0f
+                }
+                1 -> { // Soft pink-white
+                    bubble.r = 1.0f
+                    bubble.g = 0.85f
+                    bubble.b = 0.95f
+                }
+                else -> { // Diamond bright blue
+                    bubble.r = 0.6f
+                    bubble.g = 0.9f
+                    bubble.b = 1.0f
+                }
+            }
+        }
+        activeBurstCount++
+    }
+
+
     override fun onDrawFrame() {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
@@ -868,11 +1020,26 @@ class AcuarioRenderer(
         drawFish(deepColor)
         drawTurtles(deepColor)
         drawPlants(backLayer = false, deepColor)
+        drawFood()
         drawBubbles()
 
         GLES30.glDisableVertexAttribArray(0)
         GLES30.glDisableVertexAttribArray(1)
     }
+
+    private fun drawFood() {
+        if (!foodActive || foodProgram == 0) return
+        GLES30.glUseProgram(foodProgram)
+
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(modelMatrix, 0, foodX + foregroundParallax, foodY, 0f)
+        Matrix.scaleM(modelMatrix, 0, kFoodScale, kFoodScale, 1f)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+        GLES30.glUniformMatrix4fv(foodMVPHandle, 1, false, mvpMatrix, 0)
+
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    }
+
 
     /**
      * Grows/shrinks [turtles] to match [ConfigProvider.getTurtleCount] (clamped to
@@ -921,7 +1088,7 @@ class AcuarioRenderer(
             Matrix.setIdentityM(modelMatrix, 0)
             Matrix.translateM(modelMatrix, 0, f.x + foregroundParallax, f.y, 0f)
             Matrix.scaleM(modelMatrix, 0, f.facingScale(), 1f, 1f)
-            Matrix.rotateM(modelMatrix, 0, f.pitchDegrees, 0f, 0f, 1f)
+            Matrix.rotateM(modelMatrix, 0, f.pitchDegrees + f.spinAngle, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(fishMVPHandle, 1, false, mvpMatrix, 0)
@@ -1484,9 +1651,9 @@ class AcuarioRenderer(
             bubbleInstanceBuffer.put(bubble.x + foregroundParallax)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
-            bubbleInstanceBuffer.put(0.85f) // r
-            bubbleInstanceBuffer.put(0.95f) // g
-            bubbleInstanceBuffer.put(1.0f)  // b
+            bubbleInstanceBuffer.put(bubble.r)
+            bubbleInstanceBuffer.put(bubble.g)
+            bubbleInstanceBuffer.put(bubble.b)
             bubbleInstanceBuffer.put(bubble.alpha)
         }
         for (i in 0 until activeBurstCount) {
@@ -1494,9 +1661,9 @@ class AcuarioRenderer(
             bubbleInstanceBuffer.put(bubble.x + foregroundParallax)
             bubbleInstanceBuffer.put(bubble.y)
             bubbleInstanceBuffer.put(bubble.size)
-            bubbleInstanceBuffer.put(0.85f) // r
-            bubbleInstanceBuffer.put(0.95f) // g
-            bubbleInstanceBuffer.put(1.0f)  // b
+            bubbleInstanceBuffer.put(bubble.r)
+            bubbleInstanceBuffer.put(bubble.g)
+            bubbleInstanceBuffer.put(bubble.b)
             bubbleInstanceBuffer.put(bubble.alpha)
         }
         bubbleInstanceBuffer.position(0)

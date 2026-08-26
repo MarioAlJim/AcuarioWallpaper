@@ -16,7 +16,21 @@ import kotlin.random.Random
  * [Turtle], mantas are gill-breathing elasmobranchs with no need to surface for air.
  */
 class Manta {
-    val palette: MantaPalette = MantaPalette.PALETTES.random()
+    val shinyType: Int
+    val palette: MantaPalette
+
+    init {
+        shinyType = if (Random.nextFloat() < 0.01f) {
+            if (Random.nextBoolean()) 1 else 2
+        } else {
+            0
+        }
+        palette = when (shinyType) {
+            1 -> MantaPalette.SHINY_GOLD
+            2 -> MantaPalette.SHINY_DIAMOND
+            else -> MantaPalette.PALETTES.random()
+        }
+    }
 
     var x = Random.nextFloat() * 1.2f - 0.6f
         private set
