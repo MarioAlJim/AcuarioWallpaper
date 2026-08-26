@@ -49,13 +49,18 @@ class Jellyfish {
     private val currentSpeed = 0.12f + Random.nextFloat() * 0.10f
     private val currentAmplitude = 0.10f + Random.nextFloat() * 0.08f
 
-    private val pulseSpeed = 1.1f + Random.nextFloat() * 0.5f
+    // 30% slower than the original 1.1-1.6 rad/s range - pulses fire less often.
+    private val pulseSpeed = 0.77f + Random.nextFloat() * 0.35f
 
     // How much thrust each bell contraction produces vs. how fast it sinks between contractions -
     // both vary per instance so a tank full of jellyfish doesn't rise/fall in lockstep; some
     // instances drift net-upward over time, others net-downward, same as real jellyfish bobbing
-    // through the water column.
-    private val thrustStrength = 0.5f + Random.nextFloat() * 0.3f
+    // through the water column. thrustStrength is trimmed by ~35% from the original 0.5-0.8 range
+    // for a noticeably gentler kick per pulse - the duty cycle (contracting exactly half of every
+    // pulse period, see "contracting" below) makes the average drift rate scale directly with
+    // this value regardless of pulseSpeed, so this alone is what controls how forceful the
+    // movement reads.
+    private val thrustStrength = 0.32f + Random.nextFloat() * 0.20f
     private val sinkSpeed = 0.12f + Random.nextFloat() * 0.08f
 
     private var previousPulseSin = sin(pulsePhase)
