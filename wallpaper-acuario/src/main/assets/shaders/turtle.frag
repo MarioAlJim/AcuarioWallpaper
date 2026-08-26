@@ -8,6 +8,7 @@ uniform vec3 uShellColor;
 uniform vec3 uHeadColor;
 uniform vec3 uFlipperColor;
 uniform vec3 uSpotColor;
+uniform float uDayNight;
 
 out vec4 fragColor;
 
@@ -189,6 +190,11 @@ void main() {
     shellColor = mix(shellColor, uSpotColor, spotted * 0.5 * dome);
 
     shellColor = mix(shellColor, uShellColor * 0.45, groove);
+    
+    // Bioluminescent glow on shell grooves at night
+    vec3 shellGlowColor = vec3(0.0, 1.0, 0.5); // Neon emerald/green glow
+    float shellGlowStrength = (1.0 - uDayNight) * 1.25;
+    shellColor += shellGlowColor * groove * shellGlowStrength;
 
     // The shell is drawn in front of the flippers/head (not the other way around) - it's the
     // carapace, limbs tuck under its edge, not over it. The front-flipper hinge above places its

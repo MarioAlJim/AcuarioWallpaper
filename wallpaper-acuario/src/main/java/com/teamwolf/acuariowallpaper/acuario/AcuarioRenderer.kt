@@ -57,6 +57,8 @@ class AcuarioRenderer(
     private var bgThemeHandle = 0
     private var bgAspectHandle = 0
     private var bgParallaxHandle = 0
+    private var bgDayNightHandle = 0
+    private var dayNight = 1.0f
     private lateinit var fullscreenQuadBuffer: FloatBuffer
 
     // Parallax (depth-of-tank illusion driven by home-screen swiping): [offsetX] is the eased,
@@ -125,6 +127,7 @@ class AcuarioRenderer(
     private var turtleHeadColorHandle = 0
     private var turtleFlipperColorHandle = 0
     private var turtleSpotColorHandle = 0
+    private var turtleDayNightHandle = 0
     private val turtles = mutableListOf<Turtle>()
     private val kTurtleScale = 0.28f
     private val kMaxTurtles = 5
@@ -137,6 +140,7 @@ class AcuarioRenderer(
     private var fishFinColorHandle = 0
     private var fishTailColorHandle = 0
     private var fishStripeColorHandle = 0
+    private var fishDayNightHandle = 0
     private val fishes = mutableListOf<Fish>()
     private val kFishScale = 0.18f
     private val kMaxFish = 8
@@ -151,6 +155,7 @@ class AcuarioRenderer(
     private var mantaWingColorHandle = 0
     private var mantaTailColorHandle = 0
     private var mantaMarkingColorHandle = 0
+    private var mantaDayNightHandle = 0
     private val mantas = mutableListOf<Manta>()
     private val kMantaScale = 0.34f
     private val kMaxMantas = 4
@@ -373,6 +378,7 @@ class AcuarioRenderer(
             bgThemeHandle = GLES30.glGetUniformLocation(backgroundProgram, "uTheme")
             bgAspectHandle = GLES30.glGetUniformLocation(backgroundProgram, "uAspectRatio")
             bgParallaxHandle = GLES30.glGetUniformLocation(backgroundProgram, "uParallaxOffset")
+            bgDayNightHandle = GLES30.glGetUniformLocation(backgroundProgram, "uDayNight")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -396,6 +402,7 @@ class AcuarioRenderer(
             turtleHeadColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uHeadColor")
             turtleFlipperColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uFlipperColor")
             turtleSpotColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uSpotColor")
+            turtleDayNightHandle = GLES30.glGetUniformLocation(turtleProgram, "uDayNight")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -410,6 +417,7 @@ class AcuarioRenderer(
             fishFinColorHandle = GLES30.glGetUniformLocation(fishProgram, "uFinColor")
             fishTailColorHandle = GLES30.glGetUniformLocation(fishProgram, "uTailColor")
             fishStripeColorHandle = GLES30.glGetUniformLocation(fishProgram, "uStripeColor")
+            fishDayNightHandle = GLES30.glGetUniformLocation(fishProgram, "uDayNight")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -424,6 +432,7 @@ class AcuarioRenderer(
             mantaWingColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uWingColor")
             mantaTailColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uTailColor")
             mantaMarkingColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uMarkingColor")
+            mantaDayNightHandle = GLES30.glGetUniformLocation(mantaProgram, "uDayNight")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -566,6 +575,19 @@ class AcuarioRenderer(
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
 
+        val cycleDuration = configProvider.getDayNightCycleDuration()
+        if (cycleDuration == -1) {
+            val calendar = java.util.Calendar.getInstance()
+            val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+            val minute = calendar.get(java.util.Calendar.MINUTE)
+            val second = calendar.get(java.util.Calendar.SECOND)
+            val fractionOfDay = (hour * 3600f + minute * 60f + second) / 86400f
+            dayNight = (0.5 + 0.5 * kotlin.math.cos(2.0 * Math.PI * (fractionOfDay.toDouble() - 0.5))).toFloat()
+        } else {
+            val omega = (2.0 * Math.PI / cycleDuration.toDouble()).toFloat()
+            dayNight = 0.5f + 0.5f * kotlin.math.sin(time * omega)
+        }
+
         val offsetLerp = 1f - exp(-kParallaxEaseRate * deltaTime)
         offsetX += (targetOffsetX - offsetX) * offsetLerp
         parallaxRaw = offsetX - 0.5f
@@ -695,7 +717,15 @@ class AcuarioRenderer(
         // each of them separately calling configProvider.getAcuarioTheme()/
         // getDeepColorForTheme() (8 redundant reads of the exact same value every single frame).
         val theme = configProvider.getAcuarioTheme()
-        val deepColor = getDeepColorForTheme(theme)
+        val deepColor = getDeepColorForTheme(theme).clone()
+        // Apply night darkening to deepColor to match the background shader's night blending:
+        // In the shader: baseColor * vec3(0.25, 0.30, 0.45)
+        val nightR = 0.25f
+        val nightG = 0.30f
+        val nightB = 0.45f
+        deepColor[0] = deepColor[0] * (nightR + (1f - nightR) * dayNight)
+        deepColor[1] = deepColor[1] * (nightG + (1f - nightG) * dayNight)
+        deepColor[2] = deepColor[2] * (nightB + (1f - nightB) * dayNight)
 
         drawBackground(theme)
 
@@ -755,6 +785,7 @@ class AcuarioRenderer(
     private fun drawFish(deepColor: FloatArray) {
         if (fishProgram == 0 || fishes.isEmpty()) return
         GLES30.glUseProgram(fishProgram)
+        GLES30.glUniform1f(fishDayNightHandle, dayNight)
 
         // Farthest first, manual insertion sort to avoid allocation
         for (i in 1 until fishes.size) {
@@ -783,11 +814,12 @@ class AcuarioRenderer(
 
             GLES30.glUniform1f(fishSwimPhaseHandle, f.swimPhase % kTwoPi)
 
+            val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = f.palette
-            mixColorInto(scratchBodyColor, palette.bodyColor, deepColor, tintAmount)
-            mixColorInto(scratchFinColor, palette.finColor, deepColor, tintAmount)
-            mixColorInto(scratchTailColor, palette.tailColor, deepColor, tintAmount)
-            mixColorInto(scratchStripeColor, palette.stripeColor, deepColor, tintAmount)
+            mixColorInto(scratchBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchFinColor, palette.finColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchTailColor, palette.tailColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchStripeColor, palette.stripeColor, deepColor, tintAmount, ambientFactor)
 
             GLES30.glUniform3fv(fishBodyColorHandle, 1, scratchBodyColor, 0)
             GLES30.glUniform3fv(fishFinColorHandle, 1, scratchFinColor, 0)
@@ -809,6 +841,7 @@ class AcuarioRenderer(
     private fun drawMantas(deepColor: FloatArray) {
         if (mantaProgram == 0 || mantas.isEmpty()) return
         GLES30.glUseProgram(mantaProgram)
+        GLES30.glUniform1f(mantaDayNightHandle, dayNight)
 
         // Farthest first, manual insertion sort to avoid allocation
         for (i in 1 until mantas.size) {
@@ -837,11 +870,12 @@ class AcuarioRenderer(
 
             GLES30.glUniform1f(mantaSwimPhaseHandle, m.swimPhase % kTwoPi)
 
+            val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = m.palette
-            mixColorInto(scratchMantaBodyColor, palette.bodyColor, deepColor, tintAmount)
-            mixColorInto(scratchMantaWingColor, palette.wingColor, deepColor, tintAmount)
-            mixColorInto(scratchMantaTailColor, palette.tailColor, deepColor, tintAmount)
-            mixColorInto(scratchMantaMarkingColor, palette.markingColor, deepColor, tintAmount)
+            mixColorInto(scratchMantaBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchMantaWingColor, palette.wingColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchMantaTailColor, palette.tailColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchMantaMarkingColor, palette.markingColor, deepColor, tintAmount, ambientFactor)
 
             GLES30.glUniform3fv(mantaBodyColorHandle, 1, scratchMantaBodyColor, 0)
             GLES30.glUniform3fv(mantaWingColorHandle, 1, scratchMantaWingColor, 0)
@@ -868,13 +902,15 @@ class AcuarioRenderer(
 
         GLES30.glUniform1f(submarineSwimPhaseHandle, submarine.propellerPhase)
 
+        val ambientFactor = 0.35f + 0.65f * dayNight
         val baseBodyColor = floatArrayOf(0.95f, 0.80f, 0.10f) // Yellow
         val baseAccentColor = floatArrayOf(0.85f, 0.15f, 0.10f) // Red accent
         val baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f) // Glowing warm yellow
 
-        mixColorInto(scratchSubmarineBodyColor, baseBodyColor, deepColor, tintAmount)
-        mixColorInto(scratchSubmarineAccentColor, baseAccentColor, deepColor, tintAmount)
-        mixColorInto(scratchSubmarineWindowColor, baseWindowColor, deepColor, tintAmount)
+        mixColorInto(scratchSubmarineBodyColor, baseBodyColor, deepColor, tintAmount, ambientFactor)
+        mixColorInto(scratchSubmarineAccentColor, baseAccentColor, deepColor, tintAmount, ambientFactor)
+        // Windows keep glowing bright at night!
+        mixColorInto(scratchSubmarineWindowColor, baseWindowColor, deepColor, tintAmount, 1.0f)
 
         GLES30.glUniform3fv(submarineBodyColorHandle, 1, scratchSubmarineBodyColor, 0)
         GLES30.glUniform3fv(submarineAccentColorHandle, 1, scratchSubmarineAccentColor, 0)
@@ -1007,11 +1043,12 @@ class AcuarioRenderer(
 
             GLES30.glUniform1f(kelpSwayPhaseHandle, k.swayPhase % kTwoPi)
 
+            val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = k.palette
-            mixColorInto(scratchKelpBladeColor, palette.bladeColor, deepColor, tintAmount)
-            mixColorInto(scratchKelpTipColor, palette.tipColor, deepColor, tintAmount)
-            mixColorInto(scratchKelpBaseColor, palette.baseColor, deepColor, tintAmount)
-            mixColorInto(scratchKelpHighlightColor, palette.highlightColor, deepColor, tintAmount)
+            mixColorInto(scratchKelpBladeColor, palette.bladeColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchKelpTipColor, palette.tipColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchKelpBaseColor, palette.baseColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchKelpHighlightColor, palette.highlightColor, deepColor, tintAmount, ambientFactor)
 
             GLES30.glUniform3fv(kelpBladeColorHandle, 1, scratchKelpBladeColor, 0)
             GLES30.glUniform3fv(kelpTipColorHandle, 1, scratchKelpTipColor, 0)
@@ -1044,11 +1081,12 @@ class AcuarioRenderer(
 
             GLES30.glUniform1f(anemoneSwayPhaseHandle, a.swayPhase % kTwoPi)
 
+            val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = a.palette
-            mixColorInto(scratchAnemoneFootColor, palette.footColor, deepColor, tintAmount)
-            mixColorInto(scratchAnemoneTentacleColor, palette.tentacleColor, deepColor, tintAmount)
-            mixColorInto(scratchAnemoneTipColor, palette.tipColor, deepColor, tintAmount)
-            mixColorInto(scratchAnemoneHighlightColor, palette.highlightColor, deepColor, tintAmount)
+            mixColorInto(scratchAnemoneFootColor, palette.footColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchAnemoneTentacleColor, palette.tentacleColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchAnemoneTipColor, palette.tipColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchAnemoneHighlightColor, palette.highlightColor, deepColor, tintAmount, ambientFactor)
 
             GLES30.glUniform3fv(anemoneFootColorHandle, 1, scratchAnemoneFootColor, 0)
             GLES30.glUniform3fv(anemoneTentacleColorHandle, 1, scratchAnemoneTentacleColor, 0)
@@ -1082,11 +1120,12 @@ class AcuarioRenderer(
 
             GLES30.glUniform1f(seaGrassSwayPhaseHandle, g.swayPhase % kTwoPi)
 
+            val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = g.palette
-            mixColorInto(scratchSeaGrassBladeColor, palette.bladeColor, deepColor, tintAmount)
-            mixColorInto(scratchSeaGrassTipColor, palette.tipColor, deepColor, tintAmount)
-            mixColorInto(scratchSeaGrassBaseColor, palette.baseColor, deepColor, tintAmount)
-            mixColorInto(scratchSeaGrassHighlightColor, palette.highlightColor, deepColor, tintAmount)
+            mixColorInto(scratchSeaGrassBladeColor, palette.bladeColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchSeaGrassTipColor, palette.tipColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchSeaGrassBaseColor, palette.baseColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchSeaGrassHighlightColor, palette.highlightColor, deepColor, tintAmount, ambientFactor)
 
             GLES30.glUniform3fv(seaGrassBladeColorHandle, 1, scratchSeaGrassBladeColor, 0)
             GLES30.glUniform3fv(seaGrassTipColorHandle, 1, scratchSeaGrassTipColor, 0)
@@ -1119,11 +1158,12 @@ class AcuarioRenderer(
 
             GLES30.glUniform1f(coralSwayPhaseHandle, c.swayPhase % kTwoPi)
 
+            val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = c.palette
-            mixColorInto(scratchCoralBaseColor, palette.baseColor, deepColor, tintAmount)
-            mixColorInto(scratchCoralBranchColor, palette.branchColor, deepColor, tintAmount)
-            mixColorInto(scratchCoralPolypColor, palette.polypColor, deepColor, tintAmount)
-            mixColorInto(scratchCoralHighlightColor, palette.highlightColor, deepColor, tintAmount)
+            mixColorInto(scratchCoralBaseColor, palette.baseColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchCoralBranchColor, palette.branchColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchCoralPolypColor, palette.polypColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchCoralHighlightColor, palette.highlightColor, deepColor, tintAmount, ambientFactor)
 
             GLES30.glUniform3fv(coralBaseColorHandle, 1, scratchCoralBaseColor, 0)
             GLES30.glUniform3fv(coralBranchColorHandle, 1, scratchCoralBranchColor, 0)
@@ -1154,6 +1194,7 @@ class AcuarioRenderer(
     private fun drawTurtles(deepColor: FloatArray) {
         if (turtleProgram == 0 || turtles.isEmpty()) return
         GLES30.glUseProgram(turtleProgram)
+        GLES30.glUniform1f(turtleDayNightHandle, dayNight)
 
         // Farthest first, so a turtle nearer the glass correctly draws on top of one that
         // overlaps it deeper in the tank (there's no depth buffer test here - just simple
@@ -1205,11 +1246,12 @@ class AcuarioRenderer(
             // running.
             GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase % kTwoPi)
 
+            val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = t.palette
-            mixColorInto(scratchShellColor, palette.shellColor, deepColor, tintAmount)
-            mixColorInto(scratchHeadColor, palette.headColor, deepColor, tintAmount)
-            mixColorInto(scratchFlipperColor, palette.flipperColor, deepColor, tintAmount)
-            mixColorInto(scratchSpotColor, palette.spotColor, deepColor, tintAmount)
+            mixColorInto(scratchShellColor, palette.shellColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchHeadColor, palette.headColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchFlipperColor, palette.flipperColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchSpotColor, palette.spotColor, deepColor, tintAmount, ambientFactor)
             GLES30.glUniform3fv(turtleShellColorHandle, 1, scratchShellColor, 0)
             GLES30.glUniform3fv(turtleHeadColorHandle, 1, scratchHeadColor, 0)
             GLES30.glUniform3fv(turtleFlipperColorHandle, 1, scratchFlipperColor, 0)
@@ -1219,10 +1261,17 @@ class AcuarioRenderer(
         }
     }
 
-    /** Writes `mix(from, toward, amount)` component-wise into [out] (avoids a per-call allocation). */
-    private fun mixColorInto(out: FloatArray, from: FloatArray, toward: FloatArray, amount: Float) {
+    /** Writes `mix(from * multiplier, toward, amount)` component-wise into [out] (avoids a per-call allocation). */
+    private fun mixColorInto(
+        out: FloatArray,
+        from: FloatArray,
+        toward: FloatArray,
+        amount: Float,
+        multiplier: Float = 1.0f
+    ) {
         for (i in 0..2) {
-            out[i] = from[i] + (toward[i] - from[i]) * amount
+            val baseVal = from[i] * multiplier
+            out[i] = baseVal + (toward[i] - baseVal) * amount
         }
     }
 
@@ -1233,6 +1282,7 @@ class AcuarioRenderer(
         GLES30.glUniform1i(bgThemeHandle, theme)
         GLES30.glUniform1f(bgAspectHandle, aspectRatio)
         GLES30.glUniform1f(bgParallaxHandle, parallaxRaw)
+        GLES30.glUniform1f(bgDayNightHandle, dayNight)
 
         fullscreenQuadBuffer.position(0)
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 8, fullscreenQuadBuffer)
