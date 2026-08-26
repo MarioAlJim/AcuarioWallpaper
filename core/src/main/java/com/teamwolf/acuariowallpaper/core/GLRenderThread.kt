@@ -20,6 +20,7 @@ class GLRenderThread(
     @Volatile private var yOffset = 0.5f
     @Volatile private var tiltX = 0f
     @Volatile private var tiltY = 0f
+    @Volatile private var pendingBubbleStorm = false
 
     fun setVisible(visible: Boolean) {
         synchronized(lock) {
@@ -56,6 +57,16 @@ class GLRenderThread(
         synchronized(lock) {
             this.tiltX = tiltX
             this.tiltY = tiltY
+            lock.notifyAll()
+        }
+    }
+
+    /** Queues a shake-triggered bubble storm - consumed (and cleared) at most once per frame in
+     * [run], same one-shot pattern as [pendingTouch]. Safe to call from any thread (the sensor
+     * callback runs on the main thread, not this one). */
+    fun queueBubbleStorm() {
+        synchronized(lock) {
+            pendingBubbleStorm = true
             lock.notifyAll()
         }
     }
@@ -141,6 +152,11 @@ class GLRenderThread(
                 if (touch != null) {
                     pendingTouch = null
                     renderer.onTouchEvent(touch.first, touch.second)
+                }
+
+                if (pendingBubbleStorm) {
+                    pendingBubbleStorm = false
+                    renderer.triggerBubbleStorm()
                 }
 
                 if (localXOffset != lastDeliveredXOffset || localYOffset != lastDeliveredYOffset) {

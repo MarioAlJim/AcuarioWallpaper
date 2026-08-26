@@ -105,19 +105,30 @@ class AcuarioRenderer(
     // downstroke (see Turtle.consumePowerStrokeEvent). Unlike the ambient `bubbles` above,
     // these are NOT recycled forever - once one drifts off the top of the screen it's simply
     // removed, since each is a momentary event, not a permanent part of the water's atmosphere.
-    // kMaxBurstBubbles is a safety cap on the shared instance buffer below, not a tuning knob -
-    // sized generously even though propulsion bubbles are now the rare exception rather than
-    // the rule (see kPropulsionBubbleChance), since occasional exhale bursts can still stack up
-    // across kMaxTurtles turtles.
+    // kMaxBurstBubbles is a safety cap on the shared instance buffer below - sized to comfortably
+    // fit one full kBubbleStormCount storm (see triggerBubbleStorm()) PLUS some headroom for
+    // ordinary exhale/propulsion bursts that might land mid-storm, not just those two on their
+    // own (which alone would fit in far fewer).
     private val kExhaleBubblesPerBreath = 2
     // Chance, per power stroke, that a propulsion bubble is spawned at all - firing on every
     // single stroke across every turtle read as constant bubble clutter saturating the screen,
     // so this makes the trail an occasional flourish (1-2 bubbles, see spawnPropulsionBubbles())
     // instead of a guaranteed one every ~2s per turtle.
     private val kPropulsionBubbleChance = 0.30f
-    private val kMaxBurstBubbles = 40
+    private val kMaxBurstBubbles = 130
     private val burstBubbles = mutableListOf<Bubble>()
     private var activeBurstCount = 0
+
+    // "Bubble Pop" shake gesture (see GLRenderer.triggerBubbleStorm's doc and
+    // AcuarioWallpaperService.detectShake()): a one-off burst of kBubbleStormCount bubbles from
+    // across the tank floor. Gated so a flurry of shakes can't re-trigger it while the previous
+    // storm is still on screen or saturate the burst pool - a new storm needs BOTH
+    // kBubbleStormCooldownSeconds to have passed AND every bubble from the last storm to have
+    // already risen off-screen (activeStormBubbleCount back to 0), whichever takes longer.
+    private val kBubbleStormCount = 100
+    private val kBubbleStormCooldownSeconds = 10f
+    private var stormCooldownRemaining = 0f
+    private var activeStormBubbleCount = 0
 
     // Turtles (each a non-instanced quad transformed via its own MVP - same shape as moon.vert
     // in the "wallpaper" reference project; at most kMaxTurtles of them, so one draw call per
@@ -338,7 +349,12 @@ class AcuarioRenderer(
         var wobbleAmplitude: Float = 0f,
         var wobbleSpeed: Float = 0f,
         var wobbleSeed: Float = 0f,
-        var alpha: Float = 0f
+        var alpha: Float = 0f,
+        // True only for bubbles spawned by triggerBubbleStorm() - lets the burst-removal loop in
+        // onUpdate() track activeStormBubbleCount separately from ordinary exhale/propulsion
+        // bursts sharing the same burstBubbles pool, so the storm cooldown can tell exactly when
+        // every one of ITS bubbles (not just any burst bubble) has risen off-screen.
+        var isStorm: Boolean = false
     ) {
         fun reset(
             startX: Float,
@@ -359,6 +375,11 @@ class AcuarioRenderer(
             this.wobbleSpeed = wobbleSpeed
             this.wobbleSeed = wobbleSeed
             this.alpha = alpha
+            // Always cleared here (not left to the caller) so a pooled instance previously used
+            // for a storm bubble can't stay mismarked once it's recycled for an unrelated
+            // exhale/propulsion burst - triggerBubbleStorm() sets it back to true right after
+            // calling this, for the instances it actually spawns.
+            this.isStorm = false
         }
 
         fun resetRandom(spawnAnywhere: Boolean, aspectRatio: Float) {
@@ -625,6 +646,10 @@ class AcuarioRenderer(
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
 
+        if (stormCooldownRemaining > 0f) {
+            stormCooldownRemaining -= deltaTime
+        }
+
         val cycleDuration = configProvider.getDayNightCycleDuration()
         if (cycleDuration == -1) {
             val calendar = java.util.Calendar.getInstance()
@@ -697,6 +722,7 @@ class AcuarioRenderer(
             bubble.y += deltaTime * bubble.speed
             bubble.x = bubble.baseX + kotlin.math.sin(time * bubble.wobbleSpeed + bubble.wobbleSeed) * bubble.wobbleAmplitude
             if (bubble.y > 1.2f) {
+                if (bubble.isStorm) activeStormBubbleCount--
                 if (i < activeBurstCount - 1) {
                     val lastActive = burstBubbles[activeBurstCount - 1]
                     burstBubbles[activeBurstCount - 1] = bubble
@@ -707,6 +733,44 @@ class AcuarioRenderer(
                 i++
             }
         }
+    }
+
+    /**
+     * "Bubble Pop": a one-off storm of [kBubbleStormCount] bubbles spawned across the whole tank
+     * floor at once, called (via GLRenderThread's queue) when AcuarioWallpaperService detects a
+     * deliberate shake. Gated by [stormCooldownRemaining]/[activeStormBubbleCount] - see their
+     * shared doc - so it's a no-op while either the cooldown timer is still running or the
+     * previous storm's bubbles haven't all risen off-screen yet, instead of stacking storms and
+     * saturating the screen. Reuses the same one-off [burstBubbles] pool as exhale/propulsion
+     * bubbles (tagged [Bubble.isStorm] so onUpdate()'s removal loop can track them separately),
+     * so these drain away on their own the same way any other burst does - no separate cleanup
+     * needed here.
+     */
+    override fun triggerBubbleStorm() {
+        if (stormCooldownRemaining > 0f || activeStormBubbleCount > 0) return
+
+        for (n in 0 until kBubbleStormCount) {
+            if (activeBurstCount >= kMaxBurstBubbles) break
+            burstBubbles[activeBurstCount].apply {
+                reset(
+                    startX = Random.nextFloat() * (aspectRatio * 2f) - aspectRatio,
+                    startY = -1.1f - Random.nextFloat() * 0.5f,
+                    // Bigger and faster than ambient/propulsion bubbles - a churning storm, not
+                    // the water's usual gentle trickle.
+                    size = 0.03f + Random.nextFloat() * 0.05f,
+                    speed = 0.30f + Random.nextFloat() * 0.35f,
+                    wobbleAmplitude = 0.02f + Random.nextFloat() * 0.03f,
+                    wobbleSpeed = 1.0f + Random.nextFloat() * 2.0f,
+                    wobbleSeed = Random.nextFloat() * 6.2832f,
+                    alpha = 0.45f + Random.nextFloat() * 0.35f
+                )
+                isStorm = true
+            }
+            activeBurstCount++
+            activeStormBubbleCount++
+        }
+
+        stormCooldownRemaining = kBubbleStormCooldownSeconds
     }
 
     /** [kExhaleBubblesPerBreath] larger, more opaque bubbles released at ([originX], [originY]). */
