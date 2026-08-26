@@ -29,6 +29,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     @Volatile
     private var cachedBubbleCount: Int = prefs.getInt(ConfigManager.KEY_BUBBLE_COUNT, ConfigManager.DEFAULT_BUBBLE_COUNT)
 
+    @Volatile
+    private var cachedDayNightCycle: Int = prefs.getInt(ConfigManager.KEY_DAY_NIGHT_CYCLE, ConfigManager.DEFAULT_DAY_NIGHT_CYCLE)
+
     fun getAcuarioTheme(): Int = cachedTheme
     fun setAcuarioTheme(theme: Int) {
         val coerced = theme.coerceIn(0, 4)
@@ -73,6 +76,13 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
         putInt(ConfigManager.KEY_BUBBLE_COUNT, coerced)
     }
 
+    fun getDayNightCycleDuration(): Int = cachedDayNightCycle
+    fun setDayNightCycleDuration(duration: Int) {
+        val coerced = if (duration == 60 || duration == 180 || duration == 600 || duration == -1) duration else 180
+        cachedDayNightCycle = coerced
+        putInt(ConfigManager.KEY_DAY_NIGHT_CYCLE, coerced)
+    }
+
     override fun invalidate(key: String) {
         super.invalidate(key)
         when (key) {
@@ -93,6 +103,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
             }
             ConfigManager.KEY_BUBBLE_COUNT -> {
                 cachedBubbleCount = prefs.getInt(ConfigManager.KEY_BUBBLE_COUNT, ConfigManager.DEFAULT_BUBBLE_COUNT)
+            }
+            ConfigManager.KEY_DAY_NIGHT_CYCLE -> {
+                cachedDayNightCycle = prefs.getInt(ConfigManager.KEY_DAY_NIGHT_CYCLE, ConfigManager.DEFAULT_DAY_NIGHT_CYCLE)
             }
         }
     }

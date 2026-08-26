@@ -28,4 +28,9 @@
     <string name="bubble_density_medio">Medio</string>
     <string name="bubble_density_alto">Alto</string>
     <string name="bubble_density_muy_alto">Muy alto</string>
+    <string name="settings_section_day_night_cycle">Velocidad del ciclo día y noche</string>
+    <string name="day_night_cycle_rapido">Rápido (60s)</string>
+    <string name="day_night_cycle_normal">Normal (3 min)</string>
+    <string name="day_night_cycle_lento">Lento (10 min)</string>
+    <string name="day_night_cycle_real">Tiempo real (24h)</string>
 </resources>

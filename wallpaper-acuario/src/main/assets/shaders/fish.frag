@@ -8,6 +8,7 @@ uniform vec3 uBodyColor;
 uniform vec3 uFinColor;
 uniform vec3 uTailColor;
 uniform vec3 uStripeColor;
+uniform float uDayNight;
 
 out vec4 fragColor;
 
@@ -80,6 +81,11 @@ void main() {
     float stripe3 = smoothstep(0.06, 0.0, abs(pWarped.x + 0.24));
     float stripesAlpha = max(max(stripe1, stripe2), stripe3) * aBody;
     color = mix(color, uStripeColor, stripesAlpha);
+    
+    // Bioluminescent glow on stripes at night
+    vec3 glowColor = vec3(0.0, 1.0, 0.85); // Neon cyan glow
+    float glowStrength = (1.0 - uDayNight) * 1.2;
+    color += glowColor * stripesAlpha * glowStrength;
 
     // Eye colors
     vec3 eyeRingColor = vec3(0.95, 0.95, 0.95);

@@ -40,6 +40,7 @@ class AcuarioSettingsFragment : Fragment() {
         setupMantaCountCards(view)
         setupPlantDensityCards(view)
         setupBubbleCountCards(view)
+        setupDayNightCycleCards(view)
     }
 
     private fun setupThemeCards(parent: View) {
@@ -213,6 +214,39 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setBubbleCount(values[selectedIndex])
+        }
+    }
+
+    private fun setupDayNightCycleCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerDayNightCycle)
+        val options = arrayOf(
+            getString(R.string.day_night_cycle_rapido),
+            getString(R.string.day_night_cycle_normal),
+            getString(R.string.day_night_cycle_lento),
+            getString(R.string.day_night_cycle_real)
+        )
+        val values = intArrayOf(60, 180, 600, -1)
+        val initialIndex = SettingsCardSelectorHelper.closestValueIndex(values, configManager.getDayNightCycleDuration())
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            initialIndex,
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = when (index) {
+                        0 -> "⚡"
+                        1 -> "⏰"
+                        2 -> "🐢"
+                        else -> "🌍"
+                    }
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setDayNightCycleDuration(values[selectedIndex])
         }
     }
 }

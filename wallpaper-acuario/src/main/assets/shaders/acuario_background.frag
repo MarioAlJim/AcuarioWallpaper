@@ -9,6 +9,7 @@ uniform float uAspectRatio;
 // This frame's eased home-screen swipe position, re-centered to [-0.5, 0.5] (0 = no swipe) -
 // see AcuarioRenderer's parallaxRaw/foregroundParallax field doc.
 uniform float uParallaxOffset;
+uniform float uDayNight; // 0.0 = full night, 1.0 = full day
 
 out vec4 fragColor;
 
@@ -120,7 +121,9 @@ void main() {
     // actually approaches shallowColor's full brightness - the rest of the tank reads notably
     // darker/moodier, which also gives the god rays below somewhere dark to visibly stand out
     // against instead of blending into an already-bright base.
-    vec3 color = mix(deepColor, shallowColor, pow(y, 2.0));
+    vec3 baseColor = mix(deepColor, shallowColor, pow(y, 2.0));
+    // Apply day/night cycle: darken the background at night with a colder, deep-blue tint
+    vec3 color = mix(baseColor * vec3(0.25, 0.30, 0.45), baseColor, uDayNight);
 
     // Parallax layer: very blurry, darkened silhouettes of rocks/kelp/a distant animal shape
     // sitting far at the back of the tank, well behind everything else drawn (the creatures,
@@ -185,15 +188,15 @@ void main() {
         flare = pow(max(0.0, sin(uTime * 0.13) * sin(uTime * 0.21 + 1.5) * cos(uTime * 0.07)), 4.0);
     }
 
-    // Boost god rays when the sun flares up
-    float activeRayStrength = rayStrength * (1.0 + flare * 1.5);
+    // Boost god rays when the sun flares up, scaled by uDayNight (fades out at night)
+    float activeRayStrength = rayStrength * (1.0 + flare * 1.5) * uDayNight;
     color += shallowColor * ray * raysMask * activeRayStrength;
 
     if (uTheme == 1 || uTheme == 2 || uTheme == 4) {
-        // Bright warm sun flash concentrated at the top edge (warm pinkish/orange for sunset)
+        // Bright warm sun flash concentrated at the top edge (warm pinkish/orange for sunset), scaled by uDayNight
         float flashMask = pow(y, 3.5);
         vec3 flashColor = (uTheme == 2) ? vec3(0.98, 0.70, 0.50) : vec3(0.95, 0.92, 0.82);
-        color += flashColor * flare * flashMask * 0.40;
+        color += flashColor * flare * flashMask * 0.40 * uDayNight;
     }
 
     // Caustics: a cellular (Voronoi) light-net, the classic bright, curved, moving mesh seen on
@@ -269,8 +272,8 @@ void main() {
     float sineCaustic = smoothstep(0.55, 1.0, c1 * c2) * 0.7;
 
     vec3 combinedCaustic = causticRGB + vec3(sineCaustic);
-    // Boost caustics when the sun flares up
-    float activeCausticStrength = causticStrength * (1.0 + flare * 1.2);
+    // Boost caustics when the sun flares up, and fade them out completely at night
+    float activeCausticStrength = causticStrength * (1.0 + flare * 1.2) * uDayNight;
     color += shallowColor * combinedCaustic * activeCausticStrength * (0.4 + raysMask * 0.8);
 
     // Dynamic vignette: darkens the screen edges - the bottom corners more than the rest, since

@@ -46,10 +46,8 @@ class ConfigManager(context: Context) : ConfigProvider {
         const val KEY_BUBBLE_COUNT = "bubble_count"
         const val DEFAULT_BUBBLE_COUNT = 28
 
-        // Add more KEY_/DEFAULT_ constants here as settings are introduced, following the
-        // pattern used by the "wallpaper" reference project's ConfigManager. Every new visual
-        // effect should get its own knob here (count/density and/or an enable toggle at
-        // minimum) rather than shipping with hardcoded constants only.
+        const val KEY_DAY_NIGHT_CYCLE = "day_night_cycle"
+        const val DEFAULT_DAY_NIGHT_CYCLE = 180 // Default is 3 minutes (180s)
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
@@ -69,4 +67,7 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getBubbleCount(): Int = acuario.getBubbleCount()
     fun setBubbleCount(count: Int) = acuario.setBubbleCount(count)
+
+    override fun getDayNightCycleDuration(): Int = acuario.getDayNightCycleDuration()
+    fun setDayNightCycleDuration(duration: Int) = acuario.setDayNightCycleDuration(duration)
 }

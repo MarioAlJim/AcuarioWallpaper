@@ -8,6 +8,7 @@ uniform vec3 uBodyColor;
 uniform vec3 uWingColor;
 uniform vec3 uTailColor;
 uniform vec3 uMarkingColor;
+uniform float uDayNight;
 
 out vec4 fragColor;
 
@@ -102,6 +103,11 @@ void main() {
     float spot3 = ellipseAlpha(pWarped, vec2(-0.30, 0.30), vec2(0.045, 0.045), 0.02);
     float markingsAlpha = max(max(shoulderTop, shoulderBot), max(max(spot1, spot2), spot3)) * aWings;
     color = mix(color, uMarkingColor, markingsAlpha);
+    
+    // Bioluminescent glow on markings (spots & chevrons) at night
+    vec3 glowColor = vec3(0.65, 0.25, 1.0); // Neon violet/purple glow
+    float glowStrength = (1.0 - uDayNight) * 1.2;
+    color += glowColor * markingsAlpha * glowStrength;
 
     // Eye colors (simple dark dot, no separate pupil - mantas' eyes read small at this scale).
     vec3 eyeColor = vec3(0.03, 0.03, 0.03);
