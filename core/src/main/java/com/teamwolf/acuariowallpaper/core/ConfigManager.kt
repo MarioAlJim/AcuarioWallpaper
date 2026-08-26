@@ -54,6 +54,9 @@ class ConfigManager(context: Context) : ConfigProvider {
 
         const val KEY_CUSTOM_DEEP_COLOR = "custom_deep_color"
         const val DEFAULT_CUSTOM_DEEP_COLOR = 0xFF020B21.toInt()
+
+        const val KEY_SUBMARINE_COLOR = "submarine_color"
+        const val DEFAULT_SUBMARINE_COLOR = 0
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
@@ -82,4 +85,7 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getCustomDeepColor(): Int = acuario.getCustomDeepColor()
     fun setCustomDeepColor(color: Int) = acuario.setCustomDeepColor(color)
+
+    override fun getSubmarineColor(): Int = acuario.getSubmarineColor()
+    fun setSubmarineColor(color: Int) = acuario.setSubmarineColor(color)
 }

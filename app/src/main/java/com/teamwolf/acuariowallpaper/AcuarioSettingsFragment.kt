@@ -42,6 +42,7 @@ class AcuarioSettingsFragment : Fragment() {
         setupPlantDensityCards(view)
         setupBubbleCountCards(view)
         setupDayNightCycleCards(view)
+        setupSubmarineColorCards(view)
     }
 
     private fun setupThemeCards(parent: View) {
@@ -323,6 +324,49 @@ class AcuarioSettingsFragment : Fragment() {
         ) { selectedIndex ->
             configManager.setCustomDeepColor(deepColors[selectedIndex])
             setupThemeCards(parent)
+        }
+    }
+
+    private fun setupSubmarineColorCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerSubmarineColor)
+        val options = arrayOf(
+            getString(R.string.submarine_color_amarillo),
+            getString(R.string.submarine_color_rojo),
+            getString(R.string.submarine_color_azul),
+            getString(R.string.submarine_color_verde),
+            getString(R.string.submarine_color_rosa),
+            getString(R.string.submarine_color_naranja)
+        )
+        val colors = intArrayOf(
+            0xFFF2CC1A.toInt(), // Amarillo
+            0xFFD9261A.toInt(), // Rojo
+            0xFF2980B9.toInt(), // Azul
+            0xFF2ECC71.toInt(), // Verde
+            0xFFE91E63.toInt(), // Rosa
+            0xFFE67E22.toInt()  // Naranja
+        )
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getSubmarineColor(),
+            previewFactory = { index ->
+                View(requireContext()).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(colors[index])
+                    }
+                    layoutParams = android.widget.FrameLayout.LayoutParams(
+                        (24 * resources.displayMetrics.density).toInt(),
+                        (24 * resources.displayMetrics.density).toInt()
+                    ).apply {
+                        gravity = Gravity.CENTER
+                    }
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setSubmarineColor(selectedIndex)
         }
     }
 }

@@ -1023,14 +1023,53 @@ class AcuarioRenderer(
         GLES30.glUniform1f(submarineSwimPhaseHandle, submarine.propellerPhase)
 
         val ambientFactor = 0.35f + 0.65f * dayNight
-        val baseBodyColor = floatArrayOf(0.95f, 0.80f, 0.10f) // Yellow
-        val baseAccentColor = floatArrayOf(0.85f, 0.15f, 0.10f) // Red accent
-        val baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f) // Glowing warm yellow
+        val baseBodyColor: FloatArray
+        val baseAccentColor: FloatArray
+        val baseWindowColor: FloatArray
+
+        when (configProvider.getSubmarineColor()) {
+            0 -> { // Amarillo
+                baseBodyColor = floatArrayOf(0.95f, 0.80f, 0.10f)
+                baseAccentColor = floatArrayOf(0.85f, 0.15f, 0.10f)
+                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+            }
+            1 -> { // Rojo
+                baseBodyColor = floatArrayOf(0.85f, 0.15f, 0.10f)
+                baseAccentColor = floatArrayOf(0.95f, 0.80f, 0.10f)
+                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+            }
+            2 -> { // Azul
+                baseBodyColor = floatArrayOf(0.15f, 0.50f, 0.85f)
+                baseAccentColor = floatArrayOf(0.95f, 0.80f, 0.10f)
+                baseWindowColor = floatArrayOf(0.50f, 0.90f, 0.98f)
+            }
+            3 -> { // Verde
+                baseBodyColor = floatArrayOf(0.18f, 0.80f, 0.44f)
+                baseAccentColor = floatArrayOf(0.90f, 0.30f, 0.20f)
+                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+            }
+            4 -> { // Rosa
+                baseBodyColor = floatArrayOf(0.91f, 0.12f, 0.39f)
+                baseAccentColor = floatArrayOf(0.15f, 0.80f, 0.85f)
+                baseWindowColor = floatArrayOf(0.98f, 0.98f, 0.98f)
+            }
+            5 -> { // Naranja
+                baseBodyColor = floatArrayOf(0.90f, 0.49f, 0.13f)
+                baseAccentColor = floatArrayOf(0.15f, 0.25f, 0.35f)
+                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+            }
+            else -> {
+                baseBodyColor = floatArrayOf(0.95f, 0.80f, 0.10f)
+                baseAccentColor = floatArrayOf(0.85f, 0.15f, 0.10f)
+                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+            }
+        }
 
         mixColorInto(scratchSubmarineBodyColor, baseBodyColor, deepColor, tintAmount, ambientFactor)
         mixColorInto(scratchSubmarineAccentColor, baseAccentColor, deepColor, tintAmount, ambientFactor)
-        // Windows keep glowing bright at night!
-        mixColorInto(scratchSubmarineWindowColor, baseWindowColor, deepColor, tintAmount, 1.0f)
+        // Windows keep glowing bright at night by avoiding dark deep-water tinting when it's dark!
+        val windowTint = tintAmount * dayNight
+        mixColorInto(scratchSubmarineWindowColor, baseWindowColor, deepColor, windowTint, 1.0f)
 
         GLES30.glUniform3fv(submarineBodyColorHandle, 1, scratchSubmarineBodyColor, 0)
         GLES30.glUniform3fv(submarineAccentColorHandle, 1, scratchSubmarineAccentColor, 0)

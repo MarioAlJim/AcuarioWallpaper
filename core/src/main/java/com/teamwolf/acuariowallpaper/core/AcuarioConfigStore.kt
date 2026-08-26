@@ -38,6 +38,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     @Volatile
     private var cachedCustomDeepColor: Int = prefs.getInt(ConfigManager.KEY_CUSTOM_DEEP_COLOR, ConfigManager.DEFAULT_CUSTOM_DEEP_COLOR)
 
+    @Volatile
+    private var cachedSubmarineColor: Int = prefs.getInt(ConfigManager.KEY_SUBMARINE_COLOR, ConfigManager.DEFAULT_SUBMARINE_COLOR)
+
     fun getAcuarioTheme(): Int = cachedTheme
     fun setAcuarioTheme(theme: Int) {
         val coerced = theme.coerceIn(0, 5)
@@ -101,6 +104,13 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
         putInt(ConfigManager.KEY_CUSTOM_DEEP_COLOR, color)
     }
 
+    fun getSubmarineColor(): Int = cachedSubmarineColor
+    fun setSubmarineColor(color: Int) {
+        val coerced = color.coerceIn(0, 5)
+        cachedSubmarineColor = coerced
+        putInt(ConfigManager.KEY_SUBMARINE_COLOR, coerced)
+    }
+
     override fun invalidate(key: String) {
         super.invalidate(key)
         when (key) {
@@ -130,6 +140,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
             }
             ConfigManager.KEY_CUSTOM_DEEP_COLOR -> {
                 cachedCustomDeepColor = prefs.getInt(ConfigManager.KEY_CUSTOM_DEEP_COLOR, ConfigManager.DEFAULT_CUSTOM_DEEP_COLOR)
+            }
+            ConfigManager.KEY_SUBMARINE_COLOR -> {
+                cachedSubmarineColor = prefs.getInt(ConfigManager.KEY_SUBMARINE_COLOR, ConfigManager.DEFAULT_SUBMARINE_COLOR)
             }
         }
     }
