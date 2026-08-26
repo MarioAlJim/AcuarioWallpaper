@@ -155,6 +155,16 @@ class AcuarioRenderer(
     private val kMantaScale = 0.34f
     private val kMaxMantas = 4
 
+    // Submarine (rendered as a single quad with its own vertex and fragment shader, traveling in the far background)
+    private var submarineProgram = 0
+    private var submarineMVPHandle = 0
+    private var submarineSwimPhaseHandle = 0
+    private var submarineBodyColorHandle = 0
+    private var submarineAccentColorHandle = 0
+    private var submarineWindowColorHandle = 0
+    private val submarine = Submarine()
+    private val kSubmarineScale = 0.28f
+
     // Vegetation (kelp + anemones): unlike the wandering creatures above, these are anchored to
     // the tank floor and never move - see layoutPlants()'s comment for why the whole layout is
     // rebuilt from scratch on any density/aspect-ratio change instead of incrementally adjusted.
@@ -268,6 +278,10 @@ class AcuarioRenderer(
     private val scratchCoralBranchColor = FloatArray(3)
     private val scratchCoralPolypColor = FloatArray(3)
     private val scratchCoralHighlightColor = FloatArray(3)
+
+    private val scratchSubmarineBodyColor = FloatArray(3)
+    private val scratchSubmarineAccentColor = FloatArray(3)
+    private val scratchSubmarineWindowColor = FloatArray(3)
 
     // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
     // toward the same color the background already fades to at depth.
@@ -470,6 +484,19 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/submarine.vert")
+            val frag = readAssetFile(context, "shaders/submarine.frag")
+            submarineProgram = createProgram(vert, frag)
+            submarineMVPHandle = GLES30.glGetUniformLocation(submarineProgram, "uMVPMatrix")
+            submarineSwimPhaseHandle = GLES30.glGetUniformLocation(submarineProgram, "uSwimPhase")
+            submarineBodyColorHandle = GLES30.glGetUniformLocation(submarineProgram, "uBodyColor")
+            submarineAccentColorHandle = GLES30.glGetUniformLocation(submarineProgram, "uAccentColor")
+            submarineWindowColorHandle = GLES30.glGetUniformLocation(submarineProgram, "uWindowColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
             -1f, -1f,
@@ -549,6 +576,7 @@ class AcuarioRenderer(
         syncMantaCount()
         syncPlants()
         syncBubbleCount()
+        submarine.update(deltaTime, aspectRatio)
         for (i in fishes.indices) {
             fishes[i].update(deltaTime, aspectRatio)
         }
@@ -690,6 +718,7 @@ class AcuarioRenderer(
         // (plants nearer the glass, drawn last) with every creature sandwiched in between - see
         // drawPlants()'s comment - so fish/turtles/mantas can pass behind some plants and in
         // front of others instead of always sitting on top of the whole tank floor.
+        drawSubmarine(deepColor)
         drawPlants(backLayer = true, deepColor)
         drawMantas(deepColor)
         drawFish(deepColor)
@@ -821,6 +850,37 @@ class AcuarioRenderer(
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
+    }
+
+    private fun drawSubmarine(deepColor: FloatArray) {
+        if (submarineProgram == 0 || !submarine.active) return
+        GLES30.glUseProgram(submarineProgram)
+
+        val tintAmount = submarine.depth * kMaxDepthTint
+        val depthScale = kSubmarineScale * (1f - (1f - kMinScaleAtDepth) * submarine.depth)
+        val subParallax = parallaxRaw * 0.05f
+
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(modelMatrix, 0, submarine.x + subParallax, submarine.y, 0f)
+        Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+        GLES30.glUniformMatrix4fv(submarineMVPHandle, 1, false, mvpMatrix, 0)
+
+        GLES30.glUniform1f(submarineSwimPhaseHandle, submarine.propellerPhase)
+
+        val baseBodyColor = floatArrayOf(0.95f, 0.80f, 0.10f) // Yellow
+        val baseAccentColor = floatArrayOf(0.85f, 0.15f, 0.10f) // Red accent
+        val baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f) // Glowing warm yellow
+
+        mixColorInto(scratchSubmarineBodyColor, baseBodyColor, deepColor, tintAmount)
+        mixColorInto(scratchSubmarineAccentColor, baseAccentColor, deepColor, tintAmount)
+        mixColorInto(scratchSubmarineWindowColor, baseWindowColor, deepColor, tintAmount)
+
+        GLES30.glUniform3fv(submarineBodyColorHandle, 1, scratchSubmarineBodyColor, 0)
+        GLES30.glUniform3fv(submarineAccentColorHandle, 1, scratchSubmarineAccentColor, 0)
+        GLES30.glUniform3fv(submarineWindowColorHandle, 1, scratchSubmarineWindowColor, 0)
+
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }
 
     /**
