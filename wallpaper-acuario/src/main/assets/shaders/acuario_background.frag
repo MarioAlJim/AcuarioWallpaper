@@ -130,8 +130,11 @@ void main() {
     // darker/moodier, which also gives the god rays below somewhere dark to visibly stand out
     // against instead of blending into an already-bright base.
     vec3 baseColor = mix(deepColor, shallowColor, pow(y, 2.0));
-    // Apply day/night cycle: darken the background at night with a colder, deep-blue tint
-    vec3 color = mix(baseColor * vec3(0.25, 0.30, 0.45), baseColor, uDayNight);
+    // Apply day/night cycle: darken the background at night with a colder, deep-blue tint.
+    // Named (not inlined) so the distant-silhouette haze below can be run through the exact same
+    // night dimming instead of drifting out of sync with it.
+    vec3 nightTint = vec3(0.25, 0.30, 0.45);
+    vec3 color = mix(baseColor * nightTint, baseColor, uDayNight);
 
     // Parallax layer: very blurry, darkened silhouettes of rocks/kelp/a distant animal shape
     // sitting far at the back of the tank, well behind everything else drawn (the creatures,
@@ -158,11 +161,26 @@ void main() {
     float animal = distantBlobAlpha(bp, vec2(animalX, 0.42), vec2(0.15, 0.05), 0.10);
 
     float distantSilhouette = max(max(max(rock1, rock2), max(rock3, kelpBlur1)), max(kelpBlur2, animal));
-    // Darkened rather than colored - a silhouette, not a distinctly-colored object.
-    // Boosted the mix strength (was 0.55, now 0.70) and target color darkness (was deepColor * 0.55,
-    // now deepColor * 0.35) so the distant shapes read as clearly visible, out-of-focus silhouettes
-    // rather than fading to near-invisible under the overlaying god rays and caustics.
-    color = mix(color, deepColor * 0.35, distantSilhouette * 0.70);
+    // Every one of these blobs sits low in the water column (rock1-3 at y=0.03-0.06, the kelp
+    // blurs at y=0.22/0.28) specifically so they read as resting on/near the tank floor - but
+    // that's exactly where pow(y, 2.0) above already collapses baseColor to almost pure
+    // deepColor, with essentially zero gradient headroom left. The previous approach mixed
+    // TOWARD an even darker deepColor * 0.35 target to read as a "silhouette", which made sense
+    // on paper but was invisible in practice: darkening a value that's already ~0 by a further
+    // ~65% is a delta so small it gets lost entirely once the vignette below (as low as 0.42x
+    // near these same bottom corners) and 8-bit output quantization are through with it - these
+    // shapes were rendering, just at RGB deltas no display could actually show.
+    //
+    // Mixing toward a hazy MID-tone between deepColor and shallowColor instead flips this: it's
+    // reliably brighter than the near-black local background down here, so the contrast survives
+    // the same multiplicative darkening (vignette, night tint) that used to erase it, the same
+    // way a diver actually sees distant shapes near the bottom - as a lighter, hazy silhouette
+    // picking up ambient light, not a patch of black-on-black. Still run through the same
+    // nightTint as everything else so it dims appropriately after dark instead of staying
+    // artificially lit.
+    const float kSilhouetteHaze = 0.18;
+    vec3 silhouetteColor = mix(deepColor, shallowColor, kSilhouetteHaze) * mix(nightTint, vec3(1.0), uDayNight);
+    color = mix(color, silhouetteColor, distantSilhouette * 0.60);
 
     // God rays: distinct, soft-edged diagonal light-shaft LINES fanning down from the surface,
     // strongest near the top and fading out with depth.
