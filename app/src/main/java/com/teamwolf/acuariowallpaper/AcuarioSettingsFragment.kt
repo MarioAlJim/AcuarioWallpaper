@@ -13,8 +13,9 @@ import com.teamwolf.acuariowallpaper.core.ConfigManager
 
 /**
  * Settings screen for the Acuario effect. Currently wires the "Ambiente" (Acuario / Mar
- * abierto) theme selector, the turtle/fish/manta ray count selectors, the plant (vegetation)
- * density selector, and the ambient bubble count (Poco/Medio/Alto/Muy alto) selector - see
+ * abierto) theme selector, the turtle/fish/manta ray/seahorse/jellyfish count selectors, the
+ * plant (vegetation) density selector, and the ambient bubble count (Poco/Medio/Alto/Muy alto)
+ * selector - see
  * fragment_acuario_settings.xml's comment for what to add next as the effect grows more knobs.
  * Every new effect should get its own selector here, mirroring one of these.
  */
@@ -39,6 +40,8 @@ class AcuarioSettingsFragment : Fragment() {
         setupTurtleCountCards(view)
         setupFishCountCards(view)
         setupMantaCountCards(view)
+        setupSeahorseCountCards(view)
+        setupJellyfishCountCards(view)
         setupPlantDensityCards(view)
         setupBubbleCountCards(view)
         setupDayNightCycleCards(view)
@@ -161,6 +164,52 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setMantaCount(selectedIndex)
+        }
+    }
+
+    // Index == seahorse count (0-4), same as turtle/fish/manta count above. No dedicated
+    // seahorse emoji exists in Unicode, so the horse face glyph stands in - "seahorse" being
+    // literally named after it.
+    private fun setupSeahorseCountCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerSeahorseCount)
+        val options = (0..4).map { it.toString() }.toTypedArray()
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getSeahorseCount(),
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = if (index == 0) "🚫" else "🐴"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setSeahorseCount(selectedIndex)
+        }
+    }
+
+    // Index == jellyfish count (0-6), same pattern as the other creature counts above.
+    private fun setupJellyfishCountCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerJellyfishCount)
+        val options = (0..6).map { it.toString() }.toTypedArray()
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getJellyfishCount(),
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = if (index == 0) "🚫" else "🪼"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setJellyfishCount(selectedIndex)
         }
     }
 

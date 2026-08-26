@@ -40,6 +40,12 @@ class ConfigManager(context: Context) : ConfigProvider {
         const val KEY_MANTA_COUNT = "manta_count"
         const val DEFAULT_MANTA_COUNT = 1
 
+        const val KEY_SEAHORSE_COUNT = "seahorse_count"
+        const val DEFAULT_SEAHORSE_COUNT = 1
+
+        const val KEY_JELLYFISH_COUNT = "jellyfish_count"
+        const val DEFAULT_JELLYFISH_COUNT = 2
+
         const val KEY_PLANT_DENSITY = "plant_density"
         const val DEFAULT_PLANT_DENSITY = 6 // "Media" tier - see AcuarioSettingsFragment's values array
 
@@ -70,6 +76,12 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getMantaCount(): Int = acuario.getMantaCount()
     fun setMantaCount(count: Int) = acuario.setMantaCount(count)
+
+    override fun getSeahorseCount(): Int = acuario.getSeahorseCount()
+    fun setSeahorseCount(count: Int) = acuario.setSeahorseCount(count)
+
+    override fun getJellyfishCount(): Int = acuario.getJellyfishCount()
+    fun setJellyfishCount(count: Int) = acuario.setJellyfishCount(count)
 
     override fun getPlantDensity(): Int = acuario.getPlantDensity()
     fun setPlantDensity(count: Int) = acuario.setPlantDensity(count)
