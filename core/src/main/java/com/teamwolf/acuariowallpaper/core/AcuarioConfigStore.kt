@@ -32,9 +32,15 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     @Volatile
     private var cachedDayNightCycle: Int = prefs.getInt(ConfigManager.KEY_DAY_NIGHT_CYCLE, ConfigManager.DEFAULT_DAY_NIGHT_CYCLE)
 
+    @Volatile
+    private var cachedCustomShallowColor: Int = prefs.getInt(ConfigManager.KEY_CUSTOM_SHALLOW_COLOR, ConfigManager.DEFAULT_CUSTOM_SHALLOW_COLOR)
+
+    @Volatile
+    private var cachedCustomDeepColor: Int = prefs.getInt(ConfigManager.KEY_CUSTOM_DEEP_COLOR, ConfigManager.DEFAULT_CUSTOM_DEEP_COLOR)
+
     fun getAcuarioTheme(): Int = cachedTheme
     fun setAcuarioTheme(theme: Int) {
-        val coerced = theme.coerceIn(0, 4)
+        val coerced = theme.coerceIn(0, 5)
         cachedTheme = coerced
         putInt(ConfigManager.KEY_ACUARIO_THEME, coerced)
     }
@@ -83,6 +89,18 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
         putInt(ConfigManager.KEY_DAY_NIGHT_CYCLE, coerced)
     }
 
+    fun getCustomShallowColor(): Int = cachedCustomShallowColor
+    fun setCustomShallowColor(color: Int) {
+        cachedCustomShallowColor = color
+        putInt(ConfigManager.KEY_CUSTOM_SHALLOW_COLOR, color)
+    }
+
+    fun getCustomDeepColor(): Int = cachedCustomDeepColor
+    fun setCustomDeepColor(color: Int) {
+        cachedCustomDeepColor = color
+        putInt(ConfigManager.KEY_CUSTOM_DEEP_COLOR, color)
+    }
+
     override fun invalidate(key: String) {
         super.invalidate(key)
         when (key) {
@@ -106,6 +124,12 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
             }
             ConfigManager.KEY_DAY_NIGHT_CYCLE -> {
                 cachedDayNightCycle = prefs.getInt(ConfigManager.KEY_DAY_NIGHT_CYCLE, ConfigManager.DEFAULT_DAY_NIGHT_CYCLE)
+            }
+            ConfigManager.KEY_CUSTOM_SHALLOW_COLOR -> {
+                cachedCustomShallowColor = prefs.getInt(ConfigManager.KEY_CUSTOM_SHALLOW_COLOR, ConfigManager.DEFAULT_CUSTOM_SHALLOW_COLOR)
+            }
+            ConfigManager.KEY_CUSTOM_DEEP_COLOR -> {
+                cachedCustomDeepColor = prefs.getInt(ConfigManager.KEY_CUSTOM_DEEP_COLOR, ConfigManager.DEFAULT_CUSTOM_DEEP_COLOR)
             }
         }
     }

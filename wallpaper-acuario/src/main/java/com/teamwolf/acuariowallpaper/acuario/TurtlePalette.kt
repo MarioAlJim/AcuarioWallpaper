@@ -118,6 +118,42 @@ class TurtlePalette(
             glowColor = floatArrayOf(0.10f, 0.45f, 1.0f) // Neon electric blue
         )
 
+        /** Albino turtle: pale cream shell and skin, a rare leucistic variant. */
+        private val ALBINO_TURTLE = TurtlePalette(
+            shellColor = floatArrayOf(0.75f, 0.70f, 0.55f),
+            headColor = floatArrayOf(0.80f, 0.76f, 0.62f),
+            flipperColor = floatArrayOf(0.78f, 0.73f, 0.58f),
+            spotColor = floatArrayOf(0.55f, 0.50f, 0.38f),
+            glowColor = floatArrayOf(1.0f, 0.95f, 0.70f) // Neon warm gold
+        )
+
+        /** Black Sea Turtle: near-black shell with a subtle cool sheen. */
+        private val BLACK_SEA_TURTLE = TurtlePalette(
+            shellColor = floatArrayOf(0.06f, 0.08f, 0.10f),
+            headColor = floatArrayOf(0.10f, 0.12f, 0.15f),
+            flipperColor = floatArrayOf(0.08f, 0.10f, 0.13f),
+            spotColor = floatArrayOf(0.20f, 0.25f, 0.35f),
+            glowColor = floatArrayOf(0.20f, 0.60f, 1.0f) // Neon electric blue
+        )
+
+        /** Sapphire Turtle: a stylized deep-blue shell, standing out among the earthier tones. */
+        private val SAPPHIRE_TURTLE = TurtlePalette(
+            shellColor = floatArrayOf(0.08f, 0.20f, 0.45f),
+            headColor = floatArrayOf(0.14f, 0.28f, 0.55f),
+            flipperColor = floatArrayOf(0.10f, 0.24f, 0.50f),
+            spotColor = floatArrayOf(0.05f, 0.12f, 0.30f),
+            glowColor = floatArrayOf(0.10f, 0.50f, 1.0f) // Neon sapphire blue
+        )
+
+        /** Coral Turtle: a stylized warm coral-pink shell. */
+        private val CORAL_TURTLE = TurtlePalette(
+            shellColor = floatArrayOf(0.55f, 0.22f, 0.20f),
+            headColor = floatArrayOf(0.65f, 0.30f, 0.26f),
+            flipperColor = floatArrayOf(0.58f, 0.25f, 0.22f),
+            spotColor = floatArrayOf(0.32f, 0.12f, 0.10f),
+            glowColor = floatArrayOf(1.0f, 0.30f, 0.45f) // Neon coral-pink
+        )
+
         val PALETTES: List<TurtlePalette> = listOf(
             GREEN_SEA_TURTLE,
             LOGGERHEAD,
@@ -129,7 +165,11 @@ class TurtlePalette(
             OLIVE_RIDLEY,
             FLATBACK,
             AFRICAN_HELMETED_TURTLE,
-            MAP_TURTLE
+            MAP_TURTLE,
+            ALBINO_TURTLE,
+            BLACK_SEA_TURTLE,
+            SAPPHIRE_TURTLE,
+            CORAL_TURTLE
         )
     }
 }

@@ -58,6 +58,8 @@ class AcuarioRenderer(
     private var bgAspectHandle = 0
     private var bgParallaxHandle = 0
     private var bgDayNightHandle = 0
+    private var bgCustomShallowHandle = 0
+    private var bgCustomDeepHandle = 0
     private var dayNight = 1.0f
     private lateinit var fullscreenQuadBuffer: FloatBuffer
 
@@ -306,7 +308,15 @@ class AcuarioRenderer(
             1 -> kDeepColorAzulProfundo
             2 -> kDeepColorAtardecer
             3 -> kDeepColorAbisal
-            else -> kDeepColorArrecife
+            4 -> kDeepColorArrecife
+            else -> {
+                val customColor = configProvider.getCustomDeepColor()
+                floatArrayOf(
+                    ((customColor shr 16) and 0xFF) / 255f,
+                    ((customColor shr 8) and 0xFF) / 255f,
+                    (customColor and 0xFF) / 255f
+                )
+            }
         }
     }
 
@@ -385,6 +395,8 @@ class AcuarioRenderer(
             bgAspectHandle = GLES30.glGetUniformLocation(backgroundProgram, "uAspectRatio")
             bgParallaxHandle = GLES30.glGetUniformLocation(backgroundProgram, "uParallaxOffset")
             bgDayNightHandle = GLES30.glGetUniformLocation(backgroundProgram, "uDayNight")
+            bgCustomShallowHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomShallowColor")
+            bgCustomDeepHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomDeepColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1331,6 +1343,22 @@ class AcuarioRenderer(
         GLES30.glUniform1f(bgAspectHandle, aspectRatio)
         GLES30.glUniform1f(bgParallaxHandle, parallaxRaw)
         GLES30.glUniform1f(bgDayNightHandle, dayNight)
+
+        if (theme == 5) {
+            val shallow = configProvider.getCustomShallowColor()
+            val deep = configProvider.getCustomDeepColor()
+
+            val shallowR = ((shallow shr 16) and 0xFF) / 255f
+            val shallowG = ((shallow shr 8) and 0xFF) / 255f
+            val shallowB = (shallow and 0xFF) / 255f
+
+            val deepR = ((deep shr 16) and 0xFF) / 255f
+            val deepG = ((deep shr 8) and 0xFF) / 255f
+            val deepB = (deep and 0xFF) / 255f
+
+            GLES30.glUniform3f(bgCustomShallowHandle, shallowR, shallowG, shallowB)
+            GLES30.glUniform3f(bgCustomDeepHandle, deepR, deepG, deepB)
+        }
 
         fullscreenQuadBuffer.position(0)
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 8, fullscreenQuadBuffer)

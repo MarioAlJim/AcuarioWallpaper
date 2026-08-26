@@ -10,6 +10,8 @@ uniform float uAspectRatio;
 // see AcuarioRenderer's parallaxRaw/foregroundParallax field doc.
 uniform float uParallaxOffset;
 uniform float uDayNight; // 0.0 = full night, 1.0 = full day
+uniform vec3 uCustomShallowColor;
+uniform vec3 uCustomDeepColor;
 
 out vec4 fragColor;
 
@@ -108,12 +110,18 @@ void main() {
         shallowColor = vec3(0.15, 0.05, 0.25);
         causticStrength = 0.04;
         rayStrength = 0.24;
-    } else {
+    } else if (uTheme == 4) {
         // Arrecife Coral: bright tropical cyan/turquoise water with high visibility
         deepColor = vec3(0.02, 0.08, 0.18);
         shallowColor = vec3(0.05, 0.65, 0.60);
         causticStrength = 0.09;
         rayStrength = 0.54;
+    } else {
+        // Personalizado: custom shallow and deep colors from uniforms
+        deepColor = uCustomDeepColor;
+        shallowColor = uCustomShallowColor;
+        causticStrength = 0.08;
+        rayStrength = 0.50;
     }
 
     // Base vertical gradient: deep/dark at the bottom, brighter near the "surface" at top.
