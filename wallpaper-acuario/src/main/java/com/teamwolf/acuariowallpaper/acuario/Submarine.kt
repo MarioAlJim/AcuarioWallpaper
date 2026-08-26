@@ -18,7 +18,7 @@ class Submarine {
         private set
 
     private var timeActive = 0f
-    private var timeUntilNextSpawn = Random.nextFloat() * 40f + 20f // Spawns initially after 20-60s
+    private var timeUntilNextSpawn = 2f + Random.nextFloat() * 3f // Spawns initially after 2-5 seconds
 
     var propellerPhase = 0f
         private set
@@ -46,8 +46,8 @@ class Submarine {
             // Check if it has fully exited the left edge of the screen
             if (x < -aspectRatio - 0.5f) {
                 active = false
-                // Reset spawn timer (appear again in 90-150 seconds)
-                timeUntilNextSpawn = 90f + Random.nextFloat() * 60f
+                // Reset spawn timer (appear again in 15-30 seconds)
+                timeUntilNextSpawn = 15f + Random.nextFloat() * 15f
             }
         }
     }
