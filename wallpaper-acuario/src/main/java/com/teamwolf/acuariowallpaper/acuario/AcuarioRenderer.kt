@@ -204,6 +204,7 @@ class AcuarioRenderer(
     private var jellyfishBellColorHandle = 0
     private var jellyfishMarginColorHandle = 0
     private var jellyfishTentacleColorHandle = 0
+    private var jellyfishPatternColorHandle = 0
     private var jellyfishDayNightHandle = 0
     private var jellyfishGlowColorHandle = 0
     private val jellyfishes = mutableListOf<Jellyfish>()
@@ -336,6 +337,7 @@ class AcuarioRenderer(
     private val scratchJellyfishBellColor = FloatArray(3)
     private val scratchJellyfishMarginColor = FloatArray(3)
     private val scratchJellyfishTentacleColor = FloatArray(3)
+    private val scratchJellyfishPatternColor = FloatArray(3)
     private val scratchKelpBladeColor = FloatArray(3)
     private val scratchKelpTipColor = FloatArray(3)
     private val scratchKelpBaseColor = FloatArray(3)
@@ -573,6 +575,7 @@ class AcuarioRenderer(
             jellyfishBellColorHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uBellColor")
             jellyfishMarginColorHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uMarginColor")
             jellyfishTentacleColorHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uTentacleColor")
+            jellyfishPatternColorHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uPatternColor")
             jellyfishDayNightHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uDayNight")
             jellyfishGlowColorHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uGlowColor")
         } catch (e: Exception) {
@@ -1384,10 +1387,12 @@ class AcuarioRenderer(
             mixColorInto(scratchJellyfishBellColor, palette.bellColor, deepColor, tintAmount, ambientFactor)
             mixColorInto(scratchJellyfishMarginColor, palette.marginColor, deepColor, tintAmount, ambientFactor)
             mixColorInto(scratchJellyfishTentacleColor, palette.tentacleColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchJellyfishPatternColor, palette.patternColor, deepColor, tintAmount, ambientFactor)
 
             GLES30.glUniform3fv(jellyfishBellColorHandle, 1, scratchJellyfishBellColor, 0)
             GLES30.glUniform3fv(jellyfishMarginColorHandle, 1, scratchJellyfishMarginColor, 0)
             GLES30.glUniform3fv(jellyfishTentacleColorHandle, 1, scratchJellyfishTentacleColor, 0)
+            GLES30.glUniform3fv(jellyfishPatternColorHandle, 1, scratchJellyfishPatternColor, 0)
             // Not depth-tinted like the colors above - see the identical comment in the fish
             // draw loop.
             GLES30.glUniform3fv(jellyfishGlowColorHandle, 1, palette.glowColor, 0)

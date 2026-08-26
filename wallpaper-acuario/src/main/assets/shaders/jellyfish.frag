@@ -9,6 +9,9 @@ uniform float uPulsePhase;
 uniform vec3 uBellColor;
 uniform vec3 uMarginColor;
 uniform vec3 uTentacleColor;
+// Radial canal/rosette marking on the bell - see the pattern block in main() and
+// JellyfishPalette.patternColor.
+uniform vec3 uPatternColor;
 uniform float uDayNight;
 // Per-palette bioluminescent tint (see JellyfishPalette.glowColor) - see fish.frag's identical
 // comment.
@@ -38,7 +41,42 @@ void main() {
     float pulse = sin(uPulsePhase);
     float bellScaleX = 1.0 - pulse * 0.10;
     float bellScaleY = 1.0 + pulse * 0.14;
-    vec2 pBell = vec2(p.x / bellScaleX, (p.y - 0.15) / bellScaleY + 0.15);
+
+    // Breathing size envelope, layered on top of the squash/stretch above: the whole bell also
+    // swells a little right as a pulse is about to fire, snaps into a slightly smaller contracted
+    // size during the power stroke itself, then relaxes back to its normal size by the time the
+    // stroke ends and holds there through the rest of the recovery half - until it starts
+    // swelling again as the next pulse approaches. cyclePos is a 0..1 sawtooth over one full
+    // pulse period, shifted so cyclePos == 0 lines up with the start of the power stroke (the
+    // same instant Jellyfish.kt's "contracting" flag flips true, i.e. where sin(uPulsePhase)
+    // bottoms out - see its comment).
+    const float kTwoPi = 6.28318530718;
+    const float kHalfPi = 1.5707963;
+    float cyclePos = fract((uPulsePhase + kHalfPi) / kTwoPi);
+    const float kExpandAmount = 0.10;
+    const float kContractAmount = 0.08;
+    // k1 carries the envelope from +expand (cyclePos 0) down to -contract (cyclePos 0.22, roughly
+    // the middle of the power stroke); k2 carries it back up from -contract to normal (0) by
+    // cyclePos 0.5 (the end of the stroke); k3 ramps it from normal back up to +expand across the
+    // last sliver of the cycle (0.85-1.0), in anticipation of the next stroke. Continuous and
+    // branchless by construction: at cyclePos == 1.0 this evaluates to the same +kExpandAmount as
+    // cyclePos == 0.0, so it wraps with no discontinuity.
+    float k1 = smoothstep(0.0, 0.22, cyclePos);
+    float k2 = smoothstep(0.22, 0.5, cyclePos);
+    float k3 = smoothstep(0.85, 1.0, cyclePos);
+    float sizeEnvelope = kExpandAmount - (kExpandAmount + kContractAmount) * k1 + kContractAmount * k2 + kExpandAmount * k3;
+    float sizeScale = 1.0 + sizeEnvelope;
+
+    // NOTE: sizeScale (like bellScaleX/Y above) only reshapes pBell, which feeds aBell/aMargin/
+    // pattern below - the tentacle loop further down still attaches at a fixed y (bellBottomY,
+    // built from the raw kBellCenter/kBellRadii constants) that doesn't track either effect. This
+    // currently stays visually attached to the rim because sizeEnvelope == 0 exactly at
+    // cyclePos == 0.5, which is also bellScaleY's own peak (both derive from uPulsePhase via the
+    // same kHalfPi shift) - so the two effects don't compound at bellScaleY's extreme. Retuning
+    // kExpandAmount/kContractAmount/the 0.22 breakpoint (or bellScaleX/Y's own 0.10/0.14) should
+    // re-check that this still holds, or thread sizeScale/bellScaleY into bellBottomY/tipY below
+    // so the two can't drift apart structurally.
+    vec2 pBell = vec2(p.x / (bellScaleX * sizeScale), (p.y - 0.15) / (bellScaleY * sizeScale) + 0.15);
 
     const vec2 kBellCenter = vec2(0.0, 0.30);
     const vec2 kBellRadii = vec2(0.48, 0.38);
@@ -54,17 +92,51 @@ void main() {
         * (1.0 - ellipseAlpha(pBell, kBellCenter, kBellRadii * 0.90, 0.03))
         * domeMask;
 
-    // Trailing tentacles: a handful of thin ribbons hanging below the bell, each swaying on its
-    // own phase offset with the sway amplitude ramping from ~0 at the bell (tReach == 0) to full
+    // Radial canal spokes + a central four-lobed rosette (the classic moon-jelly "horseshoe"
+    // gonad marking) - both read in pBell space so the pattern pulses with the bell's own
+    // squash/stretch instead of floating independently on top of it.
+    const float kNumSpokes = 10.0;
+    vec2 pRosette = pBell - kBellCenter;
+    float bellRadiusNorm = length(pRosette / kBellRadii);
+    float angle01 = atan(pRosette.y, pRosette.x) / kTwoPi + 0.5;
+    float spokeDist = abs(fract(angle01 * kNumSpokes + 0.5) - 0.5);
+    float spokeLine = smoothstep(0.10, 0.0, spokeDist);
+    // Fades in just past the center (so it doesn't clash with the rosette) and mostly fades back
+    // out before the margin - the two bands do soften into each other a little just inside the
+    // rim, but aMargin is mixed in after the pattern below, so the crisp margin ring always wins
+    // there regardless.
+    float radialFade = smoothstep(0.18, 0.38, bellRadiusNorm) * smoothstep(1.05, 0.78, bellRadiusNorm);
+    float spokesAlpha = spokeLine * radialFade * aBell;
+
+    float lobeN = ellipseAlpha(pBell, kBellCenter + vec2(0.0, 0.10), vec2(0.06, 0.10), 0.02);
+    float lobeS = ellipseAlpha(pBell, kBellCenter + vec2(0.0, -0.10), vec2(0.06, 0.10), 0.02);
+    float lobeE = ellipseAlpha(pBell, kBellCenter + vec2(0.10, 0.0), vec2(0.10, 0.06), 0.02);
+    float lobeW = ellipseAlpha(pBell, kBellCenter + vec2(-0.10, 0.0), vec2(0.10, 0.06), 0.02);
+    float rosetteAlpha = max(max(lobeN, lobeS), max(lobeE, lobeW)) * aBell;
+
+    float patternAlpha = max(spokesAlpha, rosetteAlpha);
+
+    // Trailing tentacles: a handful of thin ribbons hanging below the bell. Each one bends along
+    // its own length rather than swinging as a single rigid pendulum: the horizontal offset is a
+    // traveling wave in p.y (the same coordinate-warp trick fish.frag/manta.frag use for their
+    // tail/wing undulation), so the bend visibly ripples from base to tip instead of the whole
+    // strand just tilting. Two sine terms at different frequency/speed - a slow one tied to the
+    // bell's own pulse rhythm plus a faster secondary ripple - layer into a less metronomic,
+    // more organic sway. The sway amplitude still ramps from ~0 at the bell (tReach == 0) to full
     // strength at the tip (tReach == 1), like Manta's tail-sway pendulum.
     float aTentacles = 0.0;
     for (int i = 0; i < 5; i++) {
         float fi = float(i);
-        float baseX = -0.32 + fi * 0.16;
+        // Spaced a bit wider than the old rigid-pendulum version (was 0.16 apart) so the larger
+        // sway amplitude below has room to move without adjacent tentacles crossing too far past
+        // each other's resting position.
+        float baseX = -0.36 + fi * 0.18;
         float tipY = -0.85 - 0.06 * sin(fi * 1.7);
         float bellBottomY = kBellCenter.y - kBellRadii.y * 0.55;
         float tReach = clamp((bellBottomY - p.y) / (bellBottomY - tipY), 0.0, 1.0);
-        float sway = sin(uPulsePhase * 0.8 - fi * 1.1) * 0.10 * tReach;
+        float travel = sin(uPulsePhase * 0.8 - fi * 1.1 - p.y * 2.6) * 0.13
+            + sin(uPulsePhase * 1.9 - fi * 0.6 - p.y * 5.2 + 1.7) * 0.045;
+        float sway = travel * tReach;
         vec2 pTentacle = vec2(p.x - baseX - sway, p.y);
         float widthTaper = mix(0.028, 0.010, tReach);
         float aOne = ellipseAlpha(pTentacle, vec2(0.0, mix(bellBottomY, tipY, 0.5)), vec2(widthTaper, (bellBottomY - tipY) * 0.5), 0.012);
@@ -78,15 +150,16 @@ void main() {
 
     // Color mixing pipeline
     vec3 color = uBellColor;
+    color = mix(color, uPatternColor, patternAlpha);
     color = mix(color, uMarginColor, aMargin);
     color = mix(color, uTentacleColor, aTentacles);
 
-    // Bioluminescent glow along the margin and tentacles at night - see fish.frag's identical
-    // fix for why this is ramped through smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a
-    // plain (1.0 - uDayNight).
+    // Bioluminescent glow along the margin, radial pattern and tentacles at night - see
+    // fish.frag's identical fix for why this is ramped through
+    // smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a plain (1.0 - uDayNight).
     const float kNightGlowEdge = 0.25;
     float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
-    float glowAlpha = max(aMargin, aTentacles * 0.7);
+    float glowAlpha = max(max(aMargin, aTentacles * 0.7), patternAlpha * 0.6);
     color += uGlowColor * glowAlpha * nightGlow * 1.3;
 
     // Translucency: a jellyfish's bell and tentacles are gelatinous and semi-transparent, unlike
