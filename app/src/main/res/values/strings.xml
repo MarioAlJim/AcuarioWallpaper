@@ -11,6 +11,7 @@
     <string name="acuario_theme_atardecer">Atardecer Violeta</string>
     <string name="acuario_theme_abisal">Fosa Abisal</string>
     <string name="acuario_theme_arrecife">Arrecife Coral</string>
+    <string name="acuario_theme_personalizado">Personalizado</string>
     <string name="settings_section_turtle_count">Cantidad de tortugas</string>
     <string name="settings_turtle_color_note">Cada tortuga toma un color de una especie real al azar.</string>
     <string name="settings_section_fish_count">Cantidad de peces</string>
