@@ -128,6 +128,7 @@ class AcuarioRenderer(
     private var turtleFlipperColorHandle = 0
     private var turtleSpotColorHandle = 0
     private var turtleDayNightHandle = 0
+    private var turtleRetractionHandle = 0
     private val turtles = mutableListOf<Turtle>()
     private val kTurtleScale = 0.28f
     private val kMaxTurtles = 5
@@ -307,6 +308,8 @@ class AcuarioRenderer(
     }
 
     private var aspectRatio = 1f
+    private var screenWidth = 0
+    private var screenHeight = 0
     private var time = 0f
     private val kTwoPi = (Math.PI * 2.0).toFloat()
     private val projectionMatrix = FloatArray(16)
@@ -403,6 +406,7 @@ class AcuarioRenderer(
             turtleFlipperColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uFlipperColor")
             turtleSpotColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uSpotColor")
             turtleDayNightHandle = GLES30.glGetUniformLocation(turtleProgram, "uDayNight")
+            turtleRetractionHandle = GLES30.glGetUniformLocation(turtleProgram, "uRetraction")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -565,11 +569,39 @@ class AcuarioRenderer(
     override fun onSurfaceChanged(width: Int, height: Int) {
         GLES30.glViewport(0, 0, width, height)
         aspectRatio = if (height > 0) width.toFloat() / height.toFloat() else 1f
+        screenWidth = width
+        screenHeight = height
         Matrix.orthoM(projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f)
     }
 
     override fun onOffsetsChanged(xOffset: Float, yOffset: Float) {
         targetOffsetX = xOffset
+    }
+
+    /**
+     * Hit-tests a raw screen-pixel tap against the turtles: converts it into the same [-aspectRatio,
+     * aspectRatio] x [-1, 1] world space used everywhere else (matching the ortho projection set up
+     * in [onSurfaceChanged]), then checks it against each turtle's on-screen circle (its draw
+     * position +- its current [kTurtleScale]-derived radius, i.e. how big/close it looks right now -
+     * see drawTurtles()'s depthScale comment). Iterates back-to-front (turtles is left sorted
+     * nearest-last by the previous drawTurtles() call - see its own comment) so an overlapping pair
+     * resolves to whichever one is actually drawn on top, like a real tap would.
+     */
+    override fun onTouchEvent(x: Float, y: Float) {
+        if (screenWidth <= 0 || screenHeight <= 0 || turtles.isEmpty()) return
+        val worldX = (x / screenWidth * 2f - 1f) * aspectRatio
+        val worldY = 1f - (y / screenHeight * 2f)
+
+        for (i in turtles.indices.reversed()) {
+            val t = turtles[i]
+            val hitRadius = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
+            val dx = worldX - (t.x + foregroundParallax)
+            val dy = worldY - t.y
+            if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                t.touch(worldX, worldY)
+                break
+            }
+        }
     }
 
     override fun onUpdate(deltaTime: Float) {
@@ -1245,6 +1277,7 @@ class AcuarioRenderer(
             // enough for mediump to represent precisely no matter how long the wallpaper's been
             // running.
             GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase % kTwoPi)
+            GLES30.glUniform1f(turtleRetractionHandle, t.retraction)
 
             val ambientFactor = 0.35f + 0.65f * dayNight
             val palette = t.palette

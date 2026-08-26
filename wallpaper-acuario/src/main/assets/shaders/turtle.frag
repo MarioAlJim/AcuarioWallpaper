@@ -9,6 +9,10 @@ uniform vec3 uHeadColor;
 uniform vec3 uFlipperColor;
 uniform vec3 uSpotColor;
 uniform float uDayNight;
+// 0 = normal swimming pose, 1 = fully withdrawn into the shell (head/eye/flippers tucked away)
+// - see Turtle.kt's "Startle response" doc and AcuarioRenderer's drawTurtles(), which feeds it
+// straight from Turtle.retraction.
+uniform float uRetraction;
 
 out vec4 fragColor;
 
@@ -142,16 +146,35 @@ void main() {
 
     float backFlap = sin(uSwimPhase - 1.0) * 0.08;
 
+    // Startle retraction: pulls the pivot/center of every "limb" part inward until its whole
+    // footprint sits under the shell's own silhouette, so the shell (drawn last, over these)
+    // fully hides it - no extra masking needed, just moving the shapes underneath it. The front
+    // flippers also stop opening (frontOpenAngle -> 0, folded flush at kFrontRestAngle) instead
+    // of continuing to flap while shrinking into place.
+    vec2 frontTopPivot = mix(kFrontTopPivot, vec2(0.05, 0.20), uRetraction);
+    vec2 frontBotPivot = mix(kFrontBotPivot, vec2(0.05, -0.20), uRetraction);
+    float frontLimbLength = mix(kFrontLimbLength, 0.20, uRetraction);
+    float frontHalfWidth = mix(kFrontHalfWidth, 0.08, uRetraction);
+    frontOpenAngle *= (1.0 - uRetraction);
+    vec2 headCenter = mix(vec2(0.75, 0.05), vec2(0.30, 0.03), uRetraction);
+    vec2 headRadii = mix(vec2(0.22, 0.22), vec2(0.12, 0.12), uRetraction);
+    vec2 backTopCenter = mix(vec2(-0.38, 0.34 + backFlap), vec2(-0.15, 0.15), uRetraction);
+    vec2 backBotCenter = mix(vec2(-0.38, -0.34 - backFlap), vec2(-0.15, -0.15), uRetraction);
+    vec2 backRadii = mix(vec2(0.24, 0.11), vec2(0.10, 0.05), uRetraction);
+    vec2 eyeCenter = vec2(0.82, 0.10) + (headCenter - vec2(0.75, 0.05));
+
     float aShell = ellipseAlpha(p, vec2(0.0, 0.0), vec2(0.60, 0.40), 0.025);
-    float aHead = ellipseAlpha(p, vec2(0.75, 0.05), vec2(0.22, 0.22), 0.02);
+    float aHead = ellipseAlpha(p, headCenter, headRadii, 0.02);
     float aTail = ellipseAlpha(p, vec2(-0.72, 0.0), vec2(0.14, 0.08), 0.02);
     // Both start at kFrontRestAngle (tail-ward); only the hinge/open angle's sign differs so the
     // top opens upward and the bottom opens downward from that same closed pose.
-    float aFlipperTopFront = hingedLimbAlpha(p, kFrontTopPivot, kFrontRestAngle, -frontOpenAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
-    float aFlipperBotFront = hingedLimbAlpha(p, kFrontBotPivot, kFrontRestAngle, frontOpenAngle, kFrontLimbLength, kFrontHalfWidth, 0.02);
-    float aFlipperTopBack = ellipseAlpha(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), 0.02);
-    float aFlipperBotBack = ellipseAlpha(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), 0.02);
-    float aEye = ellipseAlpha(p, vec2(0.82, 0.10), vec2(0.035, 0.035), 0.01);
+    float aFlipperTopFront = hingedLimbAlpha(p, frontTopPivot, kFrontRestAngle, -frontOpenAngle, frontLimbLength, frontHalfWidth, 0.02);
+    float aFlipperBotFront = hingedLimbAlpha(p, frontBotPivot, kFrontRestAngle, frontOpenAngle, frontLimbLength, frontHalfWidth, 0.02);
+    float aFlipperTopBack = ellipseAlpha(p, backTopCenter, backRadii, 0.02);
+    float aFlipperBotBack = ellipseAlpha(p, backBotCenter, backRadii, 0.02);
+    // Fades out on top of moving inward with the head, so no sliver of it can poke past the
+    // shell's soft edge right at full retraction.
+    float aEye = ellipseAlpha(p, eyeCenter, vec2(0.035, 0.035), 0.01) * (1.0 - smoothstep(0.7, 0.95, uRetraction));
 
     float flippersAlpha = max(max(aFlipperTopFront, aFlipperBotFront), max(aFlipperTopBack, aFlipperBotBack));
     float bodyAlpha = max(max(aShell, aHead), max(aTail, flippersAlpha));
@@ -191,9 +214,16 @@ void main() {
 
     shellColor = mix(shellColor, uShellColor * 0.45, groove);
     
-    // Bioluminescent glow on shell grooves at night
+    // Bioluminescent glow on shell grooves at night. Ramped through
+    // smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a plain (1.0 - uDayNight) - see
+    // fish.frag's identical fix for why: the raw linear version made the glow already partway
+    // visible as soon as the sun started dipping, well before the background actually looked
+    // dark. This keeps it at 0 through day/dusk/dawn and only fades it in once it's genuinely
+    // dark, in sync with the background.
+    const float kNightGlowEdge = 0.25;
+    float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
     vec3 shellGlowColor = vec3(0.0, 1.0, 0.5); // Neon emerald/green glow
-    float shellGlowStrength = (1.0 - uDayNight) * 1.25;
+    float shellGlowStrength = nightGlow * 1.25;
     shellColor += shellGlowColor * groove * shellGlowStrength;
 
     // The shell is drawn in front of the flippers/head (not the other way around) - it's the
@@ -210,15 +240,15 @@ void main() {
     // helping the silhouette separate from a dark background. Masked by (1 - aShell) since the
     // shell is drawn last and can still cover part of the head/flippers where they tuck under
     // its edge - without that mask this would incorrectly glow through the shell there.
-    float headRim = rimLight(p, vec2(0.75, 0.05), vec2(0.22, 0.22), aHead);
+    float headRim = rimLight(p, headCenter, headRadii, aHead);
     float frontTopTotalAngle = kFrontRestAngle - frontOpenAngle;
     float frontBotTotalAngle = kFrontRestAngle + frontOpenAngle;
-    vec2 frontTopCenter = kFrontTopPivot + vec2(cos(frontTopTotalAngle), sin(frontTopTotalAngle)) * (kFrontLimbLength * 0.5);
-    vec2 frontBotCenter = kFrontBotPivot + vec2(cos(frontBotTotalAngle), sin(frontBotTotalAngle)) * (kFrontLimbLength * 0.5);
-    float flipperTopFrontRim = rimLight(p, frontTopCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperTopFront);
-    float flipperBotFrontRim = rimLight(p, frontBotCenter, vec2(kFrontLimbLength * 0.5, kFrontHalfWidth), aFlipperBotFront);
-    float flipperTopBackRim = rimLight(p, vec2(-0.38, 0.34 + backFlap), vec2(0.24, 0.11), aFlipperTopBack);
-    float flipperBotBackRim = rimLight(p, vec2(-0.38, -0.34 - backFlap), vec2(0.24, 0.11), aFlipperBotBack);
+    vec2 frontTopCenter = frontTopPivot + vec2(cos(frontTopTotalAngle), sin(frontTopTotalAngle)) * (frontLimbLength * 0.5);
+    vec2 frontBotCenter = frontBotPivot + vec2(cos(frontBotTotalAngle), sin(frontBotTotalAngle)) * (frontLimbLength * 0.5);
+    float flipperTopFrontRim = rimLight(p, frontTopCenter, vec2(frontLimbLength * 0.5, frontHalfWidth), aFlipperTopFront);
+    float flipperBotFrontRim = rimLight(p, frontBotCenter, vec2(frontLimbLength * 0.5, frontHalfWidth), aFlipperBotFront);
+    float flipperTopBackRim = rimLight(p, backTopCenter, backRadii, aFlipperTopBack);
+    float flipperBotBackRim = rimLight(p, backBotCenter, backRadii, aFlipperBotBack);
     float flipperRim = max(max(flipperTopFrontRim, flipperBotFrontRim), max(flipperTopBackRim, flipperBotBackRim));
     float rimAmount = max(headRim, flipperRim) * (1.0 - aShell);
 
