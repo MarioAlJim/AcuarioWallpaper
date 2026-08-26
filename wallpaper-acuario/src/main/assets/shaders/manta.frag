@@ -9,6 +9,9 @@ uniform vec3 uWingColor;
 uniform vec3 uTailColor;
 uniform vec3 uMarkingColor;
 uniform float uDayNight;
+// Per-palette bioluminescent tint (see MantaPalette.glowColor) - each species glows its own
+// color instead of every ray sharing one fixed neon hue.
+uniform vec3 uGlowColor;
 
 out vec4 fragColor;
 
@@ -112,9 +115,8 @@ void main() {
     // dark, in sync with the background.
     const float kNightGlowEdge = 0.25;
     float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
-    vec3 glowColor = vec3(0.65, 0.25, 1.0); // Neon violet/purple glow
     float glowStrength = nightGlow * 1.2;
-    color += glowColor * markingsAlpha * glowStrength;
+    color += uGlowColor * markingsAlpha * glowStrength;
 
     // Eye colors (simple dark dot, no separate pupil - mantas' eyes read small at this scale).
     vec3 eyeColor = vec3(0.03, 0.03, 0.03);

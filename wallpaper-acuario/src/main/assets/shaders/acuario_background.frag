@@ -313,5 +313,13 @@ void main() {
     float vignette = mix(vignetteFloor, 1.0, vignetteShape);
     color *= vignette;
 
+    // Day brightness boost: the gradient/vignette tuning above was aimed at giving the god rays
+    // and caustics somewhere dark to stand out (see their own comments), which left full daylight
+    // reading moodier than an actual sunlit tank should. Scaled by uDayNight (like the rays/
+    // caustics strength above) so it fades back out toward night instead of brightening the
+    // just-tuned dark/bioluminescence look there.
+    const float kDayBrightnessBoost = 1.3;
+    color *= mix(1.0, kDayBrightnessBoost, uDayNight);
+
     fragColor = vec4(color, 1.0);
 }

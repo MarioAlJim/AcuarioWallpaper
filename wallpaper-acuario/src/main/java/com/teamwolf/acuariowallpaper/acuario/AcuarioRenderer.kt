@@ -129,6 +129,7 @@ class AcuarioRenderer(
     private var turtleSpotColorHandle = 0
     private var turtleDayNightHandle = 0
     private var turtleRetractionHandle = 0
+    private var turtleGlowColorHandle = 0
     private val turtles = mutableListOf<Turtle>()
     private val kTurtleScale = 0.28f
     private val kMaxTurtles = 5
@@ -142,6 +143,7 @@ class AcuarioRenderer(
     private var fishTailColorHandle = 0
     private var fishStripeColorHandle = 0
     private var fishDayNightHandle = 0
+    private var fishGlowColorHandle = 0
     private val fishes = mutableListOf<Fish>()
     private val kFishScale = 0.18f
     private val kMaxFish = 8
@@ -157,6 +159,7 @@ class AcuarioRenderer(
     private var mantaTailColorHandle = 0
     private var mantaMarkingColorHandle = 0
     private var mantaDayNightHandle = 0
+    private var mantaGlowColorHandle = 0
     private val mantas = mutableListOf<Manta>()
     private val kMantaScale = 0.34f
     private val kMaxMantas = 4
@@ -407,6 +410,7 @@ class AcuarioRenderer(
             turtleSpotColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uSpotColor")
             turtleDayNightHandle = GLES30.glGetUniformLocation(turtleProgram, "uDayNight")
             turtleRetractionHandle = GLES30.glGetUniformLocation(turtleProgram, "uRetraction")
+            turtleGlowColorHandle = GLES30.glGetUniformLocation(turtleProgram, "uGlowColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -422,6 +426,7 @@ class AcuarioRenderer(
             fishTailColorHandle = GLES30.glGetUniformLocation(fishProgram, "uTailColor")
             fishStripeColorHandle = GLES30.glGetUniformLocation(fishProgram, "uStripeColor")
             fishDayNightHandle = GLES30.glGetUniformLocation(fishProgram, "uDayNight")
+            fishGlowColorHandle = GLES30.glGetUniformLocation(fishProgram, "uGlowColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -437,6 +442,7 @@ class AcuarioRenderer(
             mantaTailColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uTailColor")
             mantaMarkingColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uMarkingColor")
             mantaDayNightHandle = GLES30.glGetUniformLocation(mantaProgram, "uDayNight")
+            mantaGlowColorHandle = GLES30.glGetUniformLocation(mantaProgram, "uGlowColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -857,6 +863,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(fishFinColorHandle, 1, scratchFinColor, 0)
             GLES30.glUniform3fv(fishTailColorHandle, 1, scratchTailColor, 0)
             GLES30.glUniform3fv(fishStripeColorHandle, 1, scratchStripeColor, 0)
+            // Not depth-tinted like the colors above - bioluminescence is its own light source,
+            // not reflected ambient light, so it doesn't fade toward deepColor with distance.
+            GLES30.glUniform3fv(fishGlowColorHandle, 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -913,6 +922,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(mantaWingColorHandle, 1, scratchMantaWingColor, 0)
             GLES30.glUniform3fv(mantaTailColorHandle, 1, scratchMantaTailColor, 0)
             GLES30.glUniform3fv(mantaMarkingColorHandle, 1, scratchMantaMarkingColor, 0)
+            // Not depth-tinted like the colors above - see the identical comment in the fish
+            // draw loop.
+            GLES30.glUniform3fv(mantaGlowColorHandle, 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -1289,6 +1301,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(turtleHeadColorHandle, 1, scratchHeadColor, 0)
             GLES30.glUniform3fv(turtleFlipperColorHandle, 1, scratchFlipperColor, 0)
             GLES30.glUniform3fv(turtleSpotColorHandle, 1, scratchSpotColor, 0)
+            // Not depth-tinted like the colors above - see the identical comment in the fish
+            // draw loop.
+            GLES30.glUniform3fv(turtleGlowColorHandle, 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }

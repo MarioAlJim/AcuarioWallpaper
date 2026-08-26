@@ -13,6 +13,9 @@ uniform float uDayNight;
 // - see Turtle.kt's "Startle response" doc and AcuarioRenderer's drawTurtles(), which feeds it
 // straight from Turtle.retraction.
 uniform float uRetraction;
+// Per-palette bioluminescent tint (see TurtlePalette.glowColor) - each species glows its own
+// color instead of every turtle sharing one fixed neon hue.
+uniform vec3 uGlowColor;
 
 out vec4 fragColor;
 
@@ -222,9 +225,8 @@ void main() {
     // dark, in sync with the background.
     const float kNightGlowEdge = 0.25;
     float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
-    vec3 shellGlowColor = vec3(0.0, 1.0, 0.5); // Neon emerald/green glow
     float shellGlowStrength = nightGlow * 1.25;
-    shellColor += shellGlowColor * groove * shellGlowStrength;
+    shellColor += uGlowColor * groove * shellGlowStrength;
 
     // The shell is drawn in front of the flippers/head (not the other way around) - it's the
     // carapace, limbs tuck under its edge, not over it. The front-flipper hinge above places its
