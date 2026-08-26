@@ -48,6 +48,12 @@ class ConfigManager(context: Context) : ConfigProvider {
 
         const val KEY_DAY_NIGHT_CYCLE = "day_night_cycle"
         const val DEFAULT_DAY_NIGHT_CYCLE = 180 // Default is 3 minutes (180s)
+
+        const val KEY_CUSTOM_SHALLOW_COLOR = "custom_shallow_color"
+        const val DEFAULT_CUSTOM_SHALLOW_COLOR = 0xFF0D578C.toInt()
+
+        const val KEY_CUSTOM_DEEP_COLOR = "custom_deep_color"
+        const val DEFAULT_CUSTOM_DEEP_COLOR = 0xFF020B21.toInt()
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
@@ -70,4 +76,10 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getDayNightCycleDuration(): Int = acuario.getDayNightCycleDuration()
     fun setDayNightCycleDuration(duration: Int) = acuario.setDayNightCycleDuration(duration)
+
+    override fun getCustomShallowColor(): Int = acuario.getCustomShallowColor()
+    fun setCustomShallowColor(color: Int) = acuario.setCustomShallowColor(color)
+
+    override fun getCustomDeepColor(): Int = acuario.getCustomDeepColor()
+    fun setCustomDeepColor(color: Int) = acuario.setCustomDeepColor(color)
 }

@@ -35,6 +35,7 @@ class AcuarioSettingsFragment : Fragment() {
         configManager = (requireActivity() as WallpaperSettingsActivity).configManager
 
         setupThemeCards(view)
+        setupCustomColorSelectors(view)
         setupTurtleCountCards(view)
         setupFishCountCards(view)
         setupMantaCountCards(view)
@@ -50,7 +51,8 @@ class AcuarioSettingsFragment : Fragment() {
             getString(R.string.acuario_theme_azul_profundo),
             getString(R.string.acuario_theme_atardecer),
             getString(R.string.acuario_theme_abisal),
-            getString(R.string.acuario_theme_arrecife)
+            getString(R.string.acuario_theme_arrecife),
+            getString(R.string.acuario_theme_personalizado)
         )
 
         val shallowColors = intArrayOf(
@@ -58,15 +60,19 @@ class AcuarioSettingsFragment : Fragment() {
             0xFF0D578C.toInt(), // Azul Profundo
             0xFFB34D66.toInt(), // Atardecer Violeta
             0xFF260D40.toInt(), // Fosa Abisal
-            0xFF0DA699.toInt()  // Arrecife Coral
+            0xFF0DA699.toInt(), // Arrecife Coral
+            configManager.getCustomShallowColor() // Personalizado
         )
         val deepColors = intArrayOf(
             0xFF031821.toInt(),
             0xFF020B21.toInt(),
             0xFF140A26.toInt(),
             0xFF02020A.toInt(),
-            0xFF05142E.toInt()
+            0xFF05142E.toInt(),
+            configManager.getCustomDeepColor() // Personalizado
         )
+
+        val layoutCustomColors = parent.findViewById<LinearLayout>(R.id.layoutCustomColors)
 
         SettingsCardSelectorHelper.populate(
             requireContext(),
@@ -85,6 +91,7 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setAcuarioTheme(selectedIndex)
+            layoutCustomColors.visibility = if (selectedIndex == 5) View.VISIBLE else View.GONE
         }
     }
 
@@ -247,6 +254,75 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setDayNightCycleDuration(values[selectedIndex])
+        }
+    }
+
+    private fun setupCustomColorSelectors(parent: View) {
+        val layoutCustomColors = parent.findViewById<LinearLayout>(R.id.layoutCustomColors)
+        layoutCustomColors.visibility = if (configManager.getAcuarioTheme() == 5) View.VISIBLE else View.GONE
+
+        // 1. Color Superior (Superficie)
+        val containerShallow = parent.findViewById<LinearLayout>(R.id.containerCustomShallowColor)
+        val shallowColors = intArrayOf(
+            0xFF0DA699.toInt(), // Turquoise
+            0xFF0D578C.toInt(), // Blue
+            0xFFB34D66.toInt(), // Pink/Coral
+            0xFF260D40.toInt(), // Deep Purple
+            0xFF1A7066.toInt(), // Teal
+            0xFFE2583E.toInt(), // Sunset Red
+            0xFF2ECC71.toInt(), // Emerald Green
+            0xFF9B59B6.toInt()  // Violet
+        )
+        val shallowOptions = arrayOf(
+            "Turquesa", "Azul", "Coral", "Púrpura", "Cian", "Naranja", "Verde", "Violeta"
+        )
+        val initialShallowIndex = shallowColors.indexOf(configManager.getCustomShallowColor()).coerceAtLeast(0)
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            containerShallow,
+            shallowOptions,
+            initialShallowIndex,
+            previewFactory = { index ->
+                View(requireContext()).apply {
+                    setBackgroundColor(shallowColors[index])
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setCustomShallowColor(shallowColors[selectedIndex])
+            setupThemeCards(parent)
+        }
+
+        // 2. Color Inferior (Fondo)
+        val containerDeep = parent.findViewById<LinearLayout>(R.id.containerCustomDeepColor)
+        val deepColors = intArrayOf(
+            0xFF031821.toInt(), // Dark Turquoise
+            0xFF020B21.toInt(), // Dark Blue
+            0xFF140A26.toInt(), // Dark Purple
+            0xFF02020A.toInt(), // Pitch Black
+            0xFF05142E.toInt(), // Ocean Deep
+            0xFF121212.toInt(), // Midnight Grey
+            0xFF0A2F2D.toInt(), // Deep Teal
+            0xFF1A1B35.toInt()  // Dark Indigo
+        )
+        val deepOptions = arrayOf(
+            "Marina", "Marino", "Índigo", "Negro", "Abisal", "Gris", "Teal Oscuro", "Sombra"
+        )
+        val initialDeepIndex = deepColors.indexOf(configManager.getCustomDeepColor()).coerceAtLeast(0)
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            containerDeep,
+            deepOptions,
+            initialDeepIndex,
+            previewFactory = { index ->
+                View(requireContext()).apply {
+                    setBackgroundColor(deepColors[index])
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setCustomDeepColor(deepColors[selectedIndex])
+            setupThemeCards(parent)
         }
     }
 }
