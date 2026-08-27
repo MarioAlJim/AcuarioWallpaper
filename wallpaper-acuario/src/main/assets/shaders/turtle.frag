@@ -144,8 +144,8 @@ void main() {
     // tallest region on its way there, so it needs the extra clearance to stay outside the
     // shell for its whole length (a pivot merely flush with the surface, as when "closed" only
     // ever pointed forward toward the head, would dip back inside it here).
-    const vec2 kFrontTopPivot = vec2(0.15, 0.46);
-    const vec2 kFrontBotPivot = vec2(0.15, -0.46);
+    const vec2 kFrontTopPivot = vec2(0.35, 0.38);
+    const vec2 kFrontBotPivot = vec2(0.35, -0.38);
     const float kFrontLimbLength = 0.506; // 0.46 + 10%
     const float kFrontHalfWidth = 0.15;
     float frontOpenAngle = frontOpenness * kFrontMaxOpenAngle;
