@@ -10,7 +10,7 @@ package com.teamwolf.acuariowallpaper.acuario
  *
  * [glowColor] is the bioluminescent tint jellyfish.frag ramps up along the bell margin, radial
  * pattern and tentacles once it's dark enough (see its uGlowColor/nightGlow comment) - each
- * species gets its own hue, same convention as [FishPalette]/[MantaPalette]/[SeahorsePalette].
+ * species gets its own hue, same convention as [FishPalette]/[MantaPalette].
  */
 class JellyfishPalette(
     val bellColor: FloatArray,

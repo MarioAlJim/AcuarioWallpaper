@@ -24,9 +24,6 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     private var cachedMantaCount: Int = prefs.getInt(ConfigManager.KEY_MANTA_COUNT, ConfigManager.DEFAULT_MANTA_COUNT)
 
     @Volatile
-    private var cachedSeahorseCount: Int = prefs.getInt(ConfigManager.KEY_SEAHORSE_COUNT, ConfigManager.DEFAULT_SEAHORSE_COUNT)
-
-    @Volatile
     private var cachedJellyfishCount: Int = prefs.getInt(ConfigManager.KEY_JELLYFISH_COUNT, ConfigManager.DEFAULT_JELLYFISH_COUNT)
 
     @Volatile
@@ -75,13 +72,6 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
         putInt(ConfigManager.KEY_MANTA_COUNT, coerced)
     }
 
-    // Range matches AcuarioRenderer's kMaxSeahorses - keep both in sync.
-    fun getSeahorseCount(): Int = cachedSeahorseCount
-    fun setSeahorseCount(count: Int) {
-        val coerced = count.coerceIn(0, 4)
-        cachedSeahorseCount = coerced
-        putInt(ConfigManager.KEY_SEAHORSE_COUNT, coerced)
-    }
 
     // Range matches AcuarioRenderer's kMaxJellyfish - keep both in sync.
     fun getJellyfishCount(): Int = cachedJellyfishCount
@@ -147,9 +137,6 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
             }
             ConfigManager.KEY_MANTA_COUNT -> {
                 cachedMantaCount = prefs.getInt(ConfigManager.KEY_MANTA_COUNT, ConfigManager.DEFAULT_MANTA_COUNT)
-            }
-            ConfigManager.KEY_SEAHORSE_COUNT -> {
-                cachedSeahorseCount = prefs.getInt(ConfigManager.KEY_SEAHORSE_COUNT, ConfigManager.DEFAULT_SEAHORSE_COUNT)
             }
             ConfigManager.KEY_JELLYFISH_COUNT -> {
                 cachedJellyfishCount = prefs.getInt(ConfigManager.KEY_JELLYFISH_COUNT, ConfigManager.DEFAULT_JELLYFISH_COUNT)

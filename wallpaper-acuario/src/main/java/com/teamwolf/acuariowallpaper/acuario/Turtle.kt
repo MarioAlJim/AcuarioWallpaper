@@ -58,7 +58,7 @@ class Turtle {
     val palette: TurtlePalette
 
     init {
-        shinyType = if (Random.nextFloat() < 0.01f) {
+        shinyType = if (Random.nextFloat() < 0.10f) {
             if (Random.nextBoolean()) 1 else 2
         } else {
             0
