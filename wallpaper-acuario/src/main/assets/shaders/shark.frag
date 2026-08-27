@@ -42,31 +42,42 @@ void main() {
     float aBody = clamp(aBodyRaw - aMouthCut, 0.0, 1.0);
 
 
-    // 2. Dorsal fin (slanted back, pointing up, sharpened at the tip)
+    // 2. Dorsal fin (slanted back, pointing up, curved and sharpened to a real point)
     vec2 pDorsal = pWarped - vec2(-0.05, 0.12);
     float cos25 = 0.906;
     float sin25 = 0.422;
     vec2 pDorsalRot = vec2(pDorsal.x * cos25 + pDorsal.y * sin25, -pDorsal.x * sin25 + pDorsal.y * cos25);
-    float taper = clamp(1.0 - pDorsalRot.y / 0.20, 0.08, 1.0);
-    float aDorsal = ellipseAlpha(vec2(pDorsalRot.x / taper, pDorsalRot.y), vec2(0.0, 0.0), vec2(0.08, 0.18), 0.02) * step(0.0, pWarped.y);
+    float dorsalT = clamp(pDorsalRot.y / 0.20, 0.0, 1.0);
+    float dorsalCurve = 0.05 * dorsalT * dorsalT; // trailing edge sweeps back near the tip
+    float dorsalTaper = clamp(1.0 - dorsalT, 0.02, 1.0);
+    float aDorsal = ellipseAlpha(vec2((pDorsalRot.x - dorsalCurve) / dorsalTaper, pDorsalRot.y), vec2(0.0, 0.0), vec2(0.075, 0.19), 0.016) * step(0.0, pWarped.y);
 
-    // 3. Pectoral fins (foreground and background to show two lateral fins)
+    // 3. Pectoral fins (foreground and background to show two lateral fins),
+    // tapered from a broad base to a swept, pointed tip like a real pectoral fin
     float cos35 = 0.819;
     float sin35 = -0.574;
-    
+
     // Foreground fin:
     vec2 pPect1 = pWarped - vec2(0.22, -0.11);
     vec2 pPectRot1 = vec2(pPect1.x * cos35 + pPect1.y * sin35, -pPect1.x * sin35 + pPect1.y * cos35);
-    float aPectoral1 = ellipseAlpha(pPectRot1, vec2(0.0, 0.0), vec2(0.17, 0.055), 0.02) * step(pWarped.y, 0.0);
+    float pect1T = clamp(pPectRot1.x / 0.19, 0.0, 1.0);
+    float pect1Curve = 0.03 * pect1T * pect1T; // droops downward toward the tip
+    float pect1Taper = clamp(1.0 - pect1T, 0.05, 1.0);
+    float aPectoral1 = ellipseAlpha(vec2(pPectRot1.x, (pPectRot1.y - pect1Curve) / pect1Taper), vec2(0.0, 0.0), vec2(0.19, 0.06), 0.016) * step(pWarped.y, 0.0);
 
     // Background fin (shifted slightly left/up and smaller):
     vec2 pPect2 = pWarped - vec2(0.14, -0.06);
     vec2 pPectRot2 = vec2(pPect2.x * cos35 + pPect2.y * sin35, -pPect2.x * sin35 + pPect2.y * cos35);
-    float aPectoral2 = ellipseAlpha(pPectRot2, vec2(0.0, 0.0), vec2(0.14, 0.045), 0.02) * step(pWarped.y, 0.0);
+    float pect2T = clamp(pPectRot2.x / 0.155, 0.0, 1.0);
+    float pect2Curve = 0.025 * pect2T * pect2T;
+    float pect2Taper = clamp(1.0 - pect2T, 0.05, 1.0);
+    float aPectoral2 = ellipseAlpha(vec2(pPectRot2.x, (pPectRot2.y - pect2Curve) / pect2Taper), vec2(0.0, 0.0), vec2(0.155, 0.05), 0.016) * step(pWarped.y, 0.0);
 
-    // 4. Ventral/anal fin
+    // 4. Ventral/anal fin, tapered to a small triangular point
     vec2 pVentral = pWarped - vec2(-0.3, -0.12);
-    float aVentral = ellipseAlpha(pVentral, vec2(0.0, 0.0), vec2(0.06, 0.04), 0.02) * step(pWarped.y, 0.0);
+    float ventralT = clamp(-pVentral.y / 0.045, 0.0, 1.0);
+    float ventralTaper = clamp(1.0 - ventralT, 0.12, 1.0);
+    float aVentral = ellipseAlpha(vec2(pVentral.x / ventralTaper, pVentral.y), vec2(0.0, 0.0), vec2(0.06, 0.045), 0.016) * step(pWarped.y, 0.0);
 
     // 5. Caudal (tail) fin - classic asymmetrical shark tail (taller upper lobe)
     float tailLen = 0.25;
