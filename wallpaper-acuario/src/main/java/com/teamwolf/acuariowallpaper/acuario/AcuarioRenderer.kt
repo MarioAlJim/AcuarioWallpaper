@@ -698,8 +698,10 @@ class AcuarioRenderer(
         }
         activeBurstCount = 0
 
-        turtles.clear()
-        syncTurtleCount()
+        synchronized(turtles) {
+            turtles.clear()
+            syncTurtleCount()
+        }
 
         fishes.clear()
         syncFishCount()
@@ -792,15 +794,17 @@ class AcuarioRenderer(
             }
         }
 
-        if (turtles.isNotEmpty()) {
-            for (i in turtles.indices.reversed()) {
-                val t = turtles[i]
-                val hitRadius = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
-                val dx = worldX - (t.x + foregroundParallax)
-                val dy = worldY - t.y
-                if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-                    t.touch(worldX, worldY)
-                    break
+        synchronized(turtles) {
+            if (turtles.isNotEmpty()) {
+                for (i in turtles.indices.reversed()) {
+                    val t = turtles[i]
+                    val hitRadius = kTurtleScale * 1.6f * (1f - (1f - kMinScaleAtDepth) * t.depth)
+                    val dx = worldX - (t.x + foregroundParallax)
+                    val dy = worldY - t.y
+                    if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                        t.touch(worldX, worldY)
+                        break
+                    }
                 }
             }
         }
@@ -937,20 +941,22 @@ class AcuarioRenderer(
         for (i in corals.indices) {
             corals[i].update(deltaTime)
         }
-        for (i in turtles.indices) {
-            val t = turtles[i]
-            t.update(deltaTime, aspectRatio)
-            if (t.consumeExhaleEvent()) {
-                spawnExhaleBubbles(t.x, t.y)
-            }
-            // consumePowerStrokeEvent() must run every frame regardless of the chance roll - it
-            // consumes the pending flag - so it stays the left operand of this short-circuiting
-            // &&, evaluated exactly once either way.
-            if (t.consumePowerStrokeEvent() && Random.nextFloat() < kPropulsionBubbleChance) {
-                spawnPropulsionBubbles(t)
-            }
-            if (t.shinyType > 0 && Random.nextFloat() < 0.025f) {
-                spawnSparkleAt(t.x, t.y, t.shinyType)
+        synchronized(turtles) {
+            for (i in turtles.indices) {
+                val t = turtles[i]
+                t.update(deltaTime, aspectRatio)
+                if (t.consumeExhaleEvent()) {
+                    spawnExhaleBubbles(t.x, t.y)
+                }
+                // consumePowerStrokeEvent() must run every frame regardless of the chance roll - it
+                // consumes the pending flag - so it stays the left operand of this short-circuiting
+                // &&, evaluated exactly once either way.
+                if (t.consumePowerStrokeEvent() && Random.nextFloat() < kPropulsionBubbleChance) {
+                    spawnPropulsionBubbles(t)
+                }
+                if (t.shinyType > 0 && Random.nextFloat() < 0.025f) {
+                    spawnSparkleAt(t.x, t.y, t.shinyType)
+                }
             }
         }
         for (i in bubbles.indices) {
@@ -1200,9 +1206,11 @@ class AcuarioRenderer(
      */
     private fun syncTurtleCount() {
         val desired = configProvider.getTurtleCount().coerceIn(0, kMaxTurtles)
-        when {
-            desired > turtles.size -> repeat(desired - turtles.size) { turtles.add(Turtle()) }
-            desired < turtles.size -> while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
+        synchronized(turtles) {
+            when {
+                desired > turtles.size -> repeat(desired - turtles.size) { turtles.add(Turtle()) }
+                desired < turtles.size -> while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
+            }
         }
     }
 
@@ -1770,77 +1778,80 @@ class AcuarioRenderer(
     }
 
     private fun drawTurtles(deepColor: FloatArray) {
-        if (turtleProgram == 0 || turtles.isEmpty()) return
-        GLES30.glUseProgram(turtleProgram)
-        GLES30.glUniform1f(turtleDayNightHandle, dayNight)
+        if (turtleProgram == 0) return
+        synchronized(turtles) {
+            if (turtles.isEmpty()) return
+            GLES30.glUseProgram(turtleProgram)
+            GLES30.glUniform1f(turtleDayNightHandle, dayNight)
 
-        // Farthest first, so a turtle nearer the glass correctly draws on top of one that
-        // overlaps it deeper in the tank (there's no depth buffer test here - just simple
-        // back-to-front painter's-algorithm ordering by Turtle.depth).
-        // Manual insertion sort to avoid any list/comparator allocations per frame.
-        for (i in 1 until turtles.size) {
-            val key = turtles[i]
-            var j = i - 1
-            while (j >= 0 && turtles[j].depth < key.depth) {
-                turtles[j + 1] = turtles[j]
-                j--
+            // Farthest first, so a turtle nearer the glass correctly draws on top of one that
+            // overlaps it deeper in the tank (there's no depth buffer test here - just simple
+            // back-to-front painter's-algorithm ordering by Turtle.depth).
+            // Manual insertion sort to avoid any list/comparator allocations per frame.
+            for (i in 1 until turtles.size) {
+                val key = turtles[i]
+                var j = i - 1
+                while (j >= 0 && turtles[j].depth < key.depth) {
+                    turtles[j + 1] = turtles[j]
+                    j--
+                }
+                turtles[j + 1] = key
             }
-            turtles[j + 1] = key
-        }
 
-        for (i in turtles.indices) {
-            val t = turtles[i]
-            // Depth illusion: shrink and tint toward the water's deep color as the turtle
-            // recedes (Turtle.depth -> 1), so it reads as farther away/underwater-hazier
-            // instead of just smaller.
-            val depthScale = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
-            val tintAmount = t.depth * kMaxDepthTint
+            for (i in turtles.indices) {
+                val t = turtles[i]
+                // Depth illusion: shrink and tint toward the water's deep color as the turtle
+                // recedes (Turtle.depth -> 1), so it reads as farther away/underwater-hazier
+                // instead of just smaller.
+                val depthScale = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
+                val tintAmount = t.depth * kMaxDepthTint
 
-            Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, t.x + foregroundParallax, t.y, 0f)
-            // Order matters here: Android's Matrix helpers post-multiply, so the LAST call
-            // below is the FIRST one actually applied to each vertex. We want, in per-vertex
-            // apply order: (1) uniform base scale, (2) pitch rotation (in the sprite's
-            // canonical always-facing-right frame, so +pitch always lifts the head), (3) the
-            // left/right mirror (only flips X, so it can't undo the vertical lift added by
-            // pitch), (4) the translate to world position - hence the calls are written in the
-            // reverse of that.
-            Matrix.scaleM(modelMatrix, 0, t.facingScale(), 1f, 1f)
-            Matrix.rotateM(modelMatrix, 0, t.pitchDegrees, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
-            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-            GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
-            // Wrapped to [0, 2*PI) before upload: turtle.frag is `precision mediump float`, and
-            // t.swimPhase itself grows forever (never resets) for as long as the wallpaper runs.
-            // Past a few hours of continuous uptime it's large enough that mediump - roughly a
-            // 10-bit mantissa, so its representable step size scales with magnitude - can no
-            // longer resolve a single frame's small increment, so consecutive frames round to
-            // the *same* value and the animation visibly stalls/steps instead of flowing - worse
-            // for the back flippers specifically since their whole motion range is much smaller
-            // than the front flippers', so the same absolute rounding error eats a bigger share
-            // of it. sin()/cos() only ever need the phase mod 2*PI anyway, so wrapping here (in
-            // full 32-bit float, on the CPU) costs nothing and keeps the uploaded value small
-            // enough for mediump to represent precisely no matter how long the wallpaper's been
-            // running.
-            GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase % kTwoPi)
-            GLES30.glUniform1f(turtleRetractionHandle, t.retraction)
+                Matrix.setIdentityM(modelMatrix, 0)
+                Matrix.translateM(modelMatrix, 0, t.x + foregroundParallax, t.y, 0f)
+                // Order matters here: Android's Matrix helpers post-multiply, so the LAST call
+                // below is the FIRST one actually applied to each vertex. We want, in per-vertex
+                // apply order: (1) uniform base scale, (2) pitch rotation (in the sprite's
+                // canonical always-facing-right frame, so +pitch always lifts the head), (3) the
+                // left/right mirror (only flips X, so it can't undo the vertical lift added by
+                // pitch), (4) the translate to world position - hence the calls are written in the
+                // reverse of that.
+                Matrix.scaleM(modelMatrix, 0, t.facingScale(), 1f, 1f)
+                Matrix.rotateM(modelMatrix, 0, t.pitchDegrees, 0f, 0f, 1f)
+                Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+                GLES30.glUniformMatrix4fv(turtleMVPHandle, 1, false, mvpMatrix, 0)
+                // Wrapped to [0, 2*PI) before upload: turtle.frag is `precision mediump float`, and
+                // t.swimPhase itself grows forever (never resets) for as long as the wallpaper runs.
+                // Past a few hours of continuous uptime it's large enough that mediump - roughly a
+                // 10-bit mantissa, so its representable step size scales with magnitude - can no
+                // longer resolve a single frame's small increment, so consecutive frames round to
+                // the *same* value and the animation visibly stalls/steps instead of flowing - worse
+                // for the back flippers specifically since their whole motion range is much smaller
+                // than the front flippers', so the same absolute rounding error eats a bigger share
+                // of it. sin()/cos() only ever need the phase mod 2*PI anyway, so wrapping here (in
+                // full 32-bit float, on the CPU) costs nothing and keeps the uploaded value small
+                // enough for mediump to represent precisely no matter how long the wallpaper's been
+                // running.
+                GLES30.glUniform1f(turtleSwimPhaseHandle, t.swimPhase % kTwoPi)
+                GLES30.glUniform1f(turtleRetractionHandle, t.retraction)
 
-            val ambientFactor = 0.35f + 0.65f * dayNight
-            val palette = t.palette
-            mixColorInto(scratchShellColor, palette.shellColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchHeadColor, palette.headColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchFlipperColor, palette.flipperColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchSpotColor, palette.spotColor, deepColor, tintAmount, ambientFactor)
-            GLES30.glUniform3fv(turtleShellColorHandle, 1, scratchShellColor, 0)
-            GLES30.glUniform3fv(turtleHeadColorHandle, 1, scratchHeadColor, 0)
-            GLES30.glUniform3fv(turtleFlipperColorHandle, 1, scratchFlipperColor, 0)
-            GLES30.glUniform3fv(turtleSpotColorHandle, 1, scratchSpotColor, 0)
-            // Not depth-tinted like the colors above - see the identical comment in the fish
-            // draw loop.
-            GLES30.glUniform3fv(turtleGlowColorHandle, 1, palette.glowColor, 0)
-            GLES30.glUniform1f(turtleShinyTypeHandle, t.shinyType.toFloat())
+                val ambientFactor = 0.35f + 0.65f * dayNight
+                val palette = t.palette
+                mixColorInto(scratchShellColor, palette.shellColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchHeadColor, palette.headColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchFlipperColor, palette.flipperColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchSpotColor, palette.spotColor, deepColor, tintAmount, ambientFactor)
+                GLES30.glUniform3fv(turtleShellColorHandle, 1, scratchShellColor, 0)
+                GLES30.glUniform3fv(turtleHeadColorHandle, 1, scratchHeadColor, 0)
+                GLES30.glUniform3fv(turtleFlipperColorHandle, 1, scratchFlipperColor, 0)
+                GLES30.glUniform3fv(turtleSpotColorHandle, 1, scratchSpotColor, 0)
+                // Not depth-tinted like the colors above - see the identical comment in the fish
+                // draw loop.
+                GLES30.glUniform3fv(turtleGlowColorHandle, 1, palette.glowColor, 0)
+                GLES30.glUniform1f(turtleShinyTypeHandle, t.shinyType.toFloat())
 
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
         }
     }
 

@@ -423,8 +423,8 @@ class Turtle {
      */
     fun frontFlipperWorldPosition(top: Boolean, turtleScale: Float, out: FloatArray) {
         val frontFlap = kotlin.math.sin(swimPhase) * 0.14f
-        val localX = 0.10f
-        val localY = if (top) 0.46f + frontFlap else -0.46f - frontFlap
+        val localX = 0.35f
+        val localY = if (top) 0.38f + frontFlap else -0.38f - frontFlap
 
         val pitchRad = pitchDegrees * (PI / 180f)
         val cosP = kotlin.math.cos(pitchRad)
