@@ -776,8 +776,95 @@ class AcuarioRenderer(
         val worldX = (x / screenWidth * 2f - 1f) * aspectRatio
         val worldY = 1f - (y / screenHeight * 2f)
 
-        // Spawning food with 5-second cooldown
-        if (feedingCooldownRemaining <= 0f) {
+        class TouchTarget(
+            val type: Int, // 0 = Turtle, 1 = Manta, 2 = Jellyfish
+            val obj: Any,
+            val depth: Float,
+            val x: Float,
+            val y: Float,
+            val rx: Float,
+            val ry: Float
+        )
+
+        val targets = ArrayList<TouchTarget>()
+
+        synchronized(turtles) {
+            for (t in turtles) {
+                val depthScale = kTurtleScale * (1f - (1f - kMinScaleAtDepth) * t.depth)
+                targets.add(TouchTarget(
+                    type = 0,
+                    obj = t,
+                    depth = t.depth,
+                    x = t.x + getParallaxX(t.depth),
+                    y = t.y + getParallaxY(t.depth),
+                    rx = depthScale * 0.9f,
+                    ry = depthScale * 0.6f
+                ))
+            }
+        }
+
+        synchronized(mantas) {
+            for (m in mantas) {
+                val depthScale = kMantaScale * (1f - (1f - kMinScaleAtDepth) * m.depth)
+                targets.add(TouchTarget(
+                    type = 1,
+                    obj = m,
+                    depth = m.depth,
+                    x = m.x + m.loopOffsetX + getParallaxX(m.depth),
+                    y = m.y + m.loopOffsetY + getParallaxY(m.depth),
+                    rx = depthScale * 1.3f,
+                    ry = depthScale * 0.5f
+                ))
+            }
+        }
+
+        synchronized(jellyfishes) {
+            for (jf in jellyfishes) {
+                val depthScale = kJellyfishScale * (1f - (1f - kMinScaleAtDepth) * jf.depth)
+                targets.add(TouchTarget(
+                    type = 2,
+                    obj = jf,
+                    depth = jf.depth,
+                    x = jf.x + getParallaxX(jf.depth),
+                    y = jf.y + getParallaxY(jf.depth),
+                    rx = depthScale * 0.7f,
+                    ry = depthScale * 1.1f
+                ))
+            }
+        }
+
+        // Sort by depth ascending so the closest creatures (lowest depth value) are checked first
+        targets.sortBy { it.depth }
+
+        var animalTouched = false
+        for (target in targets) {
+            val dx = worldX - target.x
+            val dy = worldY - target.y
+            val rx = target.rx
+            val ry = target.ry
+            if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1.0f) {
+                when (target.type) {
+                    0 -> { // Turtle
+                        (target.obj as Turtle).touch(worldX, worldY)
+                    }
+                    1 -> { // Manta
+                        (target.obj as Manta).triggerLoop()
+                    }
+                    2 -> { // Jellyfish
+                        val jf = target.obj as Jellyfish
+                        jf.triggerElectricity()
+                        for (k in 0 until 12) {
+                            spawnSparkleAt(jf.x, jf.y, 2)
+                        }
+                    }
+                }
+                animalTouched = true
+                break // Only trigger the single topmost touched animal
+            }
+        }
+
+        // Spawning food with 5-second cooldown - only when no animal was touched
+        if (!animalTouched && feedingCooldownRemaining <= 0f) {
             feedingCooldownRemaining = kFeedingCooldownSeconds
 
             // Clean up any previously targeted fish, just in case
@@ -810,70 +897,13 @@ class AcuarioRenderer(
                             if (distSq < minDistSq) {
                                 minDistSq = distSq
                                 closestParticle = p
-                            }
+                             }
                         }
                     }
 
                     if (closestParticle != null) {
                         f.isTargetingFood = true
                         f.setTarget(closestParticle.x, closestParticle.y)
-                    }
-                }
-            }
-        }
-
-        var touched = false
-        synchronized(turtles) {
-            if (turtles.isNotEmpty()) {
-                for (i in turtles.indices.reversed()) {
-                    val t = turtles[i]
-                    val hitRadius = kTurtleScale * 1.6f * (1f - (1f - kMinScaleAtDepth) * t.depth)
-                    val dx = worldX - (t.x + getParallaxX(t.depth))
-                    val dy = worldY - (t.y + getParallaxY(t.depth))
-                    if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-                        t.touch(worldX, worldY)
-                        touched = true
-                        break
-                    }
-                }
-            }
-        }
-
-        if (!touched) {
-            synchronized(mantas) {
-                if (mantas.isNotEmpty()) {
-                    for (i in mantas.indices.reversed()) {
-                        val m = mantas[i]
-                        val depthScale = 1f - (1f - kMinScaleAtDepth) * m.depth
-                        val hitRadius = kMantaScale * 1.5f * depthScale
-                        val dx = worldX - (m.x + m.loopOffsetX + getParallaxX(m.depth))
-                        val dy = worldY - (m.y + m.loopOffsetY + getParallaxY(m.depth))
-                        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-                            m.triggerLoop()
-                            touched = true
-                            break
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!touched) {
-            synchronized(jellyfishes) {
-                if (jellyfishes.isNotEmpty()) {
-                    for (i in jellyfishes.indices.reversed()) {
-                        val jf = jellyfishes[i]
-                        val depthScale = 1f - (1f - kMinScaleAtDepth) * jf.depth
-                        val hitRadius = kJellyfishScale * 1.5f * depthScale
-                        val dx = worldX - (jf.x + getParallaxX(jf.depth))
-                        val dy = worldY - (jf.y + getParallaxY(jf.depth))
-                        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-                            jf.triggerElectricity()
-                            for (k in 0 until 12) {
-                                spawnSparkleAt(jf.x, jf.y, 2)
-                            }
-                            break
-                        }
                     }
                 }
             }
