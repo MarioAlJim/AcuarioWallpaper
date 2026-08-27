@@ -19,6 +19,8 @@ uniform vec3 uGlowColor;
 // 0.0 = normal, 1.0 = "shiny gold", 2.0 = "shiny diamond" (see Jellyfish.kt's shinyType) - drives
 // the premium halo/sheen finish below.
 uniform float uShinyType;
+uniform float uTime;
+uniform float uElectricIntensity;
 
 out vec4 fragColor;
 
@@ -177,6 +179,41 @@ void main() {
     color = mix(color, uMarginColor, aMargin);
     color = mix(color, uTentacleColor, aTentacles);
 
+    // Electrification effect when touched:
+    float electricGlow = 0.0;
+    if (uElectricIntensity > 0.0) {
+        // High frequency flicker (crackling look)
+        float flicker = 0.6 + 0.4 * sin(uTime * 80.0);
+        
+        // Wavy vertical ray 1 down the middle
+        float w1 = sin(p.y * 25.0 + uTime * 35.0) * 0.15 * cos(p.y * 12.0 - uTime * 20.0);
+        float d1 = abs(p.x - w1);
+        float s1 = smoothstep(0.02, 0.0, d1);
+        
+        // Ray 2 (warping on the right side)
+        float w2 = sin(p.y * 40.0 - uTime * 45.0) * 0.10 * sin(p.y * 15.0 + uTime * 25.0) + 0.25 * sin(uTime * 5.0);
+        float d2 = abs(p.x - w2);
+        float s2 = smoothstep(0.015, 0.0, d2);
+
+        // Ray 3 (warping on the left side)
+        float w3 = cos(p.y * 35.0 + uTime * 50.0) * 0.10 * cos(p.y * 18.0 - uTime * 30.0) - 0.25 * sin(uTime * 6.0);
+        float d3 = abs(p.x - w3);
+        float s3 = smoothstep(0.015, 0.0, d3);
+
+        // Combine all crackling rays/sparks
+        float sparks = max(max(s1, s2), s3);
+        // Only render sparks on the jellyfish body & tentacles
+        sparks *= jellyAlpha;
+
+        // Bright electric cyan/white spark color
+        vec3 electricColor = vec3(0.4, 0.8, 1.0) * sparks * 2.5 * flicker * uElectricIntensity;
+        color += electricColor;
+
+        // Electric blue background body glow
+        electricGlow = jellyAlpha * 0.6 * flicker * uElectricIntensity;
+        color += vec3(0.0, 0.55, 1.0) * electricGlow;
+    }
+
     // Bioluminescent glow along the margin, radial pattern and tentacles at night - see
     // fish.frag's identical fix for why this is ramped through
     // smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a plain (1.0 - uDayNight).
@@ -238,6 +275,7 @@ void main() {
     float bellOpacity = 0.72;
     float tentacleOpacity = mix(0.55, 0.30, clamp((p.y - (-0.85)) / 1.0, 0.0, 1.0));
     float finalAlpha = max(max(aBell, aMargin) * bellOpacity, aTentacles * tentacleOpacity);
+    finalAlpha = max(finalAlpha, electricGlow * 0.8);
 
     // Shiny halo compositing - see fish.frag's identical block for the full explanation.
     if (uShinyType > 0.5) {
