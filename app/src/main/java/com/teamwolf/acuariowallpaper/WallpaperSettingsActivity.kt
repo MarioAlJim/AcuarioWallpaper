@@ -31,6 +31,11 @@ class WallpaperSettingsActivity : AppCompatActivity() {
             .replace(R.id.settings_fragment_container, AcuarioSettingsFragment())
             .commit()
 
+        val buttonHelp = findViewById<android.widget.ImageButton>(R.id.buttonHelp)
+        buttonHelp.setOnClickListener {
+            showHelpDialog()
+        }
+
         val buttonApply = findViewById<Button>(R.id.buttonApplyWallpaper)
         buttonApply.setOnClickListener {
             val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
@@ -41,6 +46,24 @@ class WallpaperSettingsActivity : AppCompatActivity() {
             }
             startActivity(intent)
         }
+    }
+
+    private fun showHelpDialog() {
+        val helpText = android.text.Html.fromHtml(
+            "<p><b>• Alimentar Peces:</b> Toca el agua vacía (donde no haya otros animales) para soltar alimento. Los peces nadarán a comer y darán un giro feliz.</p>" +
+            "<p><b>• Susto de Tortuga:</b> Toca una tortuga para asustarla; nadará más rápido y encogerá su cabeza/aletas en el caparazón.</p>" +
+            "<p><b>• Loop de Mantarraya:</b> Toca una mantarraya para que realice una pirueta acrobática de 360° en el aire con un aleteo rápido.</p>" +
+            "<p><b>• Medusa Eléctrica:</b> Toca una medusa para electrificarla. Brillará con luz bioluminiscente y emitirá rayos y chispas eléctricas.</p>" +
+            "<p><b>• Parallax 3D (Giroscopio):</b> Inclina tu dispositivo hacia los lados o arriba/abajo para percibir la profundidad tridimensional del acuario.</p>" +
+            "<p><b>• Tormenta de Burbujas:</b> Sacude tu dispositivo para desatar una intensa ráfaga de burbujas desde el fondo.</p>",
+            android.text.Html.FROM_HTML_MODE_LEGACY
+        )
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Ayuda e Interacciones")
+            .setMessage(helpText)
+            .setPositiveButton("Entendido", null)
+            .show()
     }
 
     private fun nightModeFor(mode: Int): Int = when (mode) {
