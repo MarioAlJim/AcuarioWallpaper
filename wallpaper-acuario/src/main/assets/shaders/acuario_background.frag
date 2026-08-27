@@ -9,6 +9,7 @@ uniform float uAspectRatio;
 // This frame's eased home-screen swipe position, re-centered to [-0.5, 0.5] (0 = no swipe) -
 // see AcuarioRenderer's parallaxRaw/foregroundParallax field doc.
 uniform float uParallaxOffset;
+uniform vec2 uGyroOffset;
 uniform float uDayNight; // 0.0 = full night, 1.0 = full day
 uniform vec3 uCustomShallowColor;
 uniform vec3 uCustomDeepColor;
@@ -144,8 +145,10 @@ void main() {
     // foregroundParallax) - the classic parallax cue that this layer sits much farther away,
     // making the tank read as far bigger than the single flat plane it actually is.
     const float kDistantParallaxShift = 0.05;
-    float bx = vUv.x * uAspectRatio - uParallaxOffset * kDistantParallaxShift;
-    vec2 bp = vec2(bx, y);
+    const float kDistantGyroVerticalShift = 0.025;
+    float bx = vUv.x * uAspectRatio - (uParallaxOffset + uGyroOffset.x) * kDistantParallaxShift;
+    float by = y - uGyroOffset.y * kDistantGyroVerticalShift;
+    vec2 bp = vec2(bx, by);
 
     float rock1 = distantBlobAlpha(bp, vec2(uAspectRatio * 0.15, 0.06), vec2(0.22, 0.10), 0.18);
     float rock2 = distantBlobAlpha(bp, vec2(uAspectRatio * 0.55, 0.03), vec2(0.30, 0.09), 0.20);

@@ -47,6 +47,22 @@ class Manta {
         private set
     private var pitchVelocity = 0f
 
+    var loopTimer = 0f
+        private set
+    private var loopStartPitch = 0f
+
+    var loopOffsetX = 0f
+        private set
+    var loopOffsetY = 0f
+        private set
+
+    fun triggerLoop() {
+        if (loopTimer <= 0f) {
+            loopTimer = 1.5f
+            loopStartPitch = pitchDegrees
+        }
+    }
+
     var depth = Random.nextFloat()
         private set
     private var targetDepth = depth
@@ -66,6 +82,13 @@ class Manta {
     private var targetSpeedMultiplier = 1f
 
     fun update(deltaTime: Float, aspectRatio: Float) {
+        if (loopTimer > 0f) {
+            loopTimer -= deltaTime
+            if (loopTimer < 0f) {
+                loopTimer = 0f
+            }
+        }
+
         if (!hasTarget) {
             pickNewTarget(aspectRatio)
         }
@@ -82,37 +105,71 @@ class Manta {
         val speedLerp = 1f - exp(-kSpeedEaseRate * deltaTime)
         speedMultiplier += (targetSpeedMultiplier - speedMultiplier) * speedLerp
         val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth) * speedMultiplier
-        x += (dx / dist) * effectiveSpeed * deltaTime
-        y += (dy / dist) * effectiveSpeed * deltaTime
+        val activeSpeed = if (loopTimer > 0f) effectiveSpeed * 2.5f else effectiveSpeed
+        x += (dx / dist) * activeSpeed * deltaTime
+        y += (dy / dist) * activeSpeed * deltaTime
 
-        // Heading steering - deliberately slow (kTurnRate well below Fish/Turtle's) so a manta
-        // banks through a wide, lazy arc toward each new waypoint instead of turning briskly.
-        val targetHeading = atan2(dy, dx)
-        var angleDiff = targetHeading - heading
-        while (angleDiff > PI) angleDiff -= TWO_PI
-        while (angleDiff < -PI) angleDiff += TWO_PI
-        val turnLerp = 1f - exp(-kTurnRate * deltaTime)
-        heading += angleDiff * turnLerp
+        // Heading steering and mirror flip are paused during a loop
+        if (loopTimer <= 0f) {
+            // Heading steering - deliberately slow (kTurnRate well below Fish/Turtle's) so a manta
+            // banks through a wide, lazy arc toward each new waypoint instead of turning briskly.
+            val targetHeading = atan2(dy, dx)
+            var angleDiff = targetHeading - heading
+            while (angleDiff > PI) angleDiff -= TWO_PI
+            while (angleDiff < -PI) angleDiff += TWO_PI
+            val turnLerp = 1f - exp(-kTurnRate * deltaTime)
+            heading += angleDiff * turnLerp
 
-        // Mirror flip
-        if (kotlin.math.abs(dx) > kFacingDeadzone) {
-            facingSign = if (dx > 0f) 1f else -1f
+            // Mirror flip
+            if (kotlin.math.abs(dx) > kFacingDeadzone) {
+                facingSign = if (dx > 0f) 1f else -1f
+            }
+            val mirrorLerp = 1f - exp(-kMirrorRate * deltaTime)
+            mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
         }
-        val mirrorLerp = 1f - exp(-kMirrorRate * deltaTime)
-        mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
 
-        // Pitch spring - a gentler max angle than Fish/Turtle: mantas glide fairly level,
-        // banking only a little even on a steep leg.
-        val desiredPitch = (dy / dist) * kMaxPitchDegrees
-        stepPitchSpring(desiredPitch, deltaTime)
+        // Pitch loop or spring
+        if (loopTimer <= 0f) {
+            // Pitch spring - a gentler max angle than Fish/Turtle: mantas glide fairly level,
+            // banking only a little even on a steep leg.
+            val desiredPitch = (dy / dist) * kMaxPitchDegrees
+            stepPitchSpring(desiredPitch, deltaTime)
+        } else {
+            // Loop pitch override (0 to 360 degrees)
+            val loopProgress = (1.5f - loopTimer) / 1.5f
+            pitchDegrees = loopStartPitch + loopProgress * 360f
+            if (loopTimer <= 0f) {
+                // Wrap pitchDegrees to [-180, 180] to keep the spring stable when it takes back over
+                while (pitchDegrees > 180f) pitchDegrees -= 360f
+                while (pitchDegrees < -180f) pitchDegrees += 360f
+                pitchVelocity = 0f // reset velocity to prevent spring jerk
+            }
+        }
 
         // Depth drift
         val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
         depth += (targetDepth - depth) * depthLerp
 
         // Swim phase drives manta.frag's slow, whole-body wing undulation - much gentler than a
-        // fish's tail-wag frequency.
-        swimPhase += deltaTime * (1.6f + speed * 2.5f) * speedMultiplier
+        // fish's tail-wag frequency. Flaps 3.5x faster during loop.
+        val phaseSpeed = (1.6f + speed * 2.5f) * speedMultiplier
+        if (loopTimer > 0f) {
+            swimPhase += deltaTime * phaseSpeed * 3.5f
+        } else {
+            swimPhase += deltaTime * phaseSpeed
+        }
+
+        // Loop circular path offsets
+        if (loopTimer > 0f) {
+            val loopProgress = (1.5f - loopTimer) / 1.5f
+            val angle = loopProgress * TWO_PI
+            val radius = 0.22f
+            loopOffsetX = facingSign * kotlin.math.sin(angle) * radius
+            loopOffsetY = (1f - kotlin.math.cos(angle)) * radius
+        } else {
+            loopOffsetX = 0f
+            loopOffsetY = 0f
+        }
     }
 
     private fun stepPitchSpring(desiredPitch: Float, deltaTime: Float) {

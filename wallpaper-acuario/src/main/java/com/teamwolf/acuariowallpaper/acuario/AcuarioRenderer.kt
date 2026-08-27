@@ -59,6 +59,7 @@ class AcuarioRenderer(
     private var bgThemeHandle = 0
     private var bgAspectHandle = 0
     private var bgParallaxHandle = 0
+    private var bgGyroOffsetHandle = 0
     private var bgDayNightHandle = 0
     private var bgCustomShallowHandle = 0
     private var bgCustomDeepHandle = 0
@@ -85,6 +86,21 @@ class AcuarioRenderer(
     // Chosen so offsetX is ~95% of the way to a new swipe position in about 0.3s
     // (1 - e^(-kParallaxEaseRate*0.3) ~= 0.95).
     private val kParallaxEaseRate = 10f
+
+    private var targetTiltX = 0f
+    private var targetTiltY = 0f
+    private var smoothedTiltX = 0f
+    private var smoothedTiltY = 0f
+
+    private fun getParallaxX(depth: Float): Float {
+        val rangeX = 0.12f - 0.06f * depth
+        return (parallaxRaw + smoothedTiltX) * rangeX
+    }
+
+    private fun getParallaxY(depth: Float): Float {
+        val rangeY = 0.06f * (1.0f - 0.5f * depth)
+        return smoothedTiltY * rangeY
+    }
 
     // Bubbles (instanced quads, same attribute layout as the "wallpaper" reference project's
     // particle.vert/frag)
@@ -195,6 +211,8 @@ class AcuarioRenderer(
     private var jellyfishDayNightHandle = 0
     private var jellyfishGlowColorHandle = 0
     private var jellyfishShinyTypeHandle = 0
+    private var jellyfishTimeHandle = 0
+    private var jellyfishElectricIntensityHandle = 0
     private val jellyfishes = mutableListOf<Jellyfish>()
     private val kJellyfishScale = 0.26f
     private val kMaxJellyfish = 6
@@ -474,6 +492,7 @@ class AcuarioRenderer(
             bgThemeHandle = GLES30.glGetUniformLocation(backgroundProgram, "uTheme")
             bgAspectHandle = GLES30.glGetUniformLocation(backgroundProgram, "uAspectRatio")
             bgParallaxHandle = GLES30.glGetUniformLocation(backgroundProgram, "uParallaxOffset")
+            bgGyroOffsetHandle = GLES30.glGetUniformLocation(backgroundProgram, "uGyroOffset")
             bgDayNightHandle = GLES30.glGetUniformLocation(backgroundProgram, "uDayNight")
             bgCustomShallowHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomShallowColor")
             bgCustomDeepHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomDeepColor")
@@ -565,6 +584,8 @@ class AcuarioRenderer(
             jellyfishDayNightHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uDayNight")
             jellyfishGlowColorHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uGlowColor")
             jellyfishShinyTypeHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uShinyType")
+            jellyfishTimeHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uTime")
+            jellyfishElectricIntensityHandle = GLES30.glGetUniformLocation(jellyfishProgram, "uElectricIntensity")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -736,6 +757,11 @@ class AcuarioRenderer(
         targetOffsetX = xOffset
     }
 
+    override fun onSensorValuesChanged(tiltX: Float, tiltY: Float) {
+        targetTiltX = tiltX
+        targetTiltY = tiltY
+    }
+
     /**
      * Hit-tests a raw screen-pixel tap against the turtles: converts it into the same [-aspectRatio,
      * aspectRatio] x [-1, 1] world space used everywhere else (matching the ortho projection set up
@@ -764,7 +790,7 @@ class AcuarioRenderer(
             // Setup 4 food particles with slight offsets
             for (i in 0 until 4) {
                 val p = foodParticles[i]
-                p.x = worldX - foregroundParallax + (Random.nextFloat() - 0.5f) * 0.20f
+                p.x = worldX - getParallaxX(0.2f) + (Random.nextFloat() - 0.5f) * 0.20f
                 p.y = 1.1f + i * 0.12f
                 p.active = true
             }
@@ -796,16 +822,58 @@ class AcuarioRenderer(
             }
         }
 
+        var touched = false
         synchronized(turtles) {
             if (turtles.isNotEmpty()) {
                 for (i in turtles.indices.reversed()) {
                     val t = turtles[i]
                     val hitRadius = kTurtleScale * 1.6f * (1f - (1f - kMinScaleAtDepth) * t.depth)
-                    val dx = worldX - (t.x + foregroundParallax)
-                    val dy = worldY - t.y
+                    val dx = worldX - (t.x + getParallaxX(t.depth))
+                    val dy = worldY - (t.y + getParallaxY(t.depth))
                     if (dx * dx + dy * dy <= hitRadius * hitRadius) {
                         t.touch(worldX, worldY)
+                        touched = true
                         break
+                    }
+                }
+            }
+        }
+
+        if (!touched) {
+            synchronized(mantas) {
+                if (mantas.isNotEmpty()) {
+                    for (i in mantas.indices.reversed()) {
+                        val m = mantas[i]
+                        val depthScale = 1f - (1f - kMinScaleAtDepth) * m.depth
+                        val hitRadius = kMantaScale * 1.5f * depthScale
+                        val dx = worldX - (m.x + m.loopOffsetX + getParallaxX(m.depth))
+                        val dy = worldY - (m.y + m.loopOffsetY + getParallaxY(m.depth))
+                        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                            m.triggerLoop()
+                            touched = true
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!touched) {
+            synchronized(jellyfishes) {
+                if (jellyfishes.isNotEmpty()) {
+                    for (i in jellyfishes.indices.reversed()) {
+                        val jf = jellyfishes[i]
+                        val depthScale = 1f - (1f - kMinScaleAtDepth) * jf.depth
+                        val hitRadius = kJellyfishScale * 1.5f * depthScale
+                        val dx = worldX - (jf.x + getParallaxX(jf.depth))
+                        val dy = worldY - (jf.y + getParallaxY(jf.depth))
+                        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                            jf.triggerElectricity()
+                            for (k in 0 until 12) {
+                                spawnSparkleAt(jf.x, jf.y, 2)
+                            }
+                            break
+                        }
                     }
                 }
             }
@@ -898,6 +966,10 @@ class AcuarioRenderer(
         offsetX += (targetOffsetX - offsetX) * offsetLerp
         parallaxRaw = offsetX - 0.5f
         foregroundParallax = parallaxRaw * kForegroundParallaxRange
+
+        val gyroLerp = 1f - exp(-8f * deltaTime)
+        smoothedTiltX += (targetTiltX - smoothedTiltX) * gyroLerp
+        smoothedTiltY += (targetTiltY - smoothedTiltY) * gyroLerp
 
         syncTurtleCount()
         syncFishCount()
@@ -1190,7 +1262,7 @@ class AcuarioRenderer(
             val p = foodParticles[i]
             if (p.active) {
                 Matrix.setIdentityM(modelMatrix, 0)
-                Matrix.translateM(modelMatrix, 0, p.x + foregroundParallax, p.y, 0f)
+                Matrix.translateM(modelMatrix, 0, p.x + getParallaxX(0.2f), p.y + getParallaxY(0.2f), 0f)
                 Matrix.scaleM(modelMatrix, 0, kFoodScale, kFoodScale, 1f)
                 Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
                 GLES30.glUniformMatrix4fv(foodMVPHandle, 1, false, mvpMatrix, 0)
@@ -1252,7 +1324,7 @@ class AcuarioRenderer(
             val tintAmount = f.depth * kMaxDepthTint
 
             Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, f.x + foregroundParallax, f.y, 0f)
+            Matrix.translateM(modelMatrix, 0, f.x + getParallaxX(f.depth), f.y + getParallaxY(f.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, f.facingScale(), 1f, 1f)
             Matrix.rotateM(modelMatrix, 0, f.pitchDegrees + f.spinAngle, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
@@ -1312,7 +1384,7 @@ class AcuarioRenderer(
             val tintAmount = m.depth * kMaxDepthTint
 
             Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, m.x + foregroundParallax, m.y, 0f)
+            Matrix.translateM(modelMatrix, 0, m.x + m.loopOffsetX + getParallaxX(m.depth), m.y + m.loopOffsetY + getParallaxY(m.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, m.facingScale(), 1f, 1f)
             Matrix.rotateM(modelMatrix, 0, m.pitchDegrees, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
@@ -1351,7 +1423,7 @@ class AcuarioRenderer(
         val tintAmount = shark.depth * kMaxDepthTint
 
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.translateM(modelMatrix, 0, shark.x + foregroundParallax, shark.y, 0f)
+        Matrix.translateM(modelMatrix, 0, shark.x + getParallaxX(shark.depth), shark.y + getParallaxY(shark.depth), 0f)
         Matrix.scaleM(modelMatrix, 0, shark.facingScale(), 1f, 1f)
         Matrix.rotateM(modelMatrix, 0, shark.pitchDegrees, 0f, 0f, 1f)
         Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
@@ -1397,6 +1469,7 @@ class AcuarioRenderer(
         if (jellyfishProgram == 0 || jellyfishes.isEmpty()) return
         GLES30.glUseProgram(jellyfishProgram)
         GLES30.glUniform1f(jellyfishDayNightHandle, dayNight)
+        GLES30.glUniform1f(jellyfishTimeHandle, time)
 
         // Farthest first, manual insertion sort to avoid allocation
         for (i in 1 until jellyfishes.size) {
@@ -1416,7 +1489,7 @@ class AcuarioRenderer(
             val tintAmount = jf.depth * kMaxDepthTint
 
             Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, jf.x + foregroundParallax, jf.y, 0f)
+            Matrix.translateM(modelMatrix, 0, jf.x + getParallaxX(jf.depth), jf.y + getParallaxY(jf.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(jellyfishMVPHandle, 1, false, mvpMatrix, 0)
@@ -1439,6 +1512,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(jellyfishGlowColorHandle, 1, palette.glowColor, 0)
             GLES30.glUniform1f(jellyfishShinyTypeHandle, jf.shinyType.toFloat())
 
+            val intensity = if (jf.electricTimer > 0f) jf.electricTimer / 1.5f else 0f
+            GLES30.glUniform1f(jellyfishElectricIntensityHandle, intensity)
+
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
     }
@@ -1449,10 +1525,9 @@ class AcuarioRenderer(
 
         val tintAmount = submarine.depth * kMaxDepthTint
         val depthScale = kSubmarineScale * (1f - (1f - kMinScaleAtDepth) * submarine.depth)
-        val subParallax = parallaxRaw * 0.05f
 
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.translateM(modelMatrix, 0, submarine.x + subParallax, submarine.y, 0f)
+        Matrix.translateM(modelMatrix, 0, submarine.x + getParallaxX(submarine.depth), submarine.y + getParallaxY(submarine.depth), 0f)
         Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         GLES30.glUniformMatrix4fv(submarineMVPHandle, 1, false, mvpMatrix, 0)
@@ -1632,7 +1707,7 @@ class AcuarioRenderer(
             // height above kPlantFloorY) rather than to kPlantFloorY itself, so the *local* quad
             // bottom edge (y = -1 in kelp.frag) lands exactly on the floor instead of the quad's
             // center sitting there.
-            Matrix.translateM(modelMatrix, 0, k.x + foregroundParallax, kPlantFloorY + height * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, k.x + getParallaxX(k.depth), kPlantFloorY + height * 0.5f + getParallaxY(k.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, width, height, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(kelpMVPHandle, 1, false, mvpMatrix, 0)
@@ -1670,7 +1745,7 @@ class AcuarioRenderer(
             Matrix.setIdentityM(modelMatrix, 0)
             // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
             // anemone.frag, where the foot/tentacle bases are anchored) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, a.x + foregroundParallax, kPlantFloorY + size * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, a.x + getParallaxX(a.depth), kPlantFloorY + size * 0.5f + getParallaxY(a.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, size, size, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(anemoneMVPHandle, 1, false, mvpMatrix, 0)
@@ -1709,7 +1784,7 @@ class AcuarioRenderer(
             Matrix.setIdentityM(modelMatrix, 0)
             // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
             // seagrass.frag) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, g.x + foregroundParallax, kPlantFloorY + height * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, g.x + getParallaxX(g.depth), kPlantFloorY + height * 0.5f + getParallaxY(g.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, width, height, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(seaGrassMVPHandle, 1, false, mvpMatrix, 0)
@@ -1747,7 +1822,7 @@ class AcuarioRenderer(
             Matrix.setIdentityM(modelMatrix, 0)
             // Same floor-anchoring as anemone: the local quad's bottom edge (y = -1 in
             // coral.frag, where the base/branches are anchored) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, c.x + foregroundParallax, kPlantFloorY + size * 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, c.x + getParallaxX(c.depth), kPlantFloorY + size * 0.5f + getParallaxY(c.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, size, size, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(coralMVPHandle, 1, false, mvpMatrix, 0)
@@ -1817,7 +1892,7 @@ class AcuarioRenderer(
                 val tintAmount = t.depth * kMaxDepthTint
 
                 Matrix.setIdentityM(modelMatrix, 0)
-                Matrix.translateM(modelMatrix, 0, t.x + foregroundParallax, t.y, 0f)
+                Matrix.translateM(modelMatrix, 0, t.x + getParallaxX(t.depth), t.y + getParallaxY(t.depth), 0f)
                 // Order matters here: Android's Matrix helpers post-multiply, so the LAST call
                 // below is the FIRST one actually applied to each vertex. We want, in per-vertex
                 // apply order: (1) uniform base scale, (2) pitch rotation (in the sprite's
@@ -1886,6 +1961,7 @@ class AcuarioRenderer(
         GLES30.glUniform1i(bgThemeHandle, theme)
         GLES30.glUniform1f(bgAspectHandle, aspectRatio)
         GLES30.glUniform1f(bgParallaxHandle, parallaxRaw)
+        GLES30.glUniform2f(bgGyroOffsetHandle, smoothedTiltX, smoothedTiltY)
         GLES30.glUniform1f(bgDayNightHandle, dayNight)
 
         if (theme == 5) {
@@ -1922,8 +1998,9 @@ class AcuarioRenderer(
         bubbleInstanceBuffer.clear()
         for (i in bubbles.indices) {
             val bubble = bubbles[i]
-            bubbleInstanceBuffer.put(bubble.x + foregroundParallax)
-            bubbleInstanceBuffer.put(bubble.y)
+            val bubbleDepth = (1.0f - (bubble.size - 0.02f) / 0.045f).coerceIn(0f, 1f)
+            bubbleInstanceBuffer.put(bubble.x + getParallaxX(bubbleDepth))
+            bubbleInstanceBuffer.put(bubble.y + getParallaxY(bubbleDepth))
             bubbleInstanceBuffer.put(bubble.size)
             bubbleInstanceBuffer.put(bubble.r)
             bubbleInstanceBuffer.put(bubble.g)
@@ -1932,8 +2009,9 @@ class AcuarioRenderer(
         }
         for (i in 0 until activeBurstCount) {
             val bubble = burstBubbles[i]
-            bubbleInstanceBuffer.put(bubble.x + foregroundParallax)
-            bubbleInstanceBuffer.put(bubble.y)
+            val bubbleDepth = (1.0f - (bubble.size - 0.02f) / 0.045f).coerceIn(0f, 1f)
+            bubbleInstanceBuffer.put(bubble.x + getParallaxX(bubbleDepth))
+            bubbleInstanceBuffer.put(bubble.y + getParallaxY(bubbleDepth))
             bubbleInstanceBuffer.put(bubble.size)
             bubbleInstanceBuffer.put(bubble.r)
             bubbleInstanceBuffer.put(bubble.g)
