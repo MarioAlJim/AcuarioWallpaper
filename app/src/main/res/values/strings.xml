@@ -20,6 +20,15 @@
     <string name="settings_manta_color_note">Cada mantarraya toma un color de una especie real al azar.</string>
     <string name="settings_section_jellyfish_count">Cantidad de medusas</string>
     <string name="settings_jellyfish_color_note">Cada medusa toma un color de una especie real al azar.</string>
+    <string name="settings_section_shark_presence">Presencia del tiburón</string>
+    <string name="settings_section_shark_color">Color del tiburón</string>
+    <string name="shark_presence_disabled">Desactivado</string>
+    <string name="shark_presence_sometimes">Aparición aleatoria</string>
+    <string name="shark_presence_always">Siempre activo</string>
+    <string name="shark_color_gray">Gris</string>
+    <string name="shark_color_blue">Azul</string>
+    <string name="shark_color_white">Albino</string>
+    <string name="shark_color_gold">Dorado</string>
     <string name="settings_section_plant_density">Vegetación</string>
     <string name="settings_plant_color_note">Cada planta toma un color de una especie real al azar.</string>
     <string name="plant_density_poca">Poca</string>

@@ -44,6 +44,13 @@ class ConfigManager(context: Context) : ConfigProvider {
         const val KEY_JELLYFISH_COUNT = "jellyfish_count"
         const val DEFAULT_JELLYFISH_COUNT = 2
 
+        const val KEY_SHARK_PRESENCE = "shark_presence"
+        const val DEFAULT_SHARK_PRESENCE = 1 // 1 = Sometimes (Random)
+
+        const val KEY_SHARK_COLOR = "shark_color"
+        const val DEFAULT_SHARK_COLOR = 0 // 0 = Gray
+
+
         const val KEY_PLANT_DENSITY = "plant_density"
         const val DEFAULT_PLANT_DENSITY = 6 // "Media" tier - see AcuarioSettingsFragment's values array
 
@@ -78,6 +85,13 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getJellyfishCount(): Int = acuario.getJellyfishCount()
     fun setJellyfishCount(count: Int) = acuario.setJellyfishCount(count)
+
+    override fun getSharkPresence(): Int = acuario.getSharkPresence()
+    fun setSharkPresence(presence: Int) = acuario.setSharkPresence(presence)
+
+    override fun getSharkColor(): Int = acuario.getSharkColor()
+    fun setSharkColor(color: Int) = acuario.setSharkColor(color)
+
 
     override fun getPlantDensity(): Int = acuario.getPlantDensity()
     fun setPlantDensity(count: Int) = acuario.setPlantDensity(count)

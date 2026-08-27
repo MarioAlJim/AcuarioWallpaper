@@ -41,6 +41,8 @@ class AcuarioSettingsFragment : Fragment() {
         setupFishCountCards(view)
         setupMantaCountCards(view)
         setupJellyfishCountCards(view)
+        setupSharkPresenceCards(view)
+        setupSharkColorCards(view)
         setupPlantDensityCards(view)
         setupBubbleCountCards(view)
         setupDayNightCycleCards(view)
@@ -391,6 +393,68 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setSubmarineColor(selectedIndex)
+        }
+    }
+
+    private fun setupSharkPresenceCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerSharkPresence)
+        val options = arrayOf(
+            getString(R.string.shark_presence_disabled),
+            getString(R.string.shark_presence_sometimes),
+            getString(R.string.shark_presence_always)
+        )
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getSharkPresence(),
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = when (index) {
+                        0 -> "🚫"
+                        1 -> "🦈"
+                        else -> "🌊"
+                    }
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setSharkPresence(selectedIndex)
+        }
+    }
+
+    private fun setupSharkColorCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerSharkColor)
+        val options = arrayOf(
+            getString(R.string.shark_color_gray),
+            getString(R.string.shark_color_blue),
+            getString(R.string.shark_color_white),
+            getString(R.string.shark_color_gold)
+        )
+        val colors = intArrayOf(
+            0xFF737B85.toInt(),
+            0xFF38598C.toInt(),
+            0xFFEBE0E0.toInt(),
+            0xFFE6B840.toInt()
+        )
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getSharkColor(),
+            previewFactory = { index ->
+                View(requireContext()).apply {
+                    background = GradientDrawable().apply {
+                        setColor(colors[index])
+                        cornerRadius = 6f * resources.displayMetrics.density
+                    }
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setSharkColor(selectedIndex)
         }
     }
 }
