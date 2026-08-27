@@ -12,6 +12,9 @@ uniform float uDayNight;
 // Per-palette bioluminescent tint (see MantaPalette.glowColor) - each species glows its own
 // color instead of every ray sharing one fixed neon hue.
 uniform vec3 uGlowColor;
+// 0.0 = normal, 1.0 = "shiny gold", 2.0 = "shiny diamond" (see Manta.kt's shinyType) - drives the
+// premium halo/sheen finish below.
+uniform float uShinyType;
 
 out vec4 fragColor;
 
@@ -87,9 +90,37 @@ void main() {
     float aEye = max(aEyeTop, aEyeBot);
 
     float fishAlpha = max(max(aBody, aTail), aEye);
-    if (fishAlpha <= 0.0) {
+
+    // Shiny halo - see fish.frag's identical block for the full explanation. Anchored to aWings
+    // (this file's dominant silhouette part, not the smaller aNose/aTail) via the same
+    // (pWarped, center, radii) triple its own ellipseAlpha call above already uses. haloSigma is
+    // tighter than fish.frag's default (0.24/0.15): kWingRadiusY already reaches ~0.952 of the
+    // shared quad's own +-1.0 edge at full flap (see this file's kWingFlapAmplitude comment), so a
+    // wider halo would hard-clip against that edge instead of fading out smoothly.
+    float haloAlpha = 0.0;
+    if (uShinyType > 0.5) {
+        vec2 qHalo = (pWarped - vec2(0.02, 0.0)) / vec2(0.44, kWingRadiusY);
+        float dEdge = length(qHalo) - 1.0;
+
+        float isDiamond = step(1.5, uShinyType);
+        float haloSigma = mix(0.10, 0.07, isDiamond);
+
+        float breatheGold = 0.80 + 0.20 * sin(uSwimPhase);
+        float breatheDiamond = pow(0.5 + 0.5 * sin(uSwimPhase * 3.0), 2.0);
+        float breathe = mix(breatheGold, breatheDiamond, isDiamond);
+
+        float halo = exp(-(dEdge * dEdge) / (haloSigma * haloSigma));
+        halo *= mix(0.12, 1.0, smoothstep(-0.06, 0.02, dEdge));
+        haloAlpha = halo * breathe;
+    }
+
+    if (fishAlpha <= 0.0 && haloAlpha <= 0.004) {
         discard;
     }
+
+    // manta.frag doesn't otherwise track a combined "finalAlpha" separate from fishAlpha - the
+    // shiny halo compositing below needs one to extend translucently past the true silhouette.
+    float finalAlpha = fishAlpha;
 
     // Color mixing pipeline
     vec3 color = uWingColor;
@@ -122,6 +153,47 @@ void main() {
     vec3 eyeColor = vec3(0.03, 0.03, 0.03);
     color = mix(color, eyeColor, aEye);
 
+    // Shiny sheen - see fish.frag's identical block for the full explanation.
+    if (uShinyType > 0.5) {
+        float isDiamond = step(1.5, uShinyType);
+        float eyeMask = 1.0 - aEye;
+
+        const vec2 kSweepDir = vec2(0.8, 0.6);
+        float sweepAxis = dot(pWarped, kSweepDir);
+        const float kTwoPiSheen = 6.28318530718;
+        float sweepSpeedMul = mix(1.0, 2.0, isDiamond);
+        float sweepT = fract(uSwimPhase * sweepSpeedMul / kTwoPiSheen);
+        float sweepCenter = mix(-1.6, 1.6, sweepT);
+        float sweepDist = sweepAxis - sweepCenter;
+        float sweepWidth = mix(0.55, 0.22, isDiamond);
+        float sweepCore = exp(-(sweepDist * sweepDist) / (sweepWidth * sweepWidth));
+        float sweepBand = pow(sweepCore, mix(1.0, 2.2, isDiamond));
+
+        const vec3 kGoldSheen = vec3(1.00, 0.88, 0.58);
+        const vec3 kDiamondSheen = vec3(0.55, 0.85, 1.00);
+        vec3 sweepColor = mix(kGoldSheen, kDiamondSheen, isDiamond);
+        float sweepIntensity = mix(0.55, 0.40, isDiamond);
+
+        color = mix(color, sweepColor, sweepBand * sweepIntensity * fishAlpha * eyeMask);
+
+        highp vec2 cell = floor(p * 9.0);
+        highp vec2 cellFrac = fract(p * 9.0);
+        highp vec3 hash3 = fract(sin(vec3(
+            cell.x * 127.1 + cell.y * 311.7,
+            cell.x * 269.5 + cell.y * 183.3,
+            cell.x * 419.2 + cell.y * 371.9)) * 43758.5453);
+        vec2 glintPos = hash3.xy;
+        float glintDist = length(cellFrac - glintPos) * 3.0;
+        float glintMask = smoothstep(1.0, 0.0, glintDist);
+        float freqInt = floor(hash3.z * 8.0) + 5.0;
+        float twinkle = pow(max(0.0, sin(uSwimPhase * freqInt + hash3.z * 6.283)), 10.0);
+        float facetHue = fract(hash3.x * 7.13 + hash3.y * 13.71 + hash3.z * 3.29);
+        vec3 facetColor = 0.5 + 0.5 * cos(6.28318 * (facetHue + vec3(0.0, 0.33, 0.67)));
+        float facetStrength = glintMask * twinkle * isDiamond * fishAlpha * eyeMask;
+
+        color = mix(color, facetColor, facetStrength);
+    }
+
     // Soft rim lighting along the upper edges, separating the silhouette from the background.
     float wingsRim = rimLight(pWarped, vec2(0.02, 0.0), vec2(0.44, kWingRadiusY), aWings);
     float tailRim = rimLight(pTail, vec2(-0.74, 0.0), vec2(0.32, 0.05), aTail);
@@ -131,5 +203,17 @@ void main() {
     const float kRimIntensity = 0.40;
     color += kRimColor * rimAmount * kRimIntensity;
 
-    fragColor = vec4(color, fishAlpha);
+    // Shiny halo compositing - see fish.frag's identical block for the full explanation.
+    if (uShinyType > 0.5) {
+        const vec3 kGoldHalo = vec3(1.00, 0.80, 0.35);
+        const vec3 kDiamondHalo = vec3(0.45, 0.80, 1.00);
+        vec3 haloColor = mix(kGoldHalo, kDiamondHalo, step(1.5, uShinyType));
+
+        float outside = 1.0 - fishAlpha;
+        color = mix(color, haloColor, haloAlpha * outside);
+        color += haloColor * haloAlpha * 0.65;
+        finalAlpha = max(finalAlpha, haloAlpha * outside * 0.65);
+    }
+
+    fragColor = vec4(color, finalAlpha);
 }

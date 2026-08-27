@@ -10,6 +10,9 @@ uniform vec3 uTailColor;
 uniform vec3 uStripeColor;
 uniform float uDayNight;
 uniform vec3 uGlowColor;
+// 0.0 = normal, 1.0 = "shiny gold", 2.0 = "shiny diamond" (see Fish.kt's shinyType) - drives the
+// premium halo/sheen finish below.
+uniform float uShinyType;
 
 out vec4 fragColor;
 
@@ -53,7 +56,26 @@ void main() {
 
     float finsAlpha = max(max(aTailFin, aDorsalFin), aVentralFin);
     float fishAlpha = max(max(aBody, finsAlpha), aEye);
-    if (fishAlpha <= 0.0) {
+
+    // Shiny halo - see fish.frag's identical block for the full explanation.
+    float haloAlpha = 0.0;
+    if (uShinyType > 0.5) {
+        vec2 qHalo = (pWarped - vec2(0.04, 0.0)) / vec2(0.35, 0.26);
+        float dEdge = length(qHalo) - 1.0;
+
+        float isDiamond = step(1.5, uShinyType);
+        float haloSigma = mix(0.24, 0.15, isDiamond);
+
+        float breatheGold = 0.80 + 0.20 * sin(uSwimPhase);
+        float breatheDiamond = pow(0.5 + 0.5 * sin(uSwimPhase * 3.0), 2.0);
+        float breathe = mix(breatheGold, breatheDiamond, isDiamond);
+
+        float halo = exp(-(dEdge * dEdge) / (haloSigma * haloSigma));
+        halo *= mix(0.12, 1.0, smoothstep(-0.06, 0.02, dEdge));
+        haloAlpha = halo * breathe;
+    }
+
+    if (fishAlpha <= 0.0 && haloAlpha <= 0.004) {
         discard;
     }
 
@@ -77,6 +99,47 @@ void main() {
     color = mix(color, eyeRingColor, aEye);
     color = mix(color, pupilColor, aPupil);
 
+    // Shiny sheen - see fish.frag's identical block for the full explanation.
+    if (uShinyType > 0.5) {
+        float isDiamond = step(1.5, uShinyType);
+        float eyeMask = 1.0 - aEye;
+
+        const vec2 kSweepDir = vec2(0.8, 0.6);
+        float sweepAxis = dot(pWarped, kSweepDir);
+        const float kTwoPiSheen = 6.28318530718;
+        float sweepSpeedMul = mix(1.0, 2.0, isDiamond);
+        float sweepT = fract(uSwimPhase * sweepSpeedMul / kTwoPiSheen);
+        float sweepCenter = mix(-1.6, 1.6, sweepT);
+        float sweepDist = sweepAxis - sweepCenter;
+        float sweepWidth = mix(0.55, 0.22, isDiamond);
+        float sweepCore = exp(-(sweepDist * sweepDist) / (sweepWidth * sweepWidth));
+        float sweepBand = pow(sweepCore, mix(1.0, 2.2, isDiamond));
+
+        const vec3 kGoldSheen = vec3(1.00, 0.88, 0.58);
+        const vec3 kDiamondSheen = vec3(0.55, 0.85, 1.00);
+        vec3 sweepColor = mix(kGoldSheen, kDiamondSheen, isDiamond);
+        float sweepIntensity = mix(0.55, 0.40, isDiamond);
+
+        color = mix(color, sweepColor, sweepBand * sweepIntensity * fishAlpha * eyeMask);
+
+        highp vec2 cell = floor(p * 9.0);
+        highp vec2 cellFrac = fract(p * 9.0);
+        highp vec3 hash3 = fract(sin(vec3(
+            cell.x * 127.1 + cell.y * 311.7,
+            cell.x * 269.5 + cell.y * 183.3,
+            cell.x * 419.2 + cell.y * 371.9)) * 43758.5453);
+        vec2 glintPos = hash3.xy;
+        float glintDist = length(cellFrac - glintPos) * 3.0;
+        float glintMask = smoothstep(1.0, 0.0, glintDist);
+        float freqInt = floor(hash3.z * 8.0) + 5.0;
+        float twinkle = pow(max(0.0, sin(uSwimPhase * freqInt + hash3.z * 6.283)), 10.0);
+        float facetHue = fract(hash3.x * 7.13 + hash3.y * 13.71 + hash3.z * 3.29);
+        vec3 facetColor = 0.5 + 0.5 * cos(6.28318 * (facetHue + vec3(0.0, 0.33, 0.67)));
+        float facetStrength = glintMask * twinkle * isDiamond * fishAlpha * eyeMask;
+
+        color = mix(color, facetColor, facetStrength);
+    }
+
     float bodyRim = rimLight(pWarped, vec2(0.04, 0.0), vec2(0.35, 0.26), aBody);
     float dorsalRim = rimLight(pWarped, vec2(-0.18, 0.48), vec2(0.06, 0.46), aDorsalFin);
     float tailRim = rimLight(pWarped, vec2(-0.38, 0.0), vec2(0.12, 0.20), aTailFin);
@@ -87,5 +150,18 @@ void main() {
     color += kRimColor * rimAmount * kRimIntensity;
 
     float finalAlpha = max(fishAlpha, aPupil);
+
+    // Shiny halo compositing - see fish.frag's identical block for the full explanation.
+    if (uShinyType > 0.5) {
+        const vec3 kGoldHalo = vec3(1.00, 0.80, 0.35);
+        const vec3 kDiamondHalo = vec3(0.45, 0.80, 1.00);
+        vec3 haloColor = mix(kGoldHalo, kDiamondHalo, step(1.5, uShinyType));
+
+        float outside = 1.0 - fishAlpha;
+        color = mix(color, haloColor, haloAlpha * outside);
+        color += haloColor * haloAlpha * 0.65;
+        finalAlpha = max(finalAlpha, haloAlpha * outside * 0.65);
+    }
+
     fragColor = vec4(color, finalAlpha);
 }

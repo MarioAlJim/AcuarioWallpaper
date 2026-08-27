@@ -16,6 +16,9 @@ uniform float uDayNight;
 // Per-palette bioluminescent tint (see JellyfishPalette.glowColor) - see fish.frag's identical
 // comment.
 uniform vec3 uGlowColor;
+// 0.0 = normal, 1.0 = "shiny gold", 2.0 = "shiny diamond" (see Jellyfish.kt's shinyType) - drives
+// the premium halo/sheen finish below.
+uniform float uShinyType;
 
 out vec4 fragColor;
 
@@ -144,7 +147,27 @@ void main() {
     }
 
     float jellyAlpha = max(max(aBell, aMargin), aTentacles);
-    if (jellyAlpha <= 0.0) {
+
+    // Shiny halo - see fish.frag's identical block for the full explanation. Anchored to the bell
+    // itself via the already-named kBellCenter/kBellRadii consts (no literal copy needed here).
+    float haloAlpha = 0.0;
+    if (uShinyType > 0.5) {
+        vec2 qHalo = (pBell - kBellCenter) / kBellRadii;
+        float dEdge = length(qHalo) - 1.0;
+
+        float isDiamond = step(1.5, uShinyType);
+        float haloSigma = mix(0.24, 0.15, isDiamond);
+
+        float breatheGold = 0.80 + 0.20 * sin(uPulsePhase);
+        float breatheDiamond = pow(0.5 + 0.5 * sin(uPulsePhase * 3.0), 2.0);
+        float breathe = mix(breatheGold, breatheDiamond, isDiamond);
+
+        float halo = exp(-(dEdge * dEdge) / (haloSigma * haloSigma));
+        halo *= mix(0.12, 1.0, smoothstep(-0.06, 0.02, dEdge));
+        haloAlpha = halo * breathe;
+    }
+
+    if (jellyAlpha <= 0.0 && haloAlpha <= 0.004) {
         discard;
     }
 
@@ -162,12 +185,71 @@ void main() {
     float glowAlpha = max(max(aMargin, aTentacles * 0.7), patternAlpha * 0.6);
     color += uGlowColor * glowAlpha * nightGlow * 1.3;
 
+    // Shiny sheen - see fish.frag's identical block for the full explanation. Masked by aBell
+    // (not jellyAlpha) so the sweep/glints stay on the bell's own gelatinous surface rather than
+    // painting a flat diagonal band across the thin trailing tentacles, which wouldn't read well.
+    if (uShinyType > 0.5) {
+        float isDiamond = step(1.5, uShinyType);
+
+        // Uses pBell (not the raw p) so the sweep bends/breathes with the bell's own pulse
+        // squash-stretch instead of reading as a flat overlay independent of its animation.
+        const vec2 kSweepDir = vec2(0.8, 0.6);
+        float sweepAxis = dot(pBell, kSweepDir);
+        const float kTwoPiSheen = 6.28318530718;
+        float sweepSpeedMul = mix(1.0, 2.0, isDiamond);
+        float sweepT = fract(uPulsePhase * sweepSpeedMul / kTwoPiSheen);
+        float sweepCenter = mix(-1.6, 1.6, sweepT);
+        float sweepDist = sweepAxis - sweepCenter;
+        float sweepWidth = mix(0.55, 0.22, isDiamond);
+        float sweepCore = exp(-(sweepDist * sweepDist) / (sweepWidth * sweepWidth));
+        float sweepBand = pow(sweepCore, mix(1.0, 2.2, isDiamond));
+
+        const vec3 kGoldSheen = vec3(1.00, 0.88, 0.58);
+        const vec3 kDiamondSheen = vec3(0.55, 0.85, 1.00);
+        vec3 sweepColor = mix(kGoldSheen, kDiamondSheen, isDiamond);
+        float sweepIntensity = mix(0.55, 0.40, isDiamond);
+
+        color = mix(color, sweepColor, sweepBand * sweepIntensity * aBell);
+
+        // Facet-glint hash deliberately stays on the raw, un-warped `p` (not pBell) so the glint
+        // positions stay fixed on the bell's surface instead of swimming with the pulse warp -
+        // only their twinkle timing should animate, not their layout.
+        highp vec2 cell = floor(p * 9.0);
+        highp vec2 cellFrac = fract(p * 9.0);
+        highp vec3 hash3 = fract(sin(vec3(
+            cell.x * 127.1 + cell.y * 311.7,
+            cell.x * 269.5 + cell.y * 183.3,
+            cell.x * 419.2 + cell.y * 371.9)) * 43758.5453);
+        vec2 glintPos = hash3.xy;
+        float glintDist = length(cellFrac - glintPos) * 3.0;
+        float glintMask = smoothstep(1.0, 0.0, glintDist);
+        float freqInt = floor(hash3.z * 8.0) + 5.0;
+        float twinkle = pow(max(0.0, sin(uPulsePhase * freqInt + hash3.z * 6.283)), 10.0);
+        float facetHue = fract(hash3.x * 7.13 + hash3.y * 13.71 + hash3.z * 3.29);
+        vec3 facetColor = 0.5 + 0.5 * cos(6.28318 * (facetHue + vec3(0.0, 0.33, 0.67)));
+        float facetStrength = glintMask * twinkle * isDiamond * aBell;
+
+        color = mix(color, facetColor, facetStrength);
+    }
+
     // Translucency: a jellyfish's bell and tentacles are gelatinous and semi-transparent, unlike
     // every other creature's opaque silhouette - the background shows faintly through, more so
     // toward the tentacle tips than the denser bell.
     float bellOpacity = 0.72;
     float tentacleOpacity = mix(0.55, 0.30, clamp((p.y - (-0.85)) / 1.0, 0.0, 1.0));
     float finalAlpha = max(max(aBell, aMargin) * bellOpacity, aTentacles * tentacleOpacity);
+
+    // Shiny halo compositing - see fish.frag's identical block for the full explanation.
+    if (uShinyType > 0.5) {
+        const vec3 kGoldHalo = vec3(1.00, 0.80, 0.35);
+        const vec3 kDiamondHalo = vec3(0.45, 0.80, 1.00);
+        vec3 haloColor = mix(kGoldHalo, kDiamondHalo, step(1.5, uShinyType));
+
+        float outside = 1.0 - jellyAlpha;
+        color = mix(color, haloColor, haloAlpha * outside);
+        color += haloColor * haloAlpha * 0.65;
+        finalAlpha = max(finalAlpha, haloAlpha * outside * 0.65);
+    }
 
     fragColor = vec4(color, finalAlpha);
 }

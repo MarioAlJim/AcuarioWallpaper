@@ -16,6 +16,9 @@ uniform float uRetraction;
 // Per-palette bioluminescent tint (see TurtlePalette.glowColor) - each species glows its own
 // color instead of every turtle sharing one fixed neon hue.
 uniform vec3 uGlowColor;
+// 0.0 = normal, 1.0 = "shiny gold", 2.0 = "shiny diamond" (see Turtle.kt's shinyType) - drives
+// the premium halo/sheen finish below.
+uniform float uShinyType;
 
 out vec4 fragColor;
 
@@ -181,7 +184,28 @@ void main() {
 
     float flippersAlpha = max(max(aFlipperTopFront, aFlipperBotFront), max(aFlipperTopBack, aFlipperBotBack));
     float bodyAlpha = max(max(aShell, aHead), max(aTail, flippersAlpha));
-    if (bodyAlpha <= 0.0) {
+
+    // Shiny halo - see fish.frag's identical block for the full explanation. Anchored to aShell
+    // (this file's dominant silhouette part) via the same (p, center, radii) triple its own
+    // ellipseAlpha call above already uses.
+    float haloAlpha = 0.0;
+    if (uShinyType > 0.5) {
+        vec2 qHalo = (p - vec2(0.0, 0.0)) / vec2(0.60, 0.40);
+        float dEdge = length(qHalo) - 1.0;
+
+        float isDiamond = step(1.5, uShinyType);
+        float haloSigma = mix(0.24, 0.15, isDiamond);
+
+        float breatheGold = 0.80 + 0.20 * sin(uSwimPhase);
+        float breatheDiamond = pow(0.5 + 0.5 * sin(uSwimPhase * 3.0), 2.0);
+        float breathe = mix(breatheGold, breatheDiamond, isDiamond);
+
+        float halo = exp(-(dEdge * dEdge) / (haloSigma * haloSigma));
+        halo *= mix(0.12, 1.0, smoothstep(-0.06, 0.02, dEdge));
+        haloAlpha = halo * breathe;
+    }
+
+    if (bodyAlpha <= 0.0 && haloAlpha <= 0.004) {
         discard;
     }
 
@@ -237,6 +261,50 @@ void main() {
     color = mix(color, shellColor, aShell);
     color = mix(color, eyeColor, aEye);
 
+    // Shiny sheen - see fish.frag's identical block for the full explanation.
+    if (uShinyType > 0.5) {
+        float isDiamond = step(1.5, uShinyType);
+        float eyeMask = 1.0 - aEye;
+
+        const vec2 kSweepDir = vec2(0.8, 0.6);
+        float sweepAxis = dot(p, kSweepDir);
+        const float kTwoPiSheen = 6.28318530718;
+        float sweepSpeedMul = mix(1.0, 2.0, isDiamond);
+        float sweepT = fract(uSwimPhase * sweepSpeedMul / kTwoPiSheen);
+        float sweepCenter = mix(-1.6, 1.6, sweepT);
+        float sweepDist = sweepAxis - sweepCenter;
+        float sweepWidth = mix(0.55, 0.22, isDiamond);
+        float sweepCore = exp(-(sweepDist * sweepDist) / (sweepWidth * sweepWidth));
+        float sweepBand = pow(sweepCore, mix(1.0, 2.2, isDiamond));
+
+        const vec3 kGoldSheen = vec3(1.00, 0.88, 0.58);
+        const vec3 kDiamondSheen = vec3(0.55, 0.85, 1.00);
+        vec3 sweepColor = mix(kGoldSheen, kDiamondSheen, isDiamond);
+        float sweepIntensity = mix(0.55, 0.40, isDiamond);
+
+        color = mix(color, sweepColor, sweepBand * sweepIntensity * bodyAlpha * eyeMask);
+
+        // Named sheenCell/sheenCellFrac (not cell/cellFrac) - this file already has an outer
+        // `vec4 cell = voronoi(...)` for the shell scute pattern; reusing that name here would
+        // shadow it (legal but confusing) rather than colliding, so this avoids the ambiguity.
+        highp vec2 sheenCell = floor(p * 9.0);
+        highp vec2 sheenCellFrac = fract(p * 9.0);
+        highp vec3 hash3 = fract(sin(vec3(
+            sheenCell.x * 127.1 + sheenCell.y * 311.7,
+            sheenCell.x * 269.5 + sheenCell.y * 183.3,
+            sheenCell.x * 419.2 + sheenCell.y * 371.9)) * 43758.5453);
+        vec2 glintPos = hash3.xy;
+        float glintDist = length(sheenCellFrac - glintPos) * 3.0;
+        float glintMask = smoothstep(1.0, 0.0, glintDist);
+        float freqInt = floor(hash3.z * 8.0) + 5.0;
+        float twinkle = pow(max(0.0, sin(uSwimPhase * freqInt + hash3.z * 6.283)), 10.0);
+        float facetHue = fract(hash3.x * 7.13 + hash3.y * 13.71 + hash3.z * 3.29);
+        vec3 facetColor = 0.5 + 0.5 * cos(6.28318 * (facetHue + vec3(0.0, 0.33, 0.67)));
+        float facetStrength = glintMask * twinkle * isDiamond * bodyAlpha * eyeMask;
+
+        color = mix(color, facetColor, facetStrength);
+    }
+
     // Rim lighting on the head and flippers only (per the design ask - the shell already gets
     // its own "domed plate" shading above): a fine sunlit highlight along their upper edges,
     // helping the silhouette separate from a dark background. Masked by (1 - aShell) since the
@@ -259,5 +327,18 @@ void main() {
     color += kRimColor * rimAmount * kRimIntensity;
 
     float alpha = max(bodyAlpha, aEye);
+
+    // Shiny halo compositing - see fish.frag's identical block for the full explanation.
+    if (uShinyType > 0.5) {
+        const vec3 kGoldHalo = vec3(1.00, 0.80, 0.35);
+        const vec3 kDiamondHalo = vec3(0.45, 0.80, 1.00);
+        vec3 haloColor = mix(kGoldHalo, kDiamondHalo, step(1.5, uShinyType));
+
+        float outside = 1.0 - bodyAlpha;
+        color = mix(color, haloColor, haloAlpha * outside);
+        color += haloColor * haloAlpha * 0.65;
+        alpha = max(alpha, haloAlpha * outside * 0.65);
+    }
+
     fragColor = vec4(color, alpha);
 }
