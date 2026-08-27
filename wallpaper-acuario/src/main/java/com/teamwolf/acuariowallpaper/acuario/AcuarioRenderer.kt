@@ -1356,7 +1356,7 @@ class AcuarioRenderer(
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         GLES30.glUniformMatrix4fv(sharkMVPHandle, 1, false, mvpMatrix, 0)
 
-        GLES30.glUniform1f(sharkSwimPhaseHandle, shark.swimPhase)
+        GLES30.glUniform1f(sharkSwimPhaseHandle, shark.swimPhase % kTwoPi)
 
         val ambientFactor = 0.35f + 0.65f * dayNight
 
@@ -1447,7 +1447,7 @@ class AcuarioRenderer(
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         GLES30.glUniformMatrix4fv(submarineMVPHandle, 1, false, mvpMatrix, 0)
 
-        GLES30.glUniform1f(submarineSwimPhaseHandle, submarine.propellerPhase)
+        GLES30.glUniform1f(submarineSwimPhaseHandle, submarine.propellerPhase % kTwoPi)
 
         val ambientFactor = 0.35f + 0.65f * dayNight
         val baseBodyColor: FloatArray
