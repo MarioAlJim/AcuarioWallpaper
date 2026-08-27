@@ -18,8 +18,6 @@
     <string name="settings_fish_color_note">Cada pez toma un color de una paleta tropical al azar.</string>
     <string name="settings_section_manta_count">Cantidad de mantarrayas</string>
     <string name="settings_manta_color_note">Cada mantarraya toma un color de una especie real al azar.</string>
-    <string name="settings_section_seahorse_count">Cantidad de caballitos de mar</string>
-    <string name="settings_seahorse_color_note">Cada caballito de mar toma un color de una especie real al azar.</string>
     <string name="settings_section_jellyfish_count">Cantidad de medusas</string>
     <string name="settings_jellyfish_color_note">Cada medusa toma un color de una especie real al azar.</string>
     <string name="settings_section_plant_density">Vegetación</string>

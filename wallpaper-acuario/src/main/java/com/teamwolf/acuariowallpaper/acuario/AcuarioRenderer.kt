@@ -26,11 +26,9 @@ import kotlin.random.Random
  * flipper ([Turtle.consumePowerStrokeEvent]).
  * Also 0-8 fish ([Fish], count via [ConfigProvider.getFishCount]) and 0-4 manta rays ([Manta],
  * count via [ConfigProvider.getMantaCount]) - mantas are bigger, slower gliders drawn first/
- * farthest-back among the creatures, each in a randomly-assigned [MantaPalette]. Also 0-4
- * seahorses ([Seahorse], count via [ConfigProvider.getSeahorseCount]) that hover near the kelp
- * beds and intermittently grip a frond and hold still, and 0-6 jellyfish ([Jellyfish], count via
- * [ConfigProvider.getJellyfishCount]) that pulse their bell and otherwise drift on the current
- * rather than steering like every other creature here. Finally, 0-24
+ * farthest-back among the creatures, each in a randomly-assigned [MantaPalette]. And 0-6 jellyfish
+ * ([Jellyfish], count via [ConfigProvider.getJellyfishCount]) that pulse their bell and otherwise
+ * drift on the current rather than steering like every other creature here. Finally, 0-24
  * anchored plants ([Kelp]/[Anemone]/[SeaGrass]/[Coral], total density via
  * [ConfigProvider.getPlantDensity], split 35/20/30/15 between them) grow from the tank floor and
  * sway in place rather than wandering - drawn before every creature, right on top of the
@@ -184,21 +182,6 @@ class AcuarioRenderer(
     private val kMantaScale = 0.34f
     private val kMaxMantas = 4
 
-    // Seahorses (same single-transformed-quad shape as the rest of the cast, but drawn near the
-    // kelp beds - see Seahorse.kt for how their movement differs from every other creature here)
-    private var seahorseProgram = 0
-    private var seahorseMVPHandle = 0
-    private var seahorseFinPhaseHandle = 0
-    private var seahorseBodyColorHandle = 0
-    private var seahorseFinColorHandle = 0
-    private var seahorseSnoutColorHandle = 0
-    private var seahorsePatternColorHandle = 0
-    private var seahorseDayNightHandle = 0
-    private var seahorseGlowColorHandle = 0
-    private var seahorseShinyTypeHandle = 0
-    private val seahorses = mutableListOf<Seahorse>()
-    private val kSeahorseScale = 0.20f
-    private val kMaxSeahorses = 4
 
     // Jellyfish (translucent bell + trailing tentacles - see Jellyfish.kt for how their
     // current-driven drift differs from every other creature here)
@@ -335,10 +318,6 @@ class AcuarioRenderer(
     private val scratchMantaWingColor = FloatArray(3)
     private val scratchMantaTailColor = FloatArray(3)
     private val scratchMantaMarkingColor = FloatArray(3)
-    private val scratchSeahorseBodyColor = FloatArray(3)
-    private val scratchSeahorseFinColor = FloatArray(3)
-    private val scratchSeahorseSnoutColor = FloatArray(3)
-    private val scratchSeahorsePatternColor = FloatArray(3)
     private val scratchJellyfishBellColor = FloatArray(3)
     private val scratchJellyfishMarginColor = FloatArray(3)
     private val scratchJellyfishTentacleColor = FloatArray(3)
@@ -558,22 +537,6 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
-        try {
-            val vert = readAssetFile(context, "shaders/seahorse.vert")
-            val frag = readAssetFile(context, "shaders/seahorse.frag")
-            seahorseProgram = createProgram(vert, frag)
-            seahorseMVPHandle = GLES30.glGetUniformLocation(seahorseProgram, "uMVPMatrix")
-            seahorseFinPhaseHandle = GLES30.glGetUniformLocation(seahorseProgram, "uFinPhase")
-            seahorseBodyColorHandle = GLES30.glGetUniformLocation(seahorseProgram, "uBodyColor")
-            seahorseFinColorHandle = GLES30.glGetUniformLocation(seahorseProgram, "uFinColor")
-            seahorseSnoutColorHandle = GLES30.glGetUniformLocation(seahorseProgram, "uSnoutColor")
-            seahorsePatternColorHandle = GLES30.glGetUniformLocation(seahorseProgram, "uPatternColor")
-            seahorseDayNightHandle = GLES30.glGetUniformLocation(seahorseProgram, "uDayNight")
-            seahorseGlowColorHandle = GLES30.glGetUniformLocation(seahorseProgram, "uGlowColor")
-            seahorseShinyTypeHandle = GLES30.glGetUniformLocation(seahorseProgram, "uShinyType")
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
 
         try {
             val vert = readAssetFile(context, "shaders/jellyfish.vert")
@@ -718,8 +681,6 @@ class AcuarioRenderer(
         mantas.clear()
         syncMantaCount()
 
-        seahorses.clear()
-        syncSeahorseCount()
 
         jellyfishes.clear()
         syncJellyfishCount()
@@ -870,7 +831,6 @@ class AcuarioRenderer(
         syncTurtleCount()
         syncFishCount()
         syncMantaCount()
-        syncSeahorseCount()
         syncJellyfishCount()
         syncPlants()
         syncBubbleCount()
@@ -887,13 +847,6 @@ class AcuarioRenderer(
             m.update(deltaTime, aspectRatio)
             if (m.shinyType > 0 && Random.nextFloat() < 0.15f) {
                 spawnSparkleAt(m.x, m.y, m.shinyType)
-            }
-        }
-        for (i in seahorses.indices) {
-            val s = seahorses[i]
-            s.update(deltaTime, aspectRatio)
-            if (s.shinyType > 0 && Random.nextFloat() < 0.1f) {
-                spawnSparkleAt(s.x, s.y, s.shinyType)
             }
         }
         for (i in jellyfishes.indices) {
@@ -1134,7 +1087,6 @@ class AcuarioRenderer(
         drawMantas(deepColor)
         drawJellyfish(deepColor)
         drawFish(deepColor)
-        drawSeahorses(deepColor)
         drawTurtles(deepColor)
         drawPlants(backLayer = false, deepColor)
         drawFood()
@@ -1297,65 +1249,6 @@ class AcuarioRenderer(
         }
     }
 
-    private fun syncSeahorseCount() {
-        val desired = configProvider.getSeahorseCount().coerceIn(0, kMaxSeahorses)
-        when {
-            desired > seahorses.size -> repeat(desired - seahorses.size) { seahorses.add(Seahorse()) }
-            desired < seahorses.size -> while (seahorses.size > desired) seahorses.removeAt(seahorses.size - 1)
-        }
-    }
-
-    private fun drawSeahorses(deepColor: FloatArray) {
-        if (seahorseProgram == 0 || seahorses.isEmpty()) return
-        GLES30.glUseProgram(seahorseProgram)
-        GLES30.glUniform1f(seahorseDayNightHandle, dayNight)
-
-        // Farthest first, manual insertion sort to avoid allocation
-        for (i in 1 until seahorses.size) {
-            val key = seahorses[i]
-            var j = i - 1
-            while (j >= 0 && seahorses[j].depth < key.depth) {
-                seahorses[j + 1] = seahorses[j]
-                j--
-            }
-            seahorses[j + 1] = key
-        }
-
-        for (i in seahorses.indices) {
-            val s = seahorses[i]
-            // Depth-of-field illusion
-            val depthScale = kSeahorseScale * (1f - (1f - kMinScaleAtDepth) * s.depth)
-            val tintAmount = s.depth * kMaxDepthTint
-
-            Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, s.x + foregroundParallax, s.y, 0f)
-            Matrix.scaleM(modelMatrix, 0, s.facingScale(), 1f, 1f)
-            Matrix.rotateM(modelMatrix, 0, s.pitchDegrees, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
-            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-            GLES30.glUniformMatrix4fv(seahorseMVPHandle, 1, false, mvpMatrix, 0)
-
-            GLES30.glUniform1f(seahorseFinPhaseHandle, s.finPhase % kTwoPi)
-
-            val ambientFactor = 0.35f + 0.65f * dayNight
-            val palette = s.palette
-            mixColorInto(scratchSeahorseBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchSeahorseFinColor, palette.finColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchSeahorseSnoutColor, palette.snoutColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchSeahorsePatternColor, palette.patternColor, deepColor, tintAmount, ambientFactor)
-
-            GLES30.glUniform3fv(seahorseBodyColorHandle, 1, scratchSeahorseBodyColor, 0)
-            GLES30.glUniform3fv(seahorseFinColorHandle, 1, scratchSeahorseFinColor, 0)
-            GLES30.glUniform3fv(seahorseSnoutColorHandle, 1, scratchSeahorseSnoutColor, 0)
-            GLES30.glUniform3fv(seahorsePatternColorHandle, 1, scratchSeahorsePatternColor, 0)
-            // Not depth-tinted like the colors above - see the identical comment in the fish
-            // draw loop.
-            GLES30.glUniform3fv(seahorseGlowColorHandle, 1, palette.glowColor, 0)
-            GLES30.glUniform1f(seahorseShinyTypeHandle, s.shinyType.toFloat())
-
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-        }
-    }
 
     private fun syncJellyfishCount() {
         val desired = configProvider.getJellyfishCount().coerceIn(0, kMaxJellyfish)
