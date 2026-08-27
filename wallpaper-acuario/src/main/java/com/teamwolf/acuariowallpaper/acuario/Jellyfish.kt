@@ -70,9 +70,23 @@ class Jellyfish {
     private var targetDepth = depth
     private var depthRetargetTimer = 4f + Random.nextFloat() * 6f
 
+    var electricTimer = 0f
+        private set
+
+    fun triggerElectricity() {
+        electricTimer = 1.5f
+    }
+
     fun update(deltaTime: Float, aspectRatio: Float) {
         pulsePhase += deltaTime * pulseSpeed
         currentPhase += deltaTime * currentSpeed
+
+        if (electricTimer > 0f) {
+            electricTimer -= deltaTime
+            if (electricTimer < 0f) {
+                electricTimer = 0f
+            }
+        }
 
         // Thrust fires on the bell's active contraction stroke - jellyfish.frag makes the bell
         // taller/narrower as sin(pulsePhase) rises toward +1 (see its bellScaleX/Y), so the rising
