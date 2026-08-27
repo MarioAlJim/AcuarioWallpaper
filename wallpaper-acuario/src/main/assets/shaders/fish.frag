@@ -12,6 +12,10 @@ uniform float uDayNight;
 // Per-palette bioluminescent tint (see FishPalette.glowColor) - each species glows its own
 // color instead of every fish sharing one fixed neon hue.
 uniform vec3 uGlowColor;
+// 0.0 = normal, 1.0 = "shiny gold", 2.0 = "shiny diamond" (see Fish.kt's shinyType) - drives the
+// premium halo/sheen finish below. Independent of uBodyColor/uGlowColor (which already carry the
+// gold/diamond palette's own recolor) - this adds a finish no palette recolor alone can produce.
+uniform float uShinyType;
 
 out vec4 fragColor;
 
@@ -65,7 +69,34 @@ void main() {
     // Check if fragment is within any part of the fish body/fins
     float finsAlpha = max(max(aTailFin, aDorsalFin), aVentralFin);
     float fishAlpha = max(max(aBody, finsAlpha), aEye);
-    if (fishAlpha <= 0.0) {
+
+    // Shiny halo: a soft aura glowing OUTSIDE the body's own silhouette (dEdge > 0), gated behind
+    // uShinyType so it costs nothing and changes nothing for a normal fish - see the discard guard
+    // just below for why. Distinct from the night-only bioluminescence above: this is always
+    // visible, day or night, and reads as a rarity aura rather than reflected/emitted light.
+    float haloAlpha = 0.0;
+    if (uShinyType > 0.5) {
+        vec2 qHalo = (pWarped - vec2(0.05, 0.0)) / vec2(0.45, 0.22);
+        float dEdge = length(qHalo) - 1.0;
+
+        float isDiamond = step(1.5, uShinyType);
+        float haloSigma = mix(0.24, 0.15, isDiamond);
+
+        // Breathing envelope - integer multiples of uSwimPhase (already wrapped to 2*PI before
+        // upload), so this stays exactly continuous across every wrap with no new phase state.
+        float breatheGold = 0.80 + 0.20 * sin(uSwimPhase);
+        float breatheDiamond = pow(0.5 + 0.5 * sin(uSwimPhase * 3.0), 2.0);
+        float breathe = mix(breatheGold, breatheDiamond, isDiamond);
+
+        float halo = exp(-(dEdge * dEdge) / (haloSigma * haloSigma));
+        halo *= mix(0.12, 1.0, smoothstep(-0.06, 0.02, dEdge));
+        haloAlpha = halo * breathe;
+    }
+
+    // Provably identical to the original "if (fishAlpha <= 0.0) discard;" when uShinyType == 0.0:
+    // haloAlpha is declared 0.0 and only ever written inside the uShinyType > 0.5 branch above, so
+    // for a normal fish haloAlpha stays 0.0 <= 0.004 and this reduces to exactly the original test.
+    if (fishAlpha <= 0.0 && haloAlpha <= 0.004) {
         discard;
     }
 
@@ -103,6 +134,64 @@ void main() {
     color = mix(color, eyeRingColor, aEye);
     color = mix(color, pupilColor, aPupil);
 
+    // Shiny sheen: a moving glossy highlight sweeping across the body, plus (diamond only) a
+    // field of tiny asynchronously-twinkling facet glints - the "premium finish" a flat palette
+    // recolor alone can't produce. Gated behind uShinyType, same as the halo above. Blended via
+    // mix() rather than additive color +=, so it approaches its own highlight color but can never
+    // clip past it - important on the already-bright SHINY_DIAMOND palette, where an additive
+    // white-ish highlight would just saturate to a flat white wash. Also masked by (1.0 - aEye)
+    // so the sweep/glints don't periodically wash over the eye right when they're brightest.
+    if (uShinyType > 0.5) {
+        float isDiamond = step(1.5, uShinyType);
+        float eyeMask = 1.0 - aEye;
+
+        // Layer 1: one continuous diagonal gloss sweep, present for both gold and diamond -
+        // reads as a curved metallic/gem surface catching a traveling light source. Uses pWarped
+        // (not the raw p) so it bends with the fish's own tail-wag undulation.
+        const vec2 kSweepDir = vec2(0.8, 0.6);
+        float sweepAxis = dot(pWarped, kSweepDir);
+        const float kTwoPiSheen = 6.28318530718;
+        float sweepSpeedMul = mix(1.0, 2.0, isDiamond);
+        float sweepT = fract(uSwimPhase * sweepSpeedMul / kTwoPiSheen);
+        float sweepCenter = mix(-1.6, 1.6, sweepT);
+        float sweepDist = sweepAxis - sweepCenter;
+        float sweepWidth = mix(0.55, 0.22, isDiamond);
+        float sweepCore = exp(-(sweepDist * sweepDist) / (sweepWidth * sweepWidth));
+        float sweepBand = pow(sweepCore, mix(1.0, 2.2, isDiamond));
+
+        const vec3 kGoldSheen = vec3(1.00, 0.88, 0.58);
+        const vec3 kDiamondSheen = vec3(0.55, 0.85, 1.00);
+        vec3 sweepColor = mix(kGoldSheen, kDiamondSheen, isDiamond);
+        float sweepIntensity = mix(0.55, 0.40, isDiamond);
+
+        color = mix(color, sweepColor, sweepBand * sweepIntensity * fishAlpha * eyeMask);
+
+        // Layer 2 (diamond only): a static lattice of pinpoint glints from a single-cell hash of
+        // `p` - O(1) per fragment, no loop. Each flashes its own fully-saturated spectral hue
+        // (like light splitting through a cut gem's facets - real "diamond fire") rather than
+        // plain white, so it reads as a clear colored flash instead of invisibly blending into
+        // the SHINY_DIAMOND palette's own already near-white body. Twinkles at its own integer
+        // multiple of uSwimPhase (chosen per-cell at runtime via floor(), still an exact integer,
+        // so still exactly continuous across uSwimPhase's own wrap) so the field twinkles
+        // asynchronously.
+        highp vec2 cell = floor(p * 9.0);
+        highp vec2 cellFrac = fract(p * 9.0);
+        highp vec3 hash3 = fract(sin(vec3(
+            cell.x * 127.1 + cell.y * 311.7,
+            cell.x * 269.5 + cell.y * 183.3,
+            cell.x * 419.2 + cell.y * 371.9)) * 43758.5453);
+        vec2 glintPos = hash3.xy;
+        float glintDist = length(cellFrac - glintPos) * 3.0;
+        float glintMask = smoothstep(1.0, 0.0, glintDist);
+        float freqInt = floor(hash3.z * 8.0) + 5.0;
+        float twinkle = pow(max(0.0, sin(uSwimPhase * freqInt + hash3.z * 6.283)), 10.0);
+        float facetHue = fract(hash3.x * 7.13 + hash3.y * 13.71 + hash3.z * 3.29);
+        vec3 facetColor = 0.5 + 0.5 * cos(6.28318 * (facetHue + vec3(0.0, 0.33, 0.67)));
+        float facetStrength = glintMask * twinkle * isDiamond * fishAlpha * eyeMask;
+
+        color = mix(color, facetColor, facetStrength);
+    }
+
     // Soft rim lighting along upper edges for separating from the background
     float bodyRim = rimLight(pWarped, vec2(0.05, 0.0), vec2(0.45, 0.22), aBody);
     float dorsalRim = rimLight(pWarped, vec2(-0.05, 0.22), vec2(0.24, 0.10), aDorsalFin);
@@ -114,5 +203,21 @@ void main() {
     color += kRimColor * rimAmount * kRimIntensity;
 
     float finalAlpha = max(fishAlpha, aPupil);
+
+    // Shiny halo compositing: outside the real body the aura's own hue takes over (graded by
+    // haloAlpha, never a hard replace), inside it only adds a gentle glow so the body's own
+    // shading/stripes/rim-light are never washed out; extends translucently past the true
+    // silhouette edge into finalAlpha instead of being clipped by the opaque body alpha.
+    if (uShinyType > 0.5) {
+        const vec3 kGoldHalo = vec3(1.00, 0.80, 0.35);
+        const vec3 kDiamondHalo = vec3(0.45, 0.80, 1.00);
+        vec3 haloColor = mix(kGoldHalo, kDiamondHalo, step(1.5, uShinyType));
+
+        float outside = 1.0 - fishAlpha;
+        color = mix(color, haloColor, haloAlpha * outside);
+        color += haloColor * haloAlpha * 0.65;
+        finalAlpha = max(finalAlpha, haloAlpha * outside * 0.65);
+    }
+
     fragColor = vec4(color, finalAlpha);
 }
