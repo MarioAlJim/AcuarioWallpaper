@@ -229,6 +229,7 @@ class AcuarioRenderer(
     private var sharkSwimPhaseHandle = 0
     private var sharkBodyColorHandle = 0
     private var sharkDayNightHandle = 0
+    private var sharkGlowColorHandle = 0
     private val shark = Shark()
 
 
@@ -576,6 +577,7 @@ class AcuarioRenderer(
             sharkSwimPhaseHandle = GLES30.glGetUniformLocation(sharkProgram, "uSwimPhase")
             sharkBodyColorHandle = GLES30.glGetUniformLocation(sharkProgram, "uBodyColor")
             sharkDayNightHandle = GLES30.glGetUniformLocation(sharkProgram, "uDayNight")
+            sharkGlowColorHandle = GLES30.glGetUniformLocation(sharkProgram, "uGlowColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1371,6 +1373,14 @@ class AcuarioRenderer(
 
         mixColorInto(scratchSharkColor, rawColor, deepColor, tintAmount, ambientFactor)
         GLES30.glUniform3fv(sharkBodyColorHandle, 1, scratchSharkColor, 0)
+
+        val glowColor = when (shark.colorMode) {
+            1 -> floatArrayOf(0.0f, 0.45f, 1.0f) // Electric Blue
+            2 -> floatArrayOf(0.0f, 0.9f, 0.8f) // Cyan/Teal
+            3 -> floatArrayOf(1.0f, 0.55f, 0.0f) // Golden/Orange
+            else -> floatArrayOf(0.0f, 0.75f, 0.6f) // Turquoise/Greenish-blue
+        }
+        GLES30.glUniform3fv(sharkGlowColorHandle, 1, glowColor, 0)
 
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }
