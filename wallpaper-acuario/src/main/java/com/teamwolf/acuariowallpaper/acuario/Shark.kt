@@ -74,7 +74,7 @@ class Shark {
         if (presenceMode == 2) {
             // Always active: wanders gracefully using steering
             active = true
-            swimPhase += dt * 3.5f
+            swimPhase = (swimPhase + dt * 3.5f) % TWO_PI
             if (!hasTarget) {
                 pickNewTarget(aspectRatio)
             }
@@ -118,14 +118,14 @@ class Shark {
         } else {
             // Random pass-by behavior (Sometimes)
             if (active) {
-                swimPhase += dt * 4.0f
+                swimPhase = (swimPhase + dt * 4.0f) % TWO_PI
                 val dirX = cos(heading)
                 val speed = 0.20f * (1f - (1f - kMinSpeedAtDepth) * depth) // swims slightly faster on pass-by
                 x += dirX * speed * dt
 
                 // Float slightly up/down in a slow wave
                 y += sin(timeAccumulator) * 0.05f * dt
-                timeAccumulator += dt
+                timeAccumulator = (timeAccumulator + dt) % TWO_PI
 
                 // Face the direction of travel
                 facingSign = if (dirX > 0f) 1f else -1f
