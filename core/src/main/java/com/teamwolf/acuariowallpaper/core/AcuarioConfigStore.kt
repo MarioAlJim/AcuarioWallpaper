@@ -27,6 +27,13 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     private var cachedJellyfishCount: Int = prefs.getInt(ConfigManager.KEY_JELLYFISH_COUNT, ConfigManager.DEFAULT_JELLYFISH_COUNT)
 
     @Volatile
+    private var cachedSharkPresence: Int = prefs.getInt(ConfigManager.KEY_SHARK_PRESENCE, ConfigManager.DEFAULT_SHARK_PRESENCE)
+
+    @Volatile
+    private var cachedSharkColor: Int = prefs.getInt(ConfigManager.KEY_SHARK_COLOR, ConfigManager.DEFAULT_SHARK_COLOR)
+
+
+    @Volatile
     private var cachedPlantDensity: Int = prefs.getInt(ConfigManager.KEY_PLANT_DENSITY, ConfigManager.DEFAULT_PLANT_DENSITY)
 
     @Volatile
@@ -80,6 +87,21 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
         cachedJellyfishCount = coerced
         putInt(ConfigManager.KEY_JELLYFISH_COUNT, coerced)
     }
+
+    fun getSharkPresence(): Int = cachedSharkPresence
+    fun setSharkPresence(presence: Int) {
+        val coerced = presence.coerceIn(0, 2)
+        cachedSharkPresence = coerced
+        putInt(ConfigManager.KEY_SHARK_PRESENCE, coerced)
+    }
+
+    fun getSharkColor(): Int = cachedSharkColor
+    fun setSharkColor(color: Int) {
+        val coerced = color.coerceIn(0, 3)
+        cachedSharkColor = coerced
+        putInt(ConfigManager.KEY_SHARK_COLOR, coerced)
+    }
+
 
     // Range matches AcuarioRenderer's kMaxPlantDensity - keep both in sync.
     fun getPlantDensity(): Int = cachedPlantDensity
@@ -141,6 +163,13 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
             ConfigManager.KEY_JELLYFISH_COUNT -> {
                 cachedJellyfishCount = prefs.getInt(ConfigManager.KEY_JELLYFISH_COUNT, ConfigManager.DEFAULT_JELLYFISH_COUNT)
             }
+            ConfigManager.KEY_SHARK_PRESENCE -> {
+                cachedSharkPresence = prefs.getInt(ConfigManager.KEY_SHARK_PRESENCE, ConfigManager.DEFAULT_SHARK_PRESENCE)
+            }
+            ConfigManager.KEY_SHARK_COLOR -> {
+                cachedSharkColor = prefs.getInt(ConfigManager.KEY_SHARK_COLOR, ConfigManager.DEFAULT_SHARK_COLOR)
+            }
+
             ConfigManager.KEY_PLANT_DENSITY -> {
                 cachedPlantDensity = prefs.getInt(ConfigManager.KEY_PLANT_DENSITY, ConfigManager.DEFAULT_PLANT_DENSITY)
             }

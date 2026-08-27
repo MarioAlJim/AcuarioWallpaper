@@ -210,15 +210,27 @@ class AcuarioRenderer(
     private val kSubmarineScale = 0.28f
 
     // Food (Feeding Time)
+    class FoodParticle(var x: Float, var y: Float) {
+        var active: Boolean = false
+    }
     private var foodProgram = 0
     private var foodMVPHandle = 0
-    private var foodActive = false
-    private var foodX = 0f
-    private var foodY = 0f
+    private val foodParticles = ArrayList<FoodParticle>(4).apply {
+        repeat(4) { add(FoodParticle(0f, 0f)) }
+    }
     private val kFoodScale = 0.05f
     private val foodSpeed = 0.22f
-    private val kFeedingCooldownSeconds = 15f
+    private val kFeedingCooldownSeconds = 5f
     private var feedingCooldownRemaining = 0f
+
+    // Shark
+    private var sharkProgram = 0
+    private var sharkMVPHandle = 0
+    private var sharkSwimPhaseHandle = 0
+    private var sharkBodyColorHandle = 0
+    private var sharkDayNightHandle = 0
+    private val shark = Shark()
+
 
 
     // Vegetation (kelp + anemones): unlike the wandering creatures above, these are anchored to
@@ -318,6 +330,7 @@ class AcuarioRenderer(
     private val scratchMantaWingColor = FloatArray(3)
     private val scratchMantaTailColor = FloatArray(3)
     private val scratchMantaMarkingColor = FloatArray(3)
+    private val scratchSharkColor = FloatArray(3)
     private val scratchJellyfishBellColor = FloatArray(3)
     private val scratchJellyfishMarginColor = FloatArray(3)
     private val scratchJellyfishTentacleColor = FloatArray(3)
@@ -556,6 +569,19 @@ class AcuarioRenderer(
         }
 
         try {
+            val vert = readAssetFile(context, "shaders/fish.vert")
+            val frag = readAssetFile(context, "shaders/shark.frag")
+            sharkProgram = createProgram(vert, frag)
+            sharkMVPHandle = GLES30.glGetUniformLocation(sharkProgram, "uMVPMatrix")
+            sharkSwimPhaseHandle = GLES30.glGetUniformLocation(sharkProgram, "uSwimPhase")
+            sharkBodyColorHandle = GLES30.glGetUniformLocation(sharkProgram, "uBodyColor")
+            sharkDayNightHandle = GLES30.glGetUniformLocation(sharkProgram, "uDayNight")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+
+        try {
             val vert = readAssetFile(context, "shaders/kelp.vert")
             val frag = readAssetFile(context, "shaders/kelp.frag")
             kelpProgram = createProgram(vert, frag)
@@ -720,12 +746,9 @@ class AcuarioRenderer(
         val worldX = (x / screenWidth * 2f - 1f) * aspectRatio
         val worldY = 1f - (y / screenHeight * 2f)
 
-        // Spawning food with 15-second cooldown
+        // Spawning food with 5-second cooldown
         if (feedingCooldownRemaining <= 0f) {
             feedingCooldownRemaining = kFeedingCooldownSeconds
-            foodActive = true
-            foodX = worldX - foregroundParallax
-            foodY = 1.1f
 
             // Clean up any previously targeted fish, just in case
             for (f in fishes) {
@@ -734,16 +757,38 @@ class AcuarioRenderer(
                 }
             }
 
-            // Find the 2 or 3 closest fish
-            val sortedFish = fishes.filter { !it.isSpinning }.sortedBy { f ->
-                val dx = foodX - f.x
-                val dy = foodY - f.y
-                dx * dx + dy * dy
+            // Setup 4 food particles with slight offsets
+            for (i in 0 until 4) {
+                val p = foodParticles[i]
+                p.x = worldX - foregroundParallax + (Random.nextFloat() - 0.5f) * 0.20f
+                p.y = 1.1f + i * 0.12f
+                p.active = true
             }
-            val countToTarget = minOf(3, sortedFish.size)
-            for (i in 0 until countToTarget) {
-                sortedFish[i].isTargetingFood = true
-                sortedFish[i].setTarget(foodX, foodY)
+
+            // Find closest active food particle for each fish and set target
+            for (i in fishes.indices) {
+                val f = fishes[i]
+                if (!f.isSpinning) {
+                    var closestParticle: FoodParticle? = null
+                    var minDistSq = Float.MAX_VALUE
+                    for (j in 0 until foodParticles.size) {
+                        val p = foodParticles[j]
+                        if (p.active) {
+                            val dx = p.x - f.x
+                            val dy = p.y - f.y
+                            val distSq = dx * dx + dy * dy
+                            if (distSq < minDistSq) {
+                                minDistSq = distSq
+                                closestParticle = p
+                            }
+                        }
+                    }
+
+                    if (closestParticle != null) {
+                        f.isTargetingFood = true
+                        f.setTarget(closestParticle.x, closestParticle.y)
+                    }
+                }
             }
         }
 
@@ -772,39 +817,59 @@ class AcuarioRenderer(
             feedingCooldownRemaining -= deltaTime
         }
 
-        if (foodActive) {
-            foodY -= deltaTime * foodSpeed
-            if (foodY < -1.1f) {
-                foodActive = false
-                for (f in fishes) {
-                    if (f.isTargetingFood) {
-                        f.stopTargetingFood(aspectRatio)
-                    }
+        var activeParticlesCount = 0
+        for (i in 0 until foodParticles.size) {
+            val p = foodParticles[i]
+            if (p.active) {
+                p.y -= deltaTime * foodSpeed
+                if (p.y < -1.1f) {
+                    p.active = false
+                } else {
+                    activeParticlesCount++
                 }
-            } else {
-                var foodEaten = false
-                var eaterFish: Fish? = null
-                for (f in fishes) {
-                    if (f.isTargetingFood) {
-                        f.setTarget(foodX, foodY)
-                        val dx = foodX - f.x
-                        val dy = foodY - f.y
-                        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-                        if (dist < 0.08f) {
-                            foodEaten = true
-                            eaterFish = f
-                            break
+            }
+        }
+
+        if (activeParticlesCount > 0) {
+            for (i in fishes.indices) {
+                val f = fishes[i]
+                if (!f.isSpinning) {
+                    var closestParticle: FoodParticle? = null
+                    var minDistSq = Float.MAX_VALUE
+                    for (j in 0 until foodParticles.size) {
+                        val p = foodParticles[j]
+                        if (p.active) {
+                            val dx = p.x - f.x
+                            val dy = p.y - f.y
+                            val distSq = dx * dx + dy * dy
+                            if (distSq < minDistSq) {
+                                minDistSq = distSq
+                                closestParticle = p
+                            }
                         }
                     }
-                }
-                if (foodEaten && eaterFish != null) {
-                    foodActive = false
-                    eaterFish.startSpin()
-                    for (f in fishes) {
+
+                    if (closestParticle != null) {
+                        if (minDistSq < 0.0064f) { // 0.08f squared = 0.0064f
+                            closestParticle.active = false
+                            f.startSpin()
+                            f.stopTargetingFood(aspectRatio)
+                        } else {
+                            f.isTargetingFood = true
+                            f.setTarget(closestParticle.x, closestParticle.y)
+                        }
+                    } else {
                         if (f.isTargetingFood) {
                             f.stopTargetingFood(aspectRatio)
                         }
                     }
+                }
+            }
+        } else {
+            for (i in fishes.indices) {
+                val f = fishes[i]
+                if (f.isTargetingFood) {
+                    f.stopTargetingFood(aspectRatio)
                 }
             }
         }
@@ -835,24 +900,28 @@ class AcuarioRenderer(
         syncPlants()
         syncBubbleCount()
         submarine.update(deltaTime, aspectRatio)
+
+        shark.presenceMode = configProvider.getSharkPresence()
+        shark.colorMode = configProvider.getSharkColor()
+        shark.update(deltaTime, aspectRatio)
         for (i in fishes.indices) {
             val f = fishes[i]
             f.update(deltaTime, aspectRatio)
-            if (f.shinyType > 0 && Random.nextFloat() < 0.1f) {
+            if (f.shinyType > 0 && Random.nextFloat() < 0.02f) {
                 spawnSparkleAt(f.x, f.y, f.shinyType)
             }
         }
         for (i in mantas.indices) {
             val m = mantas[i]
             m.update(deltaTime, aspectRatio)
-            if (m.shinyType > 0 && Random.nextFloat() < 0.15f) {
+            if (m.shinyType > 0 && Random.nextFloat() < 0.03f) {
                 spawnSparkleAt(m.x, m.y, m.shinyType)
             }
         }
         for (i in jellyfishes.indices) {
             val j = jellyfishes[i]
             j.update(deltaTime, aspectRatio)
-            if (j.shinyType > 0 && Random.nextFloat() < 0.1f) {
+            if (j.shinyType > 0 && Random.nextFloat() < 0.02f) {
                 spawnSparkleAt(j.x, j.y, j.shinyType)
             }
         }
@@ -880,7 +949,7 @@ class AcuarioRenderer(
             if (t.consumePowerStrokeEvent() && Random.nextFloat() < kPropulsionBubbleChance) {
                 spawnPropulsionBubbles(t)
             }
-            if (t.shinyType > 0 && Random.nextFloat() < 0.12f) {
+            if (t.shinyType > 0 && Random.nextFloat() < 0.025f) {
                 spawnSparkleAt(t.x, t.y, t.shinyType)
             }
         }
@@ -1085,6 +1154,7 @@ class AcuarioRenderer(
         drawSubmarine(deepColor)
         drawPlants(backLayer = true, deepColor)
         drawMantas(deepColor)
+        drawShark(deepColor)
         drawJellyfish(deepColor)
         drawFish(deepColor)
         drawTurtles(deepColor)
@@ -1097,16 +1167,28 @@ class AcuarioRenderer(
     }
 
     private fun drawFood() {
-        if (!foodActive || foodProgram == 0) return
+        if (foodProgram == 0) return
+        var hasActive = false
+        for (i in 0 until foodParticles.size) {
+            if (foodParticles[i].active) {
+                hasActive = true
+                break
+            }
+        }
+        if (!hasActive) return
         GLES30.glUseProgram(foodProgram)
 
-        Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.translateM(modelMatrix, 0, foodX + foregroundParallax, foodY, 0f)
-        Matrix.scaleM(modelMatrix, 0, kFoodScale, kFoodScale, 1f)
-        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-        GLES30.glUniformMatrix4fv(foodMVPHandle, 1, false, mvpMatrix, 0)
-
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        for (i in 0 until foodParticles.size) {
+            val p = foodParticles[i]
+            if (p.active) {
+                Matrix.setIdentityM(modelMatrix, 0)
+                Matrix.translateM(modelMatrix, 0, p.x + foregroundParallax, p.y, 0f)
+                Matrix.scaleM(modelMatrix, 0, kFoodScale, kFoodScale, 1f)
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+                GLES30.glUniformMatrix4fv(foodMVPHandle, 1, false, mvpMatrix, 0)
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
+        }
     }
 
 
@@ -1249,6 +1331,41 @@ class AcuarioRenderer(
         }
     }
 
+
+    private fun drawShark(deepColor: FloatArray) {
+        if (!shark.active || sharkProgram == 0) return
+        GLES30.glUseProgram(sharkProgram)
+        GLES30.glUniform1f(sharkDayNightHandle, dayNight)
+
+        val depthScale = 1.10f * (1f - (1f - kMinScaleAtDepth) * shark.depth)
+        val tintAmount = shark.depth * kMaxDepthTint
+
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(modelMatrix, 0, shark.x + foregroundParallax, shark.y, 0f)
+        Matrix.scaleM(modelMatrix, 0, shark.facingScale(), 1f, 1f)
+        Matrix.rotateM(modelMatrix, 0, shark.pitchDegrees, 0f, 0f, 1f)
+        Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+        GLES30.glUniformMatrix4fv(sharkMVPHandle, 1, false, mvpMatrix, 0)
+
+        GLES30.glUniform1f(sharkSwimPhaseHandle, shark.swimPhase)
+
+        val ambientFactor = 0.35f + 0.65f * dayNight
+
+        // Color mapping:
+        // 0: Gray, 1: Blue, 2: White/Albino, 3: Golden
+        val rawColor = when (shark.colorMode) {
+            1 -> floatArrayOf(0.22f, 0.35f, 0.55f) // Blue
+            2 -> floatArrayOf(0.92f, 0.88f, 0.88f) // White
+            3 -> floatArrayOf(0.90f, 0.72f, 0.25f) // Golden
+            else -> floatArrayOf(0.45f, 0.48f, 0.52f) // Gray
+        }
+
+        mixColorInto(scratchSharkColor, rawColor, deepColor, tintAmount, ambientFactor)
+        GLES30.glUniform3fv(sharkBodyColorHandle, 1, scratchSharkColor, 0)
+
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    }
 
     private fun syncJellyfishCount() {
         val desired = configProvider.getJellyfishCount().coerceIn(0, kMaxJellyfish)
