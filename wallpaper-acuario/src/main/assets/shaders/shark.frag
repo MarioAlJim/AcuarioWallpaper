@@ -34,8 +34,13 @@ void main() {
     float wave = sin(uSwimPhase - p.x * 2.8) * 0.12 * smoothstep(0.4, -0.6, p.x);
     vec2 pWarped = vec2(p.x, p.y + wave);
 
-    // 1. Torpedo-shaped body
-    float aBodyRaw = ellipseAlpha(pWarped, vec2(0.05, -0.02), vec2(0.55, 0.15), 0.02);
+    // 1. Torpedo-shaped body with a tapered, thinner tail peduncle
+    float tailTaper = 1.0;
+    if (pWarped.x < 0.15) {
+        tailTaper = 1.0 + (0.15 - pWarped.x) * 1.6;
+    }
+    vec2 pBody = vec2(pWarped.x, pWarped.y * tailTaper);
+    float aBodyRaw = ellipseAlpha(pBody, vec2(0.05, -0.02), vec2(0.55, 0.15), 0.012);
 
     // Mouth cut-out shifted closer to the tip/nose
     float aMouthCut = ellipseAlpha(pWarped, vec2(0.41, -0.11), vec2(0.065, 0.022), 0.01) * aBodyRaw;
@@ -50,10 +55,11 @@ void main() {
     float dorsalT = clamp(pDorsalRot.y / 0.20, 0.0, 1.0);
     float dorsalCurve = 0.05 * dorsalT * dorsalT; // trailing edge sweeps back near the tip
     float dorsalTaper = clamp(1.0 - dorsalT, 0.02, 1.0);
-    float aDorsal = ellipseAlpha(vec2((pDorsalRot.x - dorsalCurve) / dorsalTaper, pDorsalRot.y), vec2(0.0, 0.0), vec2(0.075, 0.19), 0.016) * step(0.0, pWarped.y);
+    float aDorsal = ellipseAlpha(vec2((pDorsalRot.x - dorsalCurve) / dorsalTaper, pDorsalRot.y), vec2(0.0, 0.0), vec2(0.075, 0.19), 0.004) * step(0.0, pWarped.y);
 
     // 3. Pectoral fins (foreground and background to show two lateral fins),
-    // tapered from a broad base to a swept, pointed tip like a real pectoral fin
+    // tapered from a broad base to a swept, pointed tip like a real pectoral fin.
+    // Softness decreased to 0.003 to make them sharp!
     float cos35 = 0.819;
     float sin35 = -0.574;
 
@@ -63,7 +69,7 @@ void main() {
     float pect1T = clamp(pPectRot1.x / 0.19, 0.0, 1.0);
     float pect1Curve = 0.03 * pect1T * pect1T; // droops downward toward the tip
     float pect1Taper = clamp(1.0 - pect1T, 0.05, 1.0);
-    float aPectoral1 = ellipseAlpha(vec2(pPectRot1.x, (pPectRot1.y - pect1Curve) / pect1Taper), vec2(0.0, 0.0), vec2(0.19, 0.06), 0.016) * step(pWarped.y, 0.0);
+    float aPectoral1 = ellipseAlpha(vec2(pPectRot1.x, (pPectRot1.y - pect1Curve) / pect1Taper), vec2(0.0, 0.0), vec2(0.19, 0.06), 0.003) * step(pWarped.y, 0.0);
 
     // Background fin (shifted slightly left/up and smaller):
     vec2 pPect2 = pWarped - vec2(0.14, -0.06);
@@ -71,23 +77,20 @@ void main() {
     float pect2T = clamp(pPectRot2.x / 0.155, 0.0, 1.0);
     float pect2Curve = 0.025 * pect2T * pect2T;
     float pect2Taper = clamp(1.0 - pect2T, 0.05, 1.0);
-    float aPectoral2 = ellipseAlpha(vec2(pPectRot2.x, (pPectRot2.y - pect2Curve) / pect2Taper), vec2(0.0, 0.0), vec2(0.155, 0.05), 0.016) * step(pWarped.y, 0.0);
+    float aPectoral2 = ellipseAlpha(vec2(pPectRot2.x, (pPectRot2.y - pect2Curve) / pect2Taper), vec2(0.0, 0.0), vec2(0.155, 0.05), 0.003) * step(pWarped.y, 0.0);
 
-    // 4. Ventral/anal fin, tapered to a small triangular point
-    vec2 pVentral = pWarped - vec2(-0.3, -0.12);
-    float ventralT = clamp(-pVentral.y / 0.045, 0.0, 1.0);
-    float ventralTaper = clamp(1.0 - ventralT, 0.12, 1.0);
-    float aVentral = ellipseAlpha(vec2(pVentral.x / ventralTaper, pVentral.y), vec2(0.0, 0.0), vec2(0.06, 0.045), 0.016) * step(pWarped.y, 0.0);
+    // 4. Ventral/anal fin eliminated completely
+    float aVentral = 0.0;
 
     // 5. Caudal (tail) fin - classic asymmetrical shark tail (taller upper lobe)
-    float tailLen = 0.25;
+    float tailLen = 0.27;
     float tX = (pWarped.x - (-0.45)) / (-tailLen);
-    float yNorm = pWarped.y / (0.03 + 0.28 * clamp(tX, 0.0, 1.0));
-    float lobeLimit = mix(0.55, 1.0, step(0.0, pWarped.y));
-    float tXLimit = lobeLimit * (0.6 + 0.4 * (yNorm * yNorm));
-    float xBounds = smoothstep(0.0, 0.05, tX) * smoothstep(tXLimit, tXLimit - 0.05, tX);
-    float halfHeight = 0.03 + 0.32 * clamp(tX, 0.0, 1.0);
-    float yBounds = smoothstep(halfHeight, halfHeight - 0.02, abs(pWarped.y));
+    float halfHeight = 0.02 + 0.36 * clamp(tX, 0.0, 1.0);
+    float yNorm = pWarped.y / halfHeight;
+    float lobeLimit = mix(0.50, 1.0, step(0.0, pWarped.y));
+    float tXLimit = lobeLimit * (0.5 + 0.5 * (yNorm * yNorm));
+    float xBounds = smoothstep(0.0, 0.06, tX) * smoothstep(tXLimit, tXLimit - 0.04, tX);
+    float yBounds = smoothstep(halfHeight, halfHeight - 0.012, abs(pWarped.y));
     float aTailFin = xBounds * yBounds;
 
     // Combine alpha masks
