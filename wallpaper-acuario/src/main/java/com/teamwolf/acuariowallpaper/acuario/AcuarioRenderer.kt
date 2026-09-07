@@ -227,6 +227,28 @@ class AcuarioRenderer(
     private val submarine = Submarine()
     private val kSubmarineScale = 0.28f
 
+    // Per-configProvider.getSubmarineColor() palettes - hoisted to top-level constants so
+    // drawSubmarine() doesn't allocate 3 fresh FloatArrays every single frame the submarine is
+    // on screen.
+    private val kSubmarineBodyColorAmarillo = floatArrayOf(0.95f, 0.80f, 0.10f)
+    private val kSubmarineAccentColorAmarillo = floatArrayOf(0.85f, 0.15f, 0.10f)
+    private val kSubmarineWindowColorAmarillo = floatArrayOf(0.98f, 0.92f, 0.40f)
+    private val kSubmarineBodyColorRojo = floatArrayOf(0.85f, 0.15f, 0.10f)
+    private val kSubmarineAccentColorRojo = floatArrayOf(0.95f, 0.80f, 0.10f)
+    private val kSubmarineWindowColorRojo = floatArrayOf(0.98f, 0.92f, 0.40f)
+    private val kSubmarineBodyColorAzul = floatArrayOf(0.15f, 0.50f, 0.85f)
+    private val kSubmarineAccentColorAzul = floatArrayOf(0.95f, 0.80f, 0.10f)
+    private val kSubmarineWindowColorAzul = floatArrayOf(0.50f, 0.90f, 0.98f)
+    private val kSubmarineBodyColorVerde = floatArrayOf(0.18f, 0.80f, 0.44f)
+    private val kSubmarineAccentColorVerde = floatArrayOf(0.90f, 0.30f, 0.20f)
+    private val kSubmarineWindowColorVerde = floatArrayOf(0.98f, 0.92f, 0.40f)
+    private val kSubmarineBodyColorRosa = floatArrayOf(0.91f, 0.12f, 0.39f)
+    private val kSubmarineAccentColorRosa = floatArrayOf(0.15f, 0.80f, 0.85f)
+    private val kSubmarineWindowColorRosa = floatArrayOf(0.98f, 0.98f, 0.98f)
+    private val kSubmarineBodyColorNaranja = floatArrayOf(0.90f, 0.49f, 0.13f)
+    private val kSubmarineAccentColorNaranja = floatArrayOf(0.15f, 0.25f, 0.35f)
+    private val kSubmarineWindowColorNaranja = floatArrayOf(0.98f, 0.92f, 0.40f)
+
     // Food (Feeding Time)
     class FoodParticle(var x: Float, var y: Float) {
         var active: Boolean = false
@@ -251,6 +273,18 @@ class AcuarioRenderer(
     private var sharkBiteHandle = 0
     private var sharkTimeHandle = 0
     private val shark = Shark()
+
+    // Per-colorMode shark palettes (0: Gray, 1: Blue, 2: White/Albino, 3: Golden) - hoisted to
+    // top-level constants so drawShark() doesn't allocate 2 fresh FloatArrays every single frame
+    // the shark is active.
+    private val kSharkColorGray = floatArrayOf(0.45f, 0.48f, 0.52f)
+    private val kSharkColorBlue = floatArrayOf(0.22f, 0.35f, 0.55f)
+    private val kSharkColorWhite = floatArrayOf(0.92f, 0.88f, 0.88f)
+    private val kSharkColorGolden = floatArrayOf(0.90f, 0.72f, 0.25f)
+    private val kSharkGlowGray = floatArrayOf(0.0f, 0.75f, 0.6f)
+    private val kSharkGlowBlue = floatArrayOf(0.0f, 0.45f, 1.0f)
+    private val kSharkGlowWhite = floatArrayOf(0.0f, 0.9f, 0.8f)
+    private val kSharkGlowGolden = floatArrayOf(1.0f, 0.55f, 0.0f)
 
 
 
@@ -377,6 +411,11 @@ class AcuarioRenderer(
     private val scratchSubmarineAccentColor = FloatArray(3)
     private val scratchSubmarineWindowColor = FloatArray(3)
 
+    // Written once per frame by getDeepColorForTheme() and then night-tinted in place by
+    // onDrawFrame() - reused instead of allocating a fresh FloatArray (via .clone()) every single
+    // frame, same rationale as every other scratch* buffer above.
+    private val scratchDeepColor = FloatArray(3)
+
     // Mirrors acuario_background.frag's deepColor per theme, so a receding turtle tints
     // toward the same color the background already fades to at depth.
     private val kDeepColorTurquesa = floatArrayOf(0.012f, 0.095f, 0.130f)
@@ -385,21 +424,25 @@ class AcuarioRenderer(
     private val kDeepColorAbisal = floatArrayOf(0.01f, 0.01f, 0.04f)
     private val kDeepColorArrecife = floatArrayOf(0.02f, 0.08f, 0.18f)
 
-    private fun getDeepColorForTheme(theme: Int): FloatArray {
-        return when (theme) {
+    /** Writes the deep-water base color for [theme] into [out] (avoids a per-frame allocation). */
+    private fun getDeepColorForTheme(theme: Int, out: FloatArray) {
+        val source = when (theme) {
             0 -> kDeepColorTurquesa
             1 -> kDeepColorAzulProfundo
             2 -> kDeepColorAtardecer
             3 -> kDeepColorAbisal
             4 -> kDeepColorArrecife
-            else -> {
-                val customColor = configProvider.getCustomDeepColor()
-                floatArrayOf(
-                    ((customColor shr 16) and 0xFF) / 255f,
-                    ((customColor shr 8) and 0xFF) / 255f,
-                    (customColor and 0xFF) / 255f
-                )
-            }
+            else -> null
+        }
+        if (source != null) {
+            out[0] = source[0]
+            out[1] = source[1]
+            out[2] = source[2]
+        } else {
+            val customColor = configProvider.getCustomDeepColor()
+            out[0] = ((customColor shr 16) and 0xFF) / 255f
+            out[1] = ((customColor shr 8) and 0xFF) / 255f
+            out[2] = (customColor and 0xFF) / 255f
         }
     }
 
@@ -1250,7 +1293,8 @@ class AcuarioRenderer(
         // each of them separately calling configProvider.getAcuarioTheme()/
         // getDeepColorForTheme() (8 redundant reads of the exact same value every single frame).
         val theme = configProvider.getAcuarioTheme()
-        val deepColor = getDeepColorForTheme(theme).clone()
+        getDeepColorForTheme(theme, scratchDeepColor)
+        val deepColor = scratchDeepColor
         // Apply night darkening to deepColor to match the background shader's night blending:
         // In the shader: baseColor * vec3(0.25, 0.30, 0.45)
         val nightR = 0.25f
@@ -1489,20 +1533,20 @@ class AcuarioRenderer(
         // Color mapping:
         // 0: Gray, 1: Blue, 2: White/Albino, 3: Golden
         val rawColor = when (shark.colorMode) {
-            1 -> floatArrayOf(0.22f, 0.35f, 0.55f) // Blue
-            2 -> floatArrayOf(0.92f, 0.88f, 0.88f) // White
-            3 -> floatArrayOf(0.90f, 0.72f, 0.25f) // Golden
-            else -> floatArrayOf(0.45f, 0.48f, 0.52f) // Gray
+            1 -> kSharkColorBlue
+            2 -> kSharkColorWhite
+            3 -> kSharkColorGolden
+            else -> kSharkColorGray
         }
 
         mixColorInto(scratchSharkColor, rawColor, deepColor, tintAmount, ambientFactor)
         GLES30.glUniform3fv(sharkBodyColorHandle, 1, scratchSharkColor, 0)
 
         val glowColor = when (shark.colorMode) {
-            1 -> floatArrayOf(0.0f, 0.45f, 1.0f) // Electric Blue
-            2 -> floatArrayOf(0.0f, 0.9f, 0.8f) // Cyan/Teal
-            3 -> floatArrayOf(1.0f, 0.55f, 0.0f) // Golden/Orange
-            else -> floatArrayOf(0.0f, 0.75f, 0.6f) // Turquoise/Greenish-blue
+            1 -> kSharkGlowBlue // Electric Blue
+            2 -> kSharkGlowWhite // Cyan/Teal
+            3 -> kSharkGlowGolden // Golden/Orange
+            else -> kSharkGlowGray // Turquoise/Greenish-blue
         }
         GLES30.glUniform3fv(sharkGlowColorHandle, 1, glowColor, 0)
 
@@ -1593,39 +1637,39 @@ class AcuarioRenderer(
 
         when (configProvider.getSubmarineColor()) {
             0 -> { // Amarillo
-                baseBodyColor = floatArrayOf(0.95f, 0.80f, 0.10f)
-                baseAccentColor = floatArrayOf(0.85f, 0.15f, 0.10f)
-                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+                baseBodyColor = kSubmarineBodyColorAmarillo
+                baseAccentColor = kSubmarineAccentColorAmarillo
+                baseWindowColor = kSubmarineWindowColorAmarillo
             }
             1 -> { // Rojo
-                baseBodyColor = floatArrayOf(0.85f, 0.15f, 0.10f)
-                baseAccentColor = floatArrayOf(0.95f, 0.80f, 0.10f)
-                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+                baseBodyColor = kSubmarineBodyColorRojo
+                baseAccentColor = kSubmarineAccentColorRojo
+                baseWindowColor = kSubmarineWindowColorRojo
             }
             2 -> { // Azul
-                baseBodyColor = floatArrayOf(0.15f, 0.50f, 0.85f)
-                baseAccentColor = floatArrayOf(0.95f, 0.80f, 0.10f)
-                baseWindowColor = floatArrayOf(0.50f, 0.90f, 0.98f)
+                baseBodyColor = kSubmarineBodyColorAzul
+                baseAccentColor = kSubmarineAccentColorAzul
+                baseWindowColor = kSubmarineWindowColorAzul
             }
             3 -> { // Verde
-                baseBodyColor = floatArrayOf(0.18f, 0.80f, 0.44f)
-                baseAccentColor = floatArrayOf(0.90f, 0.30f, 0.20f)
-                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+                baseBodyColor = kSubmarineBodyColorVerde
+                baseAccentColor = kSubmarineAccentColorVerde
+                baseWindowColor = kSubmarineWindowColorVerde
             }
             4 -> { // Rosa
-                baseBodyColor = floatArrayOf(0.91f, 0.12f, 0.39f)
-                baseAccentColor = floatArrayOf(0.15f, 0.80f, 0.85f)
-                baseWindowColor = floatArrayOf(0.98f, 0.98f, 0.98f)
+                baseBodyColor = kSubmarineBodyColorRosa
+                baseAccentColor = kSubmarineAccentColorRosa
+                baseWindowColor = kSubmarineWindowColorRosa
             }
             5 -> { // Naranja
-                baseBodyColor = floatArrayOf(0.90f, 0.49f, 0.13f)
-                baseAccentColor = floatArrayOf(0.15f, 0.25f, 0.35f)
-                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+                baseBodyColor = kSubmarineBodyColorNaranja
+                baseAccentColor = kSubmarineAccentColorNaranja
+                baseWindowColor = kSubmarineWindowColorNaranja
             }
             else -> {
-                baseBodyColor = floatArrayOf(0.95f, 0.80f, 0.10f)
-                baseAccentColor = floatArrayOf(0.85f, 0.15f, 0.10f)
-                baseWindowColor = floatArrayOf(0.98f, 0.92f, 0.40f)
+                baseBodyColor = kSubmarineBodyColorAmarillo
+                baseAccentColor = kSubmarineAccentColorAmarillo
+                baseWindowColor = kSubmarineWindowColorAmarillo
             }
         }
 
