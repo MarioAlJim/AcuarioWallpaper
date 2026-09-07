@@ -63,8 +63,23 @@ class AcuarioRenderer(
     private var bgDayNightHandle = 0
     private var bgCustomShallowHandle = 0
     private var bgCustomDeepHandle = 0
+    private var bgStormIntensityHandle = 0
     private var dayNight = 1.0f
     private lateinit var fullscreenQuadBuffer: FloatBuffer
+
+    // "Storm at the Surface": how visually agitated acuario_background.frag currently reads
+    // (0 = calm, 1 = full storm) - driven by the exact same triggerBubbleStorm() the bubble burst
+    // already uses (see its own cooldown/dedup gating in kBubbleStormCooldownSeconds's doc), NOT
+    // tied to how long the storm's 100 bubbles themselves take to rise off-screen - this visual
+    // flourish is meant to read as one short, punchy squall, not linger for as long as the
+    // bubbles are still clearing. stormVisualIntensity is an attack/sustain/release envelope over
+    // stormTimeRemaining (same shape as jellyfish.frag's sizeEnvelope k1/k2/k3), computed once per
+    // frame in onUpdate() and uploaded to the background shader in drawBackground().
+    private val kStormVisualDuration = 6f
+    private val kStormFadeInTime = 0.35f
+    private val kStormFadeOutTime = 2.0f
+    private var stormTimeRemaining = 0f
+    private var stormVisualIntensity = 0f
 
     // Parallax (depth-of-tank illusion driven by home-screen swiping): [offsetX] is the eased,
     // per-frame home-screen scroll position (0..1, 0.5 = centered/no swipe), smoothed from
@@ -547,6 +562,7 @@ class AcuarioRenderer(
             bgDayNightHandle = GLES30.glGetUniformLocation(backgroundProgram, "uDayNight")
             bgCustomShallowHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomShallowColor")
             bgCustomDeepHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomDeepColor")
+            bgStormIntensityHandle = GLES30.glGetUniformLocation(backgroundProgram, "uStormIntensity")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -992,6 +1008,21 @@ class AcuarioRenderer(
             stormCooldownRemaining -= deltaTime
         }
 
+        // Attack/sustain/release envelope for the background's storm visuals - see
+        // stormVisualIntensity's own doc for why this runs on its own timer instead of tracking
+        // the storm bubbles themselves.
+        if (stormTimeRemaining > 0f) {
+            stormTimeRemaining -= deltaTime
+            val elapsed = kStormVisualDuration - stormTimeRemaining
+            stormVisualIntensity = when {
+                elapsed < kStormFadeInTime -> elapsed / kStormFadeInTime
+                stormTimeRemaining < kStormFadeOutTime -> stormTimeRemaining / kStormFadeOutTime
+                else -> 1f
+            }.coerceIn(0f, 1f)
+        } else {
+            stormVisualIntensity = 0f
+        }
+
         if (feedingCooldownRemaining > 0f) {
             feedingCooldownRemaining -= deltaTime
         }
@@ -1177,10 +1208,14 @@ class AcuarioRenderer(
      * saturating the screen. Reuses the same one-off [burstBubbles] pool as exhale/propulsion
      * bubbles (tagged [Bubble.isStorm] so onUpdate()'s removal loop can track them separately),
      * so these drain away on their own the same way any other burst does - no separate cleanup
-     * needed here.
+     * needed here. Also kicks off [stormTimeRemaining] - see its doc - so
+     * acuario_background.frag briefly shows a choppier surface with lightning flashing through it
+     * alongside the bubbles.
      */
     override fun triggerBubbleStorm() {
         if (stormCooldownRemaining > 0f || activeStormBubbleCount > 0) return
+
+        stormTimeRemaining = kStormVisualDuration
 
         for (n in 0 until kBubbleStormCount) {
             if (activeBurstCount >= kMaxBurstBubbles) break
@@ -2081,6 +2116,7 @@ class AcuarioRenderer(
         GLES30.glUniform1f(bgParallaxHandle, parallaxRaw)
         GLES30.glUniform2f(bgGyroOffsetHandle, smoothedTiltX, smoothedTiltY)
         GLES30.glUniform1f(bgDayNightHandle, dayNight)
+        GLES30.glUniform1f(bgStormIntensityHandle, stormVisualIntensity)
 
         if (theme == 5) {
             val shallow = configProvider.getCustomShallowColor()

@@ -13,6 +13,12 @@ uniform vec2 uGyroOffset;
 uniform float uDayNight; // 0.0 = full night, 1.0 = full day
 uniform vec3 uCustomShallowColor;
 uniform vec3 uCustomDeepColor;
+// "Storm at the Surface": 0.0 = calm (the default, essentially all the time) up to 1.0 = full
+// Bubble Storm - see AcuarioRenderer.stormVisualIntensity's doc for the attack/sustain/release
+// envelope that drives this. Agitates the caustic warp/god rays below and adds a lightning flash
+// near the top - every effect it touches is additive/multiplicative on top of the normal look, so
+// at 0.0 this uniform changes nothing.
+uniform float uStormIntensity;
 
 out vec4 fragColor;
 
@@ -210,6 +216,13 @@ void main() {
     float beam2 = pow(max(0.0, sin(rayPhase2)), 10.0);
     float ray = max(beam1, beam2 * 0.7);
 
+    // Storm at the Surface: during a Bubble Storm the shafts flicker instead of holding steady,
+    // as if scattering through a choppy surface rather than still water. Two high, non-harmonic
+    // frequencies (not one) so the flicker itself looks irregular rather than a metronomic strobe.
+    // mix()'d by uStormIntensity so this is exactly 1.0 (no-op) whenever there's no storm.
+    float rayJitter = 0.7 + 0.3 * sin(uTime * 23.0) * sin(uTime * 31.0 + 1.3);
+    ray *= mix(1.0, rayJitter, uStormIntensity);
+
     // Occasional sun flashes (only in open-water themes: 1, 2, 4) fanning from the top edge.
     // Multiplying different frequencies creates occasional spikes/pulses, power of 4 sharpens them.
     float flare = 0.0;
@@ -227,6 +240,22 @@ void main() {
         vec3 flashColor = (uTheme == 2) ? vec3(0.98, 0.70, 0.50) : vec3(0.95, 0.92, 0.82);
         color += flashColor * flare * flashMask * 0.40 * uDayNight;
     }
+
+    // Storm at the Surface: irregular, sharp lightning flashes filtering down from directly
+    // overhead during a Bubble Storm - distinct from the slow warm `flare` above (which only
+    // exists in 3 themes and reads as steady sunlight, not a strike). Three non-harmonic
+    // frequencies multiplied together rarely peak at the same instant; pow() carves that rare
+    // coincidence into one short, sharp spike rather than a smooth breathing glow, and unlike
+    // `flare` this isn't gated by uDayNight or uTheme - a storm can strike in any theme, at any
+    // hour, and stays invisible (lightning == 0.0) the instant uStormIntensity is back at 0.0.
+    float lightning = 0.0;
+    if (uStormIntensity > 0.0) {
+        float strike = sin(uTime * 5.3) * sin(uTime * 8.7 + 2.1) * sin(uTime * 13.1 + 0.6);
+        lightning = pow(max(0.0, strike), 8.0) * uStormIntensity;
+    }
+    float lightningMask = pow(y, 2.0);
+    const vec3 kLightningColor = vec3(0.75, 0.85, 1.0);
+    color += kLightningColor * lightning * lightningMask * 1.8;
 
     // Caustics: a cellular (Voronoi) light-net, the classic bright, curved, moving mesh seen on
     // a pool or reef floor. Real caustics are the SEAMS between neighboring focused-light cells,
@@ -247,10 +276,14 @@ void main() {
     // coordinates and sin() outputs respectively, never growing over time - only `t` (and
     // `phase` above) are direct multiples of the unbounded uTime.
     highp float t = uTime * 0.35;
+    // Storm at the Surface: a churned-up surface ripples faster AND wider than calm water, so
+    // both the warp's time rate and its amplitude scale up together with uStormIntensity - at
+    // 0.0 this multiplies out to the original, unboosted warp.
+    float stormWarpBoost = 1.0 + uStormIntensity * 1.8;
     vec2 warp = vec2(
-        sin(p.y * 1.3 + t * 2.0),
-        sin(p.x * 1.1 - t * 1.6)
-    ) * 0.3;
+        sin(p.y * 1.3 + t * 2.0 * stormWarpBoost),
+        sin(p.x * 1.1 - t * 1.6 * stormWarpBoost)
+    ) * 0.3 * stormWarpBoost;
     vec2 cp = p + warp;
 
     // Chromatic aberration: real underwater caustics separate slightly by wavelength right at
@@ -341,6 +374,12 @@ void main() {
     float vignetteFloor = mix(kVignetteFloorDim, kVignetteFloorLit, globalLightLevel);
     float vignette = mix(vignetteFloor, 1.0, vignetteShape);
     color *= vignette;
+
+    // Storm at the Surface: a light overcast cooling/darkening of the whole frame while a Bubble
+    // Storm is under way - subtle enough not to fight the active theme's own palette, just enough
+    // to read as "the light changed" alongside the choppier caustics/rays and lightning above.
+    const vec3 kStormTint = vec3(0.85, 0.88, 0.95);
+    color = mix(color, color * kStormTint, uStormIntensity * 0.4);
 
     // Day brightness boost: the gradient/vignette tuning above was aimed at giving the god rays
     // and caustics somewhere dark to stand out (see their own comments), which left full daylight
