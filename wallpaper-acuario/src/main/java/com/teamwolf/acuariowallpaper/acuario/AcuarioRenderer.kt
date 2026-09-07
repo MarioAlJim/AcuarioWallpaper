@@ -1221,8 +1221,8 @@ class AcuarioRenderer(
      * bubbles (tagged [Bubble.isStorm] so onUpdate()'s removal loop can track them separately),
      * so these drain away on their own the same way any other burst does - no separate cleanup
      * needed here. Also kicks off [stormTimeRemaining] - see its doc - so
-     * acuario_background.frag briefly shows a choppier surface with lightning flashing through it
-     * alongside the bubbles.
+     * acuario_background.frag briefly shows a choppier, cooler-tinted surface alongside the
+     * bubbles.
      */
     override fun triggerBubbleStorm() {
         if (stormCooldownRemaining > 0f || activeStormBubbleCount > 0) return
