@@ -47,6 +47,10 @@ class AcuarioSettingsFragment : Fragment() {
         setupBubbleCountCards(view)
         setupDayNightCycleCards(view)
         setupSubmarineColorCards(view)
+
+        view.findViewById<View>(R.id.buttonHelpInteractions).setOnClickListener {
+            (requireActivity() as WallpaperSettingsActivity).showHelpDialog()
+        }
     }
 
     private fun setupThemeCards(parent: View) {

@@ -7,6 +7,8 @@ uniform float uSwimPhase;
 uniform vec3 uBodyColor;
 uniform float uDayNight;
 uniform vec3 uGlowColor;
+uniform float uBiteProgress; // 0.0 to 1.0 (interaction)
+uniform float uTime;
 
 out vec4 fragColor;
 
@@ -16,6 +18,36 @@ float ellipseAlpha(vec2 p, vec2 center, vec2 radii, float softness) {
     float d = length(q) - 1.0;
     float w = softness / min(radii.x, radii.y);
     return smoothstep(w, -w, d);
+}
+
+// Deterministic pseudo-random 2D hash for Voronoi caustics
+vec2 hash2(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+// Cellular/Voronoi lookup for caustics
+vec2 voronoiCaustic(vec2 p) {
+    vec2 ip = floor(p);
+    vec2 fp = fract(p);
+    float f1Sq = 64.0;
+    float f2Sq = 64.0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 neighbor = vec2(float(x), float(y));
+            vec2 point = hash2(ip + neighbor);
+            vec2 diff = neighbor + point - fp;
+            float distSq = dot(diff, diff);
+            if (distSq < f1Sq) {
+                f2Sq = f1Sq;
+                f1Sq = distSq;
+            } else if (distSq < f2Sq) {
+                f2Sq = distSq;
+            }
+        }
+    }
+    return vec2(sqrt(f1Sq), sqrt(f2Sq));
 }
 
 // Rim-light contribution confined to the upper arc
@@ -31,9 +63,17 @@ void main() {
     // Center UV to [-1, 1] space. Shark faces right (nose toward +x, tail toward -x).
     vec2 p = vec2((vUV.x - 0.5) * 2.0, (0.5 - vUV.y) * 2.0);
 
-    // Organic swimming tail-wag warp
-    float wave = sin(uSwimPhase - p.x * 2.8) * 0.12 * smoothstep(0.4, -0.6, p.x);
-    vec2 pWarped = vec2(p.x, p.y + wave);
+    // Organic swimming tail-wag warp - significantly more aggressive when biting (uBiteProgress > 0)
+    // Increases both amplitude and frequency-offset for a "thrashing" look.
+    float wagAmplitude = 0.12 + 0.14 * uBiteProgress;
+    float wagFreq = 2.8 + 1.2 * uBiteProgress;
+    float wave = sin(uSwimPhase - p.x * wagFreq) * wagAmplitude * smoothstep(0.4, -0.6, p.x);
+
+    // Head shake: sharks thrash their head side-to-side when biting.
+    // This affects the front half (+x) and is synced with a faster harmonic of swimPhase.
+    float headShake = sin(uSwimPhase * 2.2) * 0.07 * uBiteProgress * smoothstep(-0.2, 0.6, p.x);
+
+    vec2 pWarped = vec2(p.x, p.y + wave + headShake);
 
     // 1. Torpedo-shaped body with a tapered, thinner tail peduncle
     float tailTaper = 1.0;
@@ -44,7 +84,10 @@ void main() {
     float aBodyRaw = ellipseAlpha(pBody, vec2(0.05, -0.02), vec2(0.55, 0.15), 0.012);
 
     // Mouth cut-out shifted closer to the tip/nose
-    float aMouthCut = ellipseAlpha(pWarped, vec2(0.41, -0.11), vec2(0.065, 0.022), 0.01) * aBodyRaw;
+    // Mouth opens during bite interaction
+    float mouthOpenY = -0.11 - 0.04 * uBiteProgress;
+    float mouthRadiusY = 0.022 + 0.05 * uBiteProgress;
+    float aMouthCut = ellipseAlpha(pWarped, vec2(0.41, mouthOpenY), vec2(0.065, mouthRadiusY), 0.01) * aBodyRaw;
     float aBody = clamp(aBodyRaw - aMouthCut, 0.0, 1.0);
 
 
@@ -140,7 +183,7 @@ void main() {
         }
         
         // Lower jaw teeth pointing up
-        float lowerJawY = -0.12 + (pWarped.x - 0.33) * 0.12;
+        float lowerJawY = -0.12 - 0.04 * uBiteProgress + (pWarped.x - 0.33) * 0.12;
         if (pWarped.y > lowerJawY && pWarped.y < lowerJawY + toothHeight) {
             aTeeth = max(aTeeth, inMouthX * smoothstep(0.005, 0.0, pWarped.y - (lowerJawY + toothHeight)));
         }
@@ -153,6 +196,17 @@ void main() {
 
     // 3. Blend the body on top of the background fin
     color = mix(color, bodyCol, aBody);
+
+    // Caustics on the shark's skin (back only, similar to the turtle)
+    // uAspectRatio isn't used here, p is already normalized
+    highp float t = uTime * 0.35;
+    vec2 cp = pWarped * 5.0 + vec2(sin(pWarped.y * 1.3 + t * 2.0), sin(pWarped.x * 1.1 - t * 1.6)) * 0.3;
+    vec2 v = voronoiCaustic(cp);
+    float caustic = pow(1.0 - smoothstep(0.0, 0.25, v.y - v.x), 1.5);
+
+    // Only on the back (not the light belly)
+    float backMask = smoothstep(-0.15, 0.10, pWarped.y) * aBodyRaw;
+    color += vec3(0.35, 0.45, 0.55) * caustic * backMask * uDayNight * 0.7;
 
     // 4. Blend the foreground fins (dorsal, tail, anal/ventral, and foreground pectoral) on top of the body
     float fgFins = max(max(max(aTailFin, aDorsal), aPectoral1), aVentral);
