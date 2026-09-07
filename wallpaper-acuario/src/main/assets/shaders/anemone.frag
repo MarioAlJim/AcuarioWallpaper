@@ -8,6 +8,14 @@ uniform vec3 uFootColor;
 uniform vec3 uTentacleColor;
 uniform vec3 uTipColor;
 uniform vec3 uHighlightColor;
+uniform float uDayNight;
+// Per-palette bioluminescent tint (see AnemonePalette.glowColor) - see fish.frag's identical
+// comment for the general mechanism.
+uniform vec3 uGlowColor;
+// Shared, tank-wide clock (AcuarioRenderer.time) - see coral.frag's identical comment for why
+// the glow pulse is driven by this rather than uSwayPhase, so every anemone (and coral) flashes
+// in synchrony instead of each one blinking on its own clock.
+uniform float uTime;
 
 out vec4 fragColor;
 
@@ -74,6 +82,15 @@ void main() {
     // Thin sheen along each part's silhouette edge.
     float edgeBand = 4.0 * alpha * (1.0 - alpha);
     color += uHighlightColor * pow(edgeBand, 1.6) * 0.35;
+
+    // Bioluminescent night pulse across the tentacles - see coral.frag's identical block/comment;
+    // uses the exact same uTime and kGlowPulseSpeed so anemones and corals breathe in sync with
+    // each other, not just with themselves.
+    const float kNightGlowEdge = 0.25;
+    float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
+    const float kGlowPulseSpeed = 1.6;
+    float glowPulse = 0.5 + 0.5 * sin(uTime * kGlowPulseSpeed);
+    color += uGlowColor * aTentacles * nightGlow * glowPulse * 1.1;
 
     fragColor = vec4(color, alpha);
 }

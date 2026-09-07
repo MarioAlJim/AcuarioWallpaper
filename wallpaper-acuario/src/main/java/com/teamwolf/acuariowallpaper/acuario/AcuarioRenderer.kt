@@ -310,6 +310,9 @@ class AcuarioRenderer(
     private var anemoneTentacleColorHandle = 0
     private var anemoneTipColorHandle = 0
     private var anemoneHighlightColorHandle = 0
+    private var anemoneDayNightHandle = 0
+    private var anemoneGlowColorHandle = 0
+    private var anemoneTimeHandle = 0
     private val anemones = mutableListOf<Anemone>()
     // +25% over the original 0.30.
     private val kAnemoneSize = 0.375f
@@ -333,6 +336,9 @@ class AcuarioRenderer(
     private var coralBranchColorHandle = 0
     private var coralPolypColorHandle = 0
     private var coralHighlightColorHandle = 0
+    private var coralDayNightHandle = 0
+    private var coralGlowColorHandle = 0
+    private var coralTimeHandle = 0
     private val corals = mutableListOf<Coral>()
     // +25% over the original 0.34.
     private val kCoralSize = 0.425f
@@ -675,6 +681,9 @@ class AcuarioRenderer(
             anemoneTentacleColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uTentacleColor")
             anemoneTipColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uTipColor")
             anemoneHighlightColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uHighlightColor")
+            anemoneDayNightHandle = GLES30.glGetUniformLocation(anemoneProgram, "uDayNight")
+            anemoneGlowColorHandle = GLES30.glGetUniformLocation(anemoneProgram, "uGlowColor")
+            anemoneTimeHandle = GLES30.glGetUniformLocation(anemoneProgram, "uTime")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -703,6 +712,9 @@ class AcuarioRenderer(
             coralBranchColorHandle = GLES30.glGetUniformLocation(coralProgram, "uBranchColor")
             coralPolypColorHandle = GLES30.glGetUniformLocation(coralProgram, "uPolypColor")
             coralHighlightColorHandle = GLES30.glGetUniformLocation(coralProgram, "uHighlightColor")
+            coralDayNightHandle = GLES30.glGetUniformLocation(coralProgram, "uDayNight")
+            coralGlowColorHandle = GLES30.glGetUniformLocation(coralProgram, "uGlowColor")
+            coralTimeHandle = GLES30.glGetUniformLocation(coralProgram, "uTime")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1831,6 +1843,8 @@ class AcuarioRenderer(
         val endIndex = if (backLayer) anemoneBackCount else anemones.size
         if (anemoneProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(anemoneProgram)
+        GLES30.glUniform1f(anemoneDayNightHandle, dayNight)
+        GLES30.glUniform1f(anemoneTimeHandle, time)
 
         for (i in startIndex until endIndex) {
             val a = anemones[i]
@@ -1859,6 +1873,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(anemoneTentacleColorHandle, 1, scratchAnemoneTentacleColor, 0)
             GLES30.glUniform3fv(anemoneTipColorHandle, 1, scratchAnemoneTipColor, 0)
             GLES30.glUniform3fv(anemoneHighlightColorHandle, 1, scratchAnemoneHighlightColor, 0)
+            // Not depth-tinted like the colors above - see the identical comment in the fish
+            // draw loop.
+            GLES30.glUniform3fv(anemoneGlowColorHandle, 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -1908,6 +1925,8 @@ class AcuarioRenderer(
         val endIndex = if (backLayer) coralBackCount else corals.size
         if (coralProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(coralProgram)
+        GLES30.glUniform1f(coralDayNightHandle, dayNight)
+        GLES30.glUniform1f(coralTimeHandle, time)
 
         for (i in startIndex until endIndex) {
             val c = corals[i]
@@ -1936,6 +1955,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(coralBranchColorHandle, 1, scratchCoralBranchColor, 0)
             GLES30.glUniform3fv(coralPolypColorHandle, 1, scratchCoralPolypColor, 0)
             GLES30.glUniform3fv(coralHighlightColorHandle, 1, scratchCoralHighlightColor, 0)
+            // Not depth-tinted like the colors above - see the identical comment in the fish
+            // draw loop.
+            GLES30.glUniform3fv(coralGlowColorHandle, 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }

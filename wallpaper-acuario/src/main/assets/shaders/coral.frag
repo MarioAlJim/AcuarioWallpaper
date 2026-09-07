@@ -8,6 +8,16 @@ uniform vec3 uBaseColor;
 uniform vec3 uBranchColor;
 uniform vec3 uPolypColor;
 uniform vec3 uHighlightColor;
+uniform float uDayNight;
+// Per-palette bioluminescent tint (see CoralPalette.glowColor) - see fish.frag's identical
+// comment for the general mechanism.
+uniform vec3 uGlowColor;
+// Shared, tank-wide clock (AcuarioRenderer.time, the same value every coral/anemone/creature
+// this frame gets) - NOT uSwayPhase, which is deliberately randomized per-instance above so
+// individual corals sway out of step with each other. Driving the glow pulse from this instead
+// makes every coral (and anemone - see anemone.frag) flash together, like a reef responding to
+// the same current rather than each one blinking on its own clock.
+uniform float uTime;
 
 out vec4 fragColor;
 
@@ -104,6 +114,17 @@ void main() {
     // Thin sheen along each part's silhouette edge.
     float edgeBand = 4.0 * alpha * (1.0 - alpha);
     color += uHighlightColor * pow(edgeBand, 1.6) * 0.30;
+
+    // Bioluminescent night pulse at the polyp tips - see fish.frag's identical fix for why this
+    // is ramped through smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a plain
+    // (1.0 - uDayNight). glowPulse (shared by every coral AND anemone via uTime - see uTime's own
+    // comment above) breathes the glow softly in and out instead of holding it at a flat
+    // brightness once night falls.
+    const float kNightGlowEdge = 0.25;
+    float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
+    const float kGlowPulseSpeed = 1.6;
+    float glowPulse = 0.5 + 0.5 * sin(uTime * kGlowPulseSpeed);
+    color += uGlowColor * aPolyps * nightGlow * glowPulse * 1.1;
 
     fragColor = vec4(color, alpha);
 }

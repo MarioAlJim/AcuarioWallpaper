@@ -10,7 +10,7 @@ class AnemonePaletteTest {
         assertTrue("expected multiple palettes for real variety", AnemonePalette.PALETTES.size >= 3)
 
         for (palette in AnemonePalette.PALETTES) {
-            for (color in listOf(palette.footColor, palette.tentacleColor, palette.tipColor, palette.highlightColor)) {
+            for (color in listOf(palette.footColor, palette.tentacleColor, palette.tipColor, palette.highlightColor, palette.glowColor)) {
                 assertTrue("expected an RGB triplet, got size ${color.size}", color.size == 3)
                 for (component in color) {
                     assertTrue("color component out of [0, 1]: $component", component in 0f..1f)
