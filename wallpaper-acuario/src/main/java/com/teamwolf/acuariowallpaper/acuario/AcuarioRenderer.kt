@@ -313,6 +313,9 @@ class AcuarioRenderer(
     private var kelpTipColorHandle = 0
     private var kelpBaseColorHandle = 0
     private var kelpHighlightColorHandle = 0
+    private var kelpDayNightHandle = 0
+    private var kelpGlowColorHandle = 0
+    private var kelpTimeHandle = 0
     private val kelps = mutableListOf<Kelp>()
     // +25% over the original 0.32/0.55 - vegetation reads too small/sparse at the original size.
     private val kKelpWidth = 0.40f
@@ -339,6 +342,9 @@ class AcuarioRenderer(
     private var seaGrassTipColorHandle = 0
     private var seaGrassBaseColorHandle = 0
     private var seaGrassHighlightColorHandle = 0
+    private var seaGrassDayNightHandle = 0
+    private var seaGrassGlowColorHandle = 0
+    private var seaGrassTimeHandle = 0
     private val seaGrasses = mutableListOf<SeaGrass>()
     // +25% over the original 0.20/0.22.
     private val kSeaGrassWidth = 0.25f
@@ -683,6 +689,9 @@ class AcuarioRenderer(
             kelpTipColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uTipColor")
             kelpBaseColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uBaseColor")
             kelpHighlightColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uHighlightColor")
+            kelpDayNightHandle = GLES30.glGetUniformLocation(kelpProgram, "uDayNight")
+            kelpGlowColorHandle = GLES30.glGetUniformLocation(kelpProgram, "uGlowColor")
+            kelpTimeHandle = GLES30.glGetUniformLocation(kelpProgram, "uTime")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -714,6 +723,9 @@ class AcuarioRenderer(
             seaGrassTipColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uTipColor")
             seaGrassBaseColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uBaseColor")
             seaGrassHighlightColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uHighlightColor")
+            seaGrassDayNightHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uDayNight")
+            seaGrassGlowColorHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uGlowColor")
+            seaGrassTimeHandle = GLES30.glGetUniformLocation(seaGrassProgram, "uTime")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1837,6 +1849,8 @@ class AcuarioRenderer(
         val endIndex = if (backLayer) kelpBackCount else kelps.size
         if (kelpProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(kelpProgram)
+        GLES30.glUniform1f(kelpDayNightHandle, dayNight)
+        GLES30.glUniform1f(kelpTimeHandle, time)
 
         for (i in startIndex until endIndex) {
             val k = kelps[i]
@@ -1868,6 +1882,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(kelpTipColorHandle, 1, scratchKelpTipColor, 0)
             GLES30.glUniform3fv(kelpBaseColorHandle, 1, scratchKelpBaseColor, 0)
             GLES30.glUniform3fv(kelpHighlightColorHandle, 1, scratchKelpHighlightColor, 0)
+            // Not depth-tinted like the colors above - see the identical comment in the fish
+            // draw loop.
+            GLES30.glUniform3fv(kelpGlowColorHandle, 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -1921,6 +1938,8 @@ class AcuarioRenderer(
         val endIndex = if (backLayer) seaGrassBackCount else seaGrasses.size
         if (seaGrassProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(seaGrassProgram)
+        GLES30.glUniform1f(seaGrassDayNightHandle, dayNight)
+        GLES30.glUniform1f(seaGrassTimeHandle, time)
 
         for (i in startIndex until endIndex) {
             val g = seaGrasses[i]
@@ -1950,6 +1969,9 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(seaGrassTipColorHandle, 1, scratchSeaGrassTipColor, 0)
             GLES30.glUniform3fv(seaGrassBaseColorHandle, 1, scratchSeaGrassBaseColor, 0)
             GLES30.glUniform3fv(seaGrassHighlightColorHandle, 1, scratchSeaGrassHighlightColor, 0)
+            // Not depth-tinted like the colors above - see the identical comment in the fish
+            // draw loop.
+            GLES30.glUniform3fv(seaGrassGlowColorHandle, 1, palette.glowColor, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }

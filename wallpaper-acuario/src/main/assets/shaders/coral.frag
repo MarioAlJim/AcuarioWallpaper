@@ -117,13 +117,25 @@ void main() {
 
     // Bioluminescent night pulse at the polyp tips - see fish.frag's identical fix for why this
     // is ramped through smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a plain
-    // (1.0 - uDayNight). glowPulse (shared by every coral AND anemone via uTime - see uTime's own
-    // comment above) breathes the glow softly in and out instead of holding it at a flat
-    // brightness once night falls.
+    // (1.0 - uDayNight). glowPulse (shared by every piece of flora via uTime - see uTime's own
+    // comment above and this same block duplicated in anemone.frag/kelp.frag/seagrass.frag) is a
+    // slow flash-then-rest cadence, not a plain continuous breathe: over one kGlowPeriod-long
+    // cycle, a soft sin() rise-and-fall lasts kGlowPulseDuration seconds, then the glow rests
+    // fully dark for kGlowPauseDuration - deliberately twice as long as the pulse itself (an
+    // earlier version of this effect used a plain continuous sin(uTime * 1.6) with no rest at
+    // all; kGlowPulseDuration is ~50% slower than that sine's own rise-and-fall half-period
+    // (~2.0s), and kGlowPauseDuration is that same ~2.0s baseline stretched 200% longer, i.e.
+    // roughly tripled), so the reef reads as an occasional bioluminescent flare rather than a
+    // perpetual heartbeat.
     const float kNightGlowEdge = 0.25;
     float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
-    const float kGlowPulseSpeed = 1.6;
-    float glowPulse = 0.5 + 0.5 * sin(uTime * kGlowPulseSpeed);
+    const float kGlowPulseDuration = 3.0;
+    const float kGlowPauseDuration = 6.0;
+    const float kGlowPeriod = kGlowPulseDuration + kGlowPauseDuration;
+    float glowCyclePos = mod(uTime, kGlowPeriod);
+    float glowPulse = (glowCyclePos < kGlowPulseDuration)
+        ? sin((glowCyclePos / kGlowPulseDuration) * 3.14159265)
+        : 0.0;
     color += uGlowColor * aPolyps * nightGlow * glowPulse * 1.1;
 
     fragColor = vec4(color, alpha);

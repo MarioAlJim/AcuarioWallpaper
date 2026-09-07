@@ -10,7 +10,7 @@ class SeaGrassPaletteTest {
         assertTrue("expected multiple palettes for real variety", SeaGrassPalette.PALETTES.size >= 3)
 
         for (palette in SeaGrassPalette.PALETTES) {
-            for (color in listOf(palette.bladeColor, palette.tipColor, palette.baseColor, palette.highlightColor)) {
+            for (color in listOf(palette.bladeColor, palette.tipColor, palette.baseColor, palette.highlightColor, palette.glowColor)) {
                 assertTrue("expected an RGB triplet, got size ${color.size}", color.size == 3)
                 for (component in color) {
                     assertTrue("color component out of [0, 1]: $component", component in 0f..1f)
