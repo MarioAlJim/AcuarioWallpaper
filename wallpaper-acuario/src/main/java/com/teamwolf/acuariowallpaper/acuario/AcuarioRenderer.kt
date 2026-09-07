@@ -248,6 +248,8 @@ class AcuarioRenderer(
     private var sharkBodyColorHandle = 0
     private var sharkDayNightHandle = 0
     private var sharkGlowColorHandle = 0
+    private var sharkBiteHandle = 0
+    private var sharkTimeHandle = 0
     private val shark = Shark()
 
 
@@ -599,6 +601,8 @@ class AcuarioRenderer(
             sharkBodyColorHandle = GLES30.glGetUniformLocation(sharkProgram, "uBodyColor")
             sharkDayNightHandle = GLES30.glGetUniformLocation(sharkProgram, "uDayNight")
             sharkGlowColorHandle = GLES30.glGetUniformLocation(sharkProgram, "uGlowColor")
+            sharkBiteHandle = GLES30.glGetUniformLocation(sharkProgram, "uBiteProgress")
+            sharkTimeHandle = GLES30.glGetUniformLocation(sharkProgram, "uTime")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -777,7 +781,7 @@ class AcuarioRenderer(
         val worldY = 1f - (y / screenHeight * 2f)
 
         class TouchTarget(
-            val type: Int, // 0 = Turtle, 1 = Manta, 2 = Jellyfish
+            val type: Int, // 0 = Turtle, 1 = Manta, 2 = Jellyfish, 3 = Shark
             val obj: Any,
             val depth: Float,
             val x: Float,
@@ -787,6 +791,19 @@ class AcuarioRenderer(
         )
 
         val targets = ArrayList<TouchTarget>()
+
+        if (shark.active) {
+            val depthScale = 1.10f * (1f - (1f - kMinScaleAtDepth) * shark.depth)
+            targets.add(TouchTarget(
+                type = 3,
+                obj = shark,
+                depth = shark.depth,
+                x = shark.x + getParallaxX(shark.depth),
+                y = shark.y + getParallaxY(shark.depth),
+                rx = depthScale * 0.9f,
+                ry = depthScale * 0.5f
+            ))
+        }
 
         synchronized(turtles) {
             for (t in turtles) {
@@ -856,6 +873,9 @@ class AcuarioRenderer(
                         for (k in 0 until 12) {
                             spawnSparkleAt(jf.x, jf.y, 2)
                         }
+                    }
+                    3 -> { // Shark
+                        (target.obj as Shark).touch()
                     }
                 }
                 animalTouched = true
@@ -1461,6 +1481,8 @@ class AcuarioRenderer(
         GLES30.glUniformMatrix4fv(sharkMVPHandle, 1, false, mvpMatrix, 0)
 
         GLES30.glUniform1f(sharkSwimPhaseHandle, shark.swimPhase % kTwoPi)
+        GLES30.glUniform1f(sharkBiteHandle, shark.biteProgress)
+        GLES30.glUniform1f(sharkTimeHandle, time)
 
         val ambientFactor = 0.35f + 0.65f * dayNight
 
