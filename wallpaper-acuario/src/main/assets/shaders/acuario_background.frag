@@ -15,9 +15,9 @@ uniform vec3 uCustomShallowColor;
 uniform vec3 uCustomDeepColor;
 // "Storm at the Surface": 0.0 = calm (the default, essentially all the time) up to 1.0 = full
 // Bubble Storm - see AcuarioRenderer.stormVisualIntensity's doc for the attack/sustain/release
-// envelope that drives this. Agitates the caustic warp/god rays below and adds a lightning flash
-// near the top - every effect it touches is additive/multiplicative on top of the normal look, so
-// at 0.0 this uniform changes nothing.
+// envelope that drives this. Agitates the caustic warp/god rays below and cools the overall tint
+// near the end of this shader - every effect it touches is additive/multiplicative on top of the
+// normal look, so at 0.0 this uniform changes nothing.
 uniform float uStormIntensity;
 
 out vec4 fragColor;
@@ -241,22 +241,6 @@ void main() {
         color += flashColor * flare * flashMask * 0.40 * uDayNight;
     }
 
-    // Storm at the Surface: irregular, sharp lightning flashes filtering down from directly
-    // overhead during a Bubble Storm - distinct from the slow warm `flare` above (which only
-    // exists in 3 themes and reads as steady sunlight, not a strike). Three non-harmonic
-    // frequencies multiplied together rarely peak at the same instant; pow() carves that rare
-    // coincidence into one short, sharp spike rather than a smooth breathing glow, and unlike
-    // `flare` this isn't gated by uDayNight or uTheme - a storm can strike in any theme, at any
-    // hour, and stays invisible (lightning == 0.0) the instant uStormIntensity is back at 0.0.
-    float lightning = 0.0;
-    if (uStormIntensity > 0.0) {
-        float strike = sin(uTime * 5.3) * sin(uTime * 8.7 + 2.1) * sin(uTime * 13.1 + 0.6);
-        lightning = pow(max(0.0, strike), 8.0) * uStormIntensity;
-    }
-    float lightningMask = pow(y, 2.0);
-    const vec3 kLightningColor = vec3(0.75, 0.85, 1.0);
-    color += kLightningColor * lightning * lightningMask * 1.8;
-
     // Caustics: a cellular (Voronoi) light-net, the classic bright, curved, moving mesh seen on
     // a pool or reef floor. Real caustics are the SEAMS between neighboring focused-light cells,
     // not the cell interiors, so we look at F2-F1 (distance to the 2nd-nearest feature point
@@ -377,7 +361,7 @@ void main() {
 
     // Storm at the Surface: a light overcast cooling/darkening of the whole frame while a Bubble
     // Storm is under way - subtle enough not to fight the active theme's own palette, just enough
-    // to read as "the light changed" alongside the choppier caustics/rays and lightning above.
+    // to read as "the light changed" alongside the choppier caustics/rays above.
     const vec3 kStormTint = vec3(0.85, 0.88, 0.95);
     color = mix(color, color * kStormTint, uStormIntensity * 0.4);
 
