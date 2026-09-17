@@ -1122,6 +1122,9 @@ class AcuarioRenderer(
 
     override fun onUpdate(deltaTime: Float) {
         time += deltaTime
+        if (time > 10000f) {
+            time %= 6283.1853f
+        }
 
         if (stormCooldownRemaining > 0f) {
             stormCooldownRemaining -= deltaTime

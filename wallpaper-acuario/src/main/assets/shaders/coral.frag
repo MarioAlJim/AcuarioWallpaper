@@ -17,7 +17,7 @@ uniform vec3 uGlowColor;
 // individual corals sway out of step with each other. Driving the glow pulse from this instead
 // makes every coral (and anemone - see anemone.frag) flash together, like a reef responding to
 // the same current rather than each one blinking on its own clock.
-uniform float uTime;
+uniform highp float uTime;
 
 out vec4 fragColor;
 
@@ -118,8 +118,11 @@ void main() {
     // Cyclical bioluminescent/fluorescent pulse at night (ramps up when uDayNight < 0.70)
     const float kNightGlowEdge = 0.70;
     float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
-    float pulse = sin(uTime * 1.6);
-    float glowPulse = 0.20 + 0.80 * (0.5 + 0.5 * pulse);
+    highp float safeTime = mod(uTime, 62.831853);
+    float rawPulse = sin(safeTime * 1.2);
+    float normPulse = 0.5 + 0.5 * rawPulse;
+    float smoothPulse = smoothstep(0.0, 1.0, normPulse);
+    float glowPulse = mix(0.15, 1.0, smoothPulse);
     color += uGlowColor * aPolyps * nightGlow * glowPulse * 1.4;
 
     fragColor = vec4(color, alpha);
