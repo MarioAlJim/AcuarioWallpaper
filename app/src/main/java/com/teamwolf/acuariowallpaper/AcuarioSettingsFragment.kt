@@ -41,6 +41,7 @@ class AcuarioSettingsFragment : Fragment() {
         setupFishCountCards(view)
         setupMantaCountCards(view)
         setupJellyfishCountCards(view)
+        setupAxolotlCountCards(view)
         setupSharkPresenceCards(view)
         setupSharkColorCards(view)
         setupPlantDensityCards(view)
@@ -191,6 +192,28 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setJellyfishCount(selectedIndex)
+        }
+    }
+
+    // Index == axolotl count (0-4), same pattern as the other creature counts above.
+    private fun setupAxolotlCountCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerAxolotlCount)
+        val options = (0..4).map { it.toString() }.toTypedArray()
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getAxolotlCount(),
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = if (index == 0) "🚫" else "🦎"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setAxolotlCount(selectedIndex)
         }
     }
 

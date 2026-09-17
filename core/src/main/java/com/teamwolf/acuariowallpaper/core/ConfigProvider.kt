@@ -13,6 +13,7 @@ interface ConfigProvider {
     fun getFishCount(): Int    // 0-8
     fun getMantaCount(): Int   // 0-4
     fun getJellyfishCount(): Int  // 0-6
+    fun getAxolotlCount(): Int    // 0-4
     fun getSharkPresence(): Int   // 0: Disabled, 1: Sometimes, 2: Always
     fun getSharkColor(): Int      // 0: Gray, 1: Blue, 2: White, 3: Golden
     fun getPlantDensity(): Int // 0-24 anchored plants (kelp + anemones) on the tank floor

@@ -44,6 +44,9 @@ class ConfigManager(context: Context) : ConfigProvider {
         const val KEY_JELLYFISH_COUNT = "jellyfish_count"
         const val DEFAULT_JELLYFISH_COUNT = 2
 
+        const val KEY_AXOLOTL_COUNT = "axolotl_count"
+        const val DEFAULT_AXOLOTL_COUNT = 2
+
         const val KEY_SHARK_PRESENCE = "shark_presence"
         const val DEFAULT_SHARK_PRESENCE = 1 // 1 = Sometimes (Random)
 
@@ -85,6 +88,9 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getJellyfishCount(): Int = acuario.getJellyfishCount()
     fun setJellyfishCount(count: Int) = acuario.setJellyfishCount(count)
+
+    override fun getAxolotlCount(): Int = acuario.getAxolotlCount()
+    fun setAxolotlCount(count: Int) = acuario.setAxolotlCount(count)
 
     override fun getSharkPresence(): Int = acuario.getSharkPresence()
     fun setSharkPresence(presence: Int) = acuario.setSharkPresence(presence)

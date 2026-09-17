@@ -232,6 +232,38 @@ class AcuarioRenderer(
     private val kJellyfishScale = 0.26f
     private val kMaxJellyfish = 6
 
+    // Axolotls (crawling/swimming bottom-dwellers with feathery gills)
+    private var axolotlProgram = 0
+    private var axolotlMVPHandle = 0
+    private var axolotlSwimPhaseHandle = 0
+    private var axolotlGillPhaseHandle = 0
+    private var axolotlLegPhaseHandle = 0
+    private var axolotlBodyColorHandle = 0
+    private var axolotlGillColorHandle = 0
+    private var axolotlBellyColorHandle = 0
+    private var axolotlSpotColorHandle = 0
+    private var axolotlDayNightHandle = 0
+    private var axolotlGlowColorHandle = 0
+    private var axolotlShinyTypeHandle = 0
+    private var axolotlTimeHandle = 0
+    private val axolotls = mutableListOf<Axolotl>()
+    private val kAxolotlScale = 0.312f
+    private val kMaxAxolotls = 4
+
+    // Rocks (substrate boulders along the tank floor bed)
+    private var rockProgram = 0
+    private var rockMVPHandle = 0
+    private var rockShapeTypeHandle = 0
+    private var rockBaseColorHandle = 0
+    private var rockHighlightColorHandle = 0
+    private var rockShadowColorHandle = 0
+    private var rockSpotColorHandle = 0
+    private var rockDayNightHandle = 0
+    private var rockGlowColorHandle = 0
+    private var rockTimeHandle = 0
+    private val rocks = mutableListOf<Rock>()
+    private val kRockFloorY = -1.05f
+
     // Submarine (rendered as a single quad with its own vertex and fragment shader, traveling in the far background)
     private var submarineProgram = 0
     private var submarineMVPHandle = 0
@@ -437,6 +469,16 @@ class AcuarioRenderer(
     private val scratchSubmarineBodyColor = FloatArray(3)
     private val scratchSubmarineAccentColor = FloatArray(3)
     private val scratchSubmarineWindowColor = FloatArray(3)
+
+    private val scratchAxolotlBodyColor = FloatArray(3)
+    private val scratchAxolotlGillColor = FloatArray(3)
+    private val scratchAxolotlBellyColor = FloatArray(3)
+    private val scratchAxolotlSpotColor = FloatArray(3)
+
+    private val scratchRockBaseColor = FloatArray(3)
+    private val scratchRockHighlightColor = FloatArray(3)
+    private val scratchRockShadowColor = FloatArray(3)
+    private val scratchRockSpotColor = FloatArray(3)
 
     // Written once per frame by getDeepColorForTheme() and then night-tinted in place by
     // onDrawFrame() - reused instead of allocating a fresh FloatArray (via .clone()) every single
@@ -664,6 +706,43 @@ class AcuarioRenderer(
         }
 
         try {
+            val vert = readAssetFile(context, "shaders/axolotl.vert")
+            val frag = readAssetFile(context, "shaders/axolotl.frag")
+            axolotlProgram = createProgram(vert, frag)
+            axolotlMVPHandle = GLES30.glGetUniformLocation(axolotlProgram, "uMVPMatrix")
+            axolotlSwimPhaseHandle = GLES30.glGetUniformLocation(axolotlProgram, "uSwimPhase")
+            axolotlGillPhaseHandle = GLES30.glGetUniformLocation(axolotlProgram, "uGillPhase")
+            axolotlLegPhaseHandle = GLES30.glGetUniformLocation(axolotlProgram, "uLegPhase")
+            axolotlBodyColorHandle = GLES30.glGetUniformLocation(axolotlProgram, "uBodyColor")
+            axolotlGillColorHandle = GLES30.glGetUniformLocation(axolotlProgram, "uGillColor")
+            axolotlBellyColorHandle = GLES30.glGetUniformLocation(axolotlProgram, "uBellyColor")
+            axolotlSpotColorHandle = GLES30.glGetUniformLocation(axolotlProgram, "uSpotColor")
+            axolotlDayNightHandle = GLES30.glGetUniformLocation(axolotlProgram, "uDayNight")
+            axolotlGlowColorHandle = GLES30.glGetUniformLocation(axolotlProgram, "uGlowColor")
+            axolotlShinyTypeHandle = GLES30.glGetUniformLocation(axolotlProgram, "uShinyType")
+            axolotlTimeHandle = GLES30.glGetUniformLocation(axolotlProgram, "uTime")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            val vert = readAssetFile(context, "shaders/rock.vert")
+            val frag = readAssetFile(context, "shaders/rock.frag")
+            rockProgram = createProgram(vert, frag)
+            rockMVPHandle = GLES30.glGetUniformLocation(rockProgram, "uMVPMatrix")
+            rockShapeTypeHandle = GLES30.glGetUniformLocation(rockProgram, "uShapeType")
+            rockBaseColorHandle = GLES30.glGetUniformLocation(rockProgram, "uBaseColor")
+            rockHighlightColorHandle = GLES30.glGetUniformLocation(rockProgram, "uHighlightColor")
+            rockShadowColorHandle = GLES30.glGetUniformLocation(rockProgram, "uShadowColor")
+            rockSpotColorHandle = GLES30.glGetUniformLocation(rockProgram, "uSpotColor")
+            rockDayNightHandle = GLES30.glGetUniformLocation(rockProgram, "uDayNight")
+            rockGlowColorHandle = GLES30.glGetUniformLocation(rockProgram, "uGlowColor")
+            rockTimeHandle = GLES30.glGetUniformLocation(rockProgram, "uTime")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
             val vert = readAssetFile(context, "shaders/fish.vert")
             val frag = readAssetFile(context, "shaders/shark.frag")
             sharkProgram = createProgram(vert, frag)
@@ -823,6 +902,15 @@ class AcuarioRenderer(
         jellyfishes.clear()
         syncJellyfishCount()
 
+        synchronized(axolotls) {
+            axolotls.clear()
+            syncAxolotlCount()
+        }
+
+        synchronized(rocks) {
+            syncRocks()
+        }
+
         kelps.clear()
         anemones.clear()
         seaGrasses.clear()
@@ -933,6 +1021,21 @@ class AcuarioRenderer(
             }
         }
 
+        synchronized(axolotls) {
+            for (ax in axolotls) {
+                val depthScale = kAxolotlScale * (1f - (1f - kMinScaleAtDepth) * ax.depth)
+                targets.add(TouchTarget(
+                    type = 4,
+                    obj = ax,
+                    depth = ax.depth,
+                    x = ax.x + getParallaxX(ax.depth),
+                    y = ax.y + getParallaxY(ax.depth),
+                    rx = depthScale * 1.1f,
+                    ry = depthScale * 0.6f
+                ))
+            }
+        }
+
         // Sort by depth ascending so the closest creatures (lowest depth value) are checked first
         targets.sortBy { it.depth }
 
@@ -959,6 +1062,9 @@ class AcuarioRenderer(
                     }
                     3 -> { // Shark
                         (target.obj as Shark).touch()
+                    }
+                    4 -> { // Axolotl
+                        (target.obj as Axolotl).touch(worldX, worldY)
                     }
                 }
                 animalTouched = true
@@ -1123,6 +1229,7 @@ class AcuarioRenderer(
         syncFishCount()
         syncMantaCount()
         syncJellyfishCount()
+        syncAxolotlCount()
         syncPlants()
         syncBubbleCount()
         submarine.update(deltaTime, aspectRatio)
@@ -1149,6 +1256,15 @@ class AcuarioRenderer(
             j.update(deltaTime, aspectRatio)
             if (j.shinyType > 0 && Random.nextFloat() < 0.02f) {
                 spawnSparkleAt(j.x, j.y, j.shinyType)
+            }
+        }
+        synchronized(axolotls) {
+            for (i in axolotls.indices) {
+                val ax = axolotls[i]
+                ax.update(deltaTime, aspectRatio)
+                if (ax.shinyType > 0 && Random.nextFloat() < 0.02f) {
+                    spawnSparkleAt(ax.x, ax.y, ax.shinyType)
+                }
             }
         }
         for (i in kelps.indices) {
@@ -1386,10 +1502,12 @@ class AcuarioRenderer(
         // drawPlants()'s comment - so fish/turtles/mantas can pass behind some plants and in
         // front of others instead of always sitting on top of the whole tank floor.
         drawSubmarine(deepColor)
+        drawRocks(deepColor)
         drawPlants(backLayer = true, deepColor)
         drawMantas(deepColor)
         drawShark(deepColor)
         drawJellyfish(deepColor)
+        drawAxolotls(deepColor)
         drawFish(deepColor)
         drawTurtles(deepColor)
         drawPlants(backLayer = false, deepColor)
@@ -1678,6 +1796,71 @@ class AcuarioRenderer(
         }
     }
 
+    private fun syncAxolotlCount() {
+        val desired = configProvider.getAxolotlCount().coerceIn(0, kMaxAxolotls)
+        synchronized(axolotls) {
+            when {
+                desired > axolotls.size -> repeat(desired - axolotls.size) { axolotls.add(Axolotl()) }
+                desired < axolotls.size -> while (axolotls.size > desired) axolotls.removeAt(axolotls.size - 1)
+            }
+        }
+    }
+
+    private fun drawAxolotls(deepColor: FloatArray) {
+        if (axolotlProgram == 0) return
+        synchronized(axolotls) {
+            if (axolotls.isEmpty()) return
+            GLES30.glUseProgram(axolotlProgram)
+            GLES30.glUniform1f(axolotlDayNightHandle, dayNight)
+            GLES30.glUniform1f(axolotlTimeHandle, time)
+
+            // Farthest first, manual insertion sort to avoid allocation
+            for (i in 1 until axolotls.size) {
+                val key = axolotls[i]
+                var j = i - 1
+                while (j >= 0 && axolotls[j].depth < key.depth) {
+                    axolotls[j + 1] = axolotls[j]
+                    j--
+                }
+                axolotls[j + 1] = key
+            }
+
+            for (i in axolotls.indices) {
+                val ax = axolotls[i]
+                val depthScale = kAxolotlScale * (1f - (1f - kMinScaleAtDepth) * ax.depth)
+                val tintAmount = ax.depth * kMaxDepthTint
+
+                Matrix.setIdentityM(modelMatrix, 0)
+                Matrix.translateM(modelMatrix, 0, ax.x + getParallaxX(ax.depth), ax.y + getParallaxY(ax.depth), 0f)
+                Matrix.scaleM(modelMatrix, 0, ax.facingScale(), 1f, 1f)
+                Matrix.rotateM(modelMatrix, 0, ax.pitchDegrees, 0f, 0f, 1f)
+                Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+
+                GLES30.glUniformMatrix4fv(axolotlMVPHandle, 1, false, mvpMatrix, 0)
+                GLES30.glUniform1f(axolotlSwimPhaseHandle, ax.swimPhase % kTwoPi)
+                GLES30.glUniform1f(axolotlGillPhaseHandle, ax.gillPhase % kTwoPi)
+                GLES30.glUniform1f(axolotlLegPhaseHandle, ax.legPhase % kTwoPi)
+
+                val ambientFactor = 0.35f + 0.65f * dayNight
+                val palette = ax.palette
+                mixColorInto(scratchAxolotlBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchAxolotlGillColor, palette.gillColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchAxolotlBellyColor, palette.bellyColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchAxolotlSpotColor, palette.spotColor, deepColor, tintAmount, ambientFactor)
+
+                GLES30.glUniform3fv(axolotlBodyColorHandle, 1, scratchAxolotlBodyColor, 0)
+                GLES30.glUniform3fv(axolotlGillColorHandle, 1, scratchAxolotlGillColor, 0)
+                GLES30.glUniform3fv(axolotlBellyColorHandle, 1, scratchAxolotlBellyColor, 0)
+                GLES30.glUniform3fv(axolotlSpotColorHandle, 1, scratchAxolotlSpotColor, 0)
+                GLES30.glUniform3fv(axolotlGlowColorHandle, 1, palette.glowColor, 0)
+                GLES30.glUniform1f(axolotlShinyTypeHandle, ax.shinyType.toFloat())
+
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
+        }
+    }
+
     private fun drawSubmarine(deepColor: FloatArray) {
         if (submarineProgram == 0 || !submarine.active) return
         GLES30.glUseProgram(submarineProgram)
@@ -1830,6 +2013,75 @@ class AcuarioRenderer(
 
         currentPlantDensity = desired
         plantLayoutAspectRatio = aspectRatio
+        syncRocks()
+    }
+
+    private fun syncRocks() {
+        synchronized(rocks) {
+            rocks.clear()
+            val rockCount = 18
+            val span = aspectRatio * 2.2f
+            val step = span / (rockCount - 1)
+            val startX = -aspectRatio * 1.1f
+
+            repeat(rockCount) { i ->
+                val rock = Rock()
+                val xPos = startX + i * step + (Random.nextFloat() * 0.10f - 0.05f)
+                val depth = Random.nextFloat()
+                val scaleX = 0.32f + Random.nextFloat() * 0.28f
+                val scaleY = 0.18f + Random.nextFloat() * 0.14f
+                val shapeType = i % 4
+                val rotation = (Random.nextFloat() * 0.20f - 0.10f) * 57.2958f
+                rock.placeAt(xPos, depth, scaleX, scaleY, shapeType, rotation)
+                rocks.add(rock)
+            }
+            rocks.sortByDescending { it.depth }
+        }
+    }
+
+    private fun drawRocks(deepColor: FloatArray) {
+        if (rockProgram == 0) return
+        synchronized(rocks) {
+            if (rocks.isEmpty()) return
+            GLES30.glUseProgram(rockProgram)
+            GLES30.glUniform1f(rockDayNightHandle, dayNight)
+            GLES30.glUniform1f(rockTimeHandle, time)
+
+            for (i in rocks.indices) {
+                val r = rocks[i]
+                val depthScale = 1f - (1f - kMinScaleAtDepth) * r.depth
+                val tintAmount = r.depth * kMaxDepthTint
+
+                Matrix.setIdentityM(modelMatrix, 0)
+                Matrix.translateM(
+                    modelMatrix, 0,
+                    r.x + getParallaxX(r.depth),
+                    kRockFloorY + r.scaleY * 0.5f * depthScale + getParallaxY(r.depth),
+                    0f
+                )
+                Matrix.rotateM(modelMatrix, 0, r.rotationDegrees, 0f, 0f, 1f)
+                Matrix.scaleM(modelMatrix, 0, r.scaleX * depthScale, r.scaleY * depthScale, 1f)
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+
+                GLES30.glUniformMatrix4fv(rockMVPHandle, 1, false, mvpMatrix, 0)
+                GLES30.glUniform1f(rockShapeTypeHandle, r.shapeType.toFloat())
+
+                val ambientFactor = 0.35f + 0.65f * dayNight
+                val palette = r.palette
+                mixColorInto(scratchRockBaseColor, palette.baseColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchRockHighlightColor, palette.highlightColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchRockShadowColor, palette.shadowColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchRockSpotColor, palette.spotColor, deepColor, tintAmount, ambientFactor)
+
+                GLES30.glUniform3fv(rockBaseColorHandle, 1, scratchRockBaseColor, 0)
+                GLES30.glUniform3fv(rockHighlightColorHandle, 1, scratchRockHighlightColor, 0)
+                GLES30.glUniform3fv(rockShadowColorHandle, 1, scratchRockShadowColor, 0)
+                GLES30.glUniform3fv(rockSpotColorHandle, 1, scratchRockSpotColor, 0)
+                GLES30.glUniform3fv(rockGlowColorHandle, 1, palette.glowColor, 0)
+
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
+        }
     }
 
     /**

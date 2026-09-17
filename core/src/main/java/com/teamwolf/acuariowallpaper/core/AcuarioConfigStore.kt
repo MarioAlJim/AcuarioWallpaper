@@ -27,6 +27,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     private var cachedJellyfishCount: Int = prefs.getInt(ConfigManager.KEY_JELLYFISH_COUNT, ConfigManager.DEFAULT_JELLYFISH_COUNT)
 
     @Volatile
+    private var cachedAxolotlCount: Int = prefs.getInt(ConfigManager.KEY_AXOLOTL_COUNT, ConfigManager.DEFAULT_AXOLOTL_COUNT)
+
+    @Volatile
     private var cachedSharkPresence: Int = prefs.getInt(ConfigManager.KEY_SHARK_PRESENCE, ConfigManager.DEFAULT_SHARK_PRESENCE)
 
     @Volatile
@@ -86,6 +89,14 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
         val coerced = count.coerceIn(0, 6)
         cachedJellyfishCount = coerced
         putInt(ConfigManager.KEY_JELLYFISH_COUNT, coerced)
+    }
+
+    // Range matches AcuarioRenderer's kMaxAxolotls - keep both in sync.
+    fun getAxolotlCount(): Int = cachedAxolotlCount
+    fun setAxolotlCount(count: Int) {
+        val coerced = count.coerceIn(0, 4)
+        cachedAxolotlCount = coerced
+        putInt(ConfigManager.KEY_AXOLOTL_COUNT, coerced)
     }
 
     fun getSharkPresence(): Int = cachedSharkPresence
@@ -162,6 +173,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
             }
             ConfigManager.KEY_JELLYFISH_COUNT -> {
                 cachedJellyfishCount = prefs.getInt(ConfigManager.KEY_JELLYFISH_COUNT, ConfigManager.DEFAULT_JELLYFISH_COUNT)
+            }
+            ConfigManager.KEY_AXOLOTL_COUNT -> {
+                cachedAxolotlCount = prefs.getInt(ConfigManager.KEY_AXOLOTL_COUNT, ConfigManager.DEFAULT_AXOLOTL_COUNT)
             }
             ConfigManager.KEY_SHARK_PRESENCE -> {
                 cachedSharkPresence = prefs.getInt(ConfigManager.KEY_SHARK_PRESENCE, ConfigManager.DEFAULT_SHARK_PRESENCE)
