@@ -84,12 +84,15 @@ class Axolotl {
     private var isStartled = false
 
     fun update(deltaTime: Float, aspectRatio: Float) {
-        // Gills flutter continuously whether moving or stationary
+        // Clamp deltaTime to prevent spring destabilization or massive phase jumps
+        val dt = deltaTime.coerceIn(0f, 0.05f)
+
+        // Gills flutter continuously whether moving or stationary (wrapped to prevent float overflow)
         val gillSpeed = if (isStartled) 6.0f else 2.5f
-        gillPhase += deltaTime * gillSpeed
+        gillPhase = (gillPhase + dt * gillSpeed) % TWO_PI
 
         if (isStartled) {
-            startleTimer -= deltaTime
+            startleTimer -= dt
             if (startleTimer <= 0f) {
                 isStartled = false
                 targetSpeedMultiplier = 1f
@@ -97,18 +100,18 @@ class Axolotl {
         }
 
         if (pauseTimer > 0f) {
-            pauseTimer -= deltaTime
+            pauseTimer -= dt
             // Pitch relaxes horizontally while resting/floating
-            stepPitchSpring(0f, deltaTime)
+            stepPitchSpring(0f, dt)
 
             // Gentle buoyancy drift when hovering in open water
             if (y > -0.60f) {
-                y += sin(swimPhase * 0.5f) * 0.015f * deltaTime
+                y += sin(swimPhase * 0.5f) * 0.015f * dt
             }
 
-            // Gentle idle drift for tail and legs
-            swimPhase += deltaTime * 1.2f
-            legPhase += deltaTime * 0.8f
+            // Gentle idle drift for tail and legs (wrap periodically to prevent float precision loss)
+            swimPhase = (swimPhase + dt * 1.2f) % FOUR_PI
+            legPhase = (legPhase + dt * 0.8f) % TWO_PI
             return
         }
 
@@ -128,39 +131,49 @@ class Axolotl {
             return
         }
 
-        val speedLerp = 1f - exp(-kSpeedEaseRate * deltaTime)
+        val speedLerp = 1f - exp(-kSpeedEaseRate * dt)
         speedMultiplier += (targetSpeedMultiplier - speedMultiplier) * speedLerp
         val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth) * speedMultiplier
 
-        x += (dx / dist) * effectiveSpeed * deltaTime
-        y += (dy / dist) * effectiveSpeed * deltaTime
+        val safeDist = if (dist > 0.0001f) dist else 0.04f
+        x += (dx / safeDist) * effectiveSpeed * dt
+        y += (dy / safeDist) * effectiveSpeed * dt
+
+        // Keep position safely bounded within the aquarium
+        val halfWidth = aspectRatio * 0.95f
+        x = x.coerceIn(-halfWidth, halfWidth)
+        y = y.coerceIn(-0.72f, 0.68f)
 
         // Steer heading toward target angle with smooth turning arc
         val targetHeading = atan2(dy, dx)
         var angleDiff = targetHeading - heading
         while (angleDiff > PI) angleDiff -= TWO_PI
         while (angleDiff < -PI) angleDiff += TWO_PI
-        val turnLerp = 1f - exp(-kTurnRate * deltaTime)
+        val turnLerp = 1f - exp(-kTurnRate * dt)
         heading += angleDiff * turnLerp
+
+        // Normalize heading to [-PI, PI] to prevent unbounded angle accumulation and while-loop stalling
+        while (heading > PI) heading -= TWO_PI
+        while (heading < -PI) heading += TWO_PI
 
         if (kotlin.math.abs(dx) > kFacingDeadzone) {
             facingSign = if (dx > 0f) 1f else -1f
         }
-        val mirrorLerp = 1f - exp(-kMirrorRate * deltaTime)
+        val mirrorLerp = 1f - exp(-kMirrorRate * dt)
         mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
 
         // Pitch: flatten body horizontally when crawling along rock ledges (both current y and target on rocks)
         val isCrawlingOnRocks = y < -0.60f && targetY < -0.58f
-        val desiredPitch = if (isCrawlingOnRocks) 0f else (dy / dist) * kMaxPitchDegrees
-        stepPitchSpring(desiredPitch, deltaTime)
+        val desiredPitch = if (isCrawlingOnRocks) 0f else (dy / safeDist) * kMaxPitchDegrees
+        stepPitchSpring(desiredPitch, dt)
 
-        val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
-        depth += (targetDepth - depth) * depthLerp
+        val depthLerp = 1f - exp(-kDepthEaseRate * dt)
+        depth = (depth + (targetDepth - depth) * depthLerp).coerceIn(0f, 1f)
 
-        // Swim and leg animation phases
+        // Swim and leg animation phases (periodically wrapped to maintain precision indefinitely)
         val movementFactor = effectiveSpeed * 8f
-        swimPhase += deltaTime * (2.0f + movementFactor)
-        legPhase += deltaTime * (4.0f + movementFactor * 2.0f)
+        swimPhase = (swimPhase + dt * (2.0f + movementFactor)) % FOUR_PI
+        legPhase = (legPhase + dt * (4.0f + movementFactor * 2.0f)) % TWO_PI
     }
 
     /**
@@ -264,6 +277,7 @@ class Axolotl {
     companion object {
         private const val PI = kotlin.math.PI.toFloat()
         private const val TWO_PI = (kotlin.math.PI * 2.0).toFloat()
+        private const val FOUR_PI = (kotlin.math.PI * 4.0).toFloat()
 
         private const val kTurnRate = 3.5f
         private const val kFacingDeadzone = 0.02f

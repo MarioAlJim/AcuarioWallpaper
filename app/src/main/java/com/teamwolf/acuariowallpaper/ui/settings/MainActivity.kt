@@ -110,6 +110,7 @@ fun AcuarioSettingsScreen(
     var plantDensity by remember { mutableIntStateOf(configManager.getPlantDensity()) }
     var bubbleCount by remember { mutableIntStateOf(configManager.getBubbleCount()) }
     var dayNightCycle by remember { mutableIntStateOf(configManager.getDayNightCycleDuration()) }
+    var isGyroEnabled by remember { mutableStateOf(configManager.isGyroEnabled()) }
 
     // Section collapse states (Accordion layout)
     var isSection1Expanded by remember { mutableStateOf(true) }
@@ -567,7 +568,6 @@ fun AcuarioSettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    var isGyroEnabled by remember { mutableStateOf(true) }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -583,7 +583,10 @@ fun AcuarioSettingsScreen(
                         }
                         Switch(
                             checked = isGyroEnabled,
-                            onCheckedChange = { isGyroEnabled = it }
+                            onCheckedChange = {
+                                isGyroEnabled = it
+                                configManager.setGyroEnabled(it)
+                            }
                         )
                     }
                 }

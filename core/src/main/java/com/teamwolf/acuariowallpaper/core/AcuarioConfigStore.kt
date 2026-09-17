@@ -55,4 +55,7 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
 
     fun getSubmarineColor(): Int = cachedInt(ConfigManager.KEY_SUBMARINE_COLOR, ConfigManager.DEFAULT_SUBMARINE_COLOR)
     fun setSubmarineColor(color: Int) = putInt(ConfigManager.KEY_SUBMARINE_COLOR, color.coerceIn(0, 5))
+
+    fun isGyroEnabled(): Boolean = cachedBoolean(ConfigManager.KEY_GYRO_ENABLED, ConfigManager.DEFAULT_GYRO_ENABLED)
+    fun setGyroEnabled(enabled: Boolean) = putBoolean(ConfigManager.KEY_GYRO_ENABLED, enabled)
 }

@@ -1225,9 +1225,12 @@ class AcuarioRenderer(
         parallaxRaw = offsetX - 0.5f
         foregroundParallax = parallaxRaw * kForegroundParallaxRange
 
+        val isGyro = configProvider.isGyroEnabled()
         val gyroLerp = 1f - exp(-8f * deltaTime)
-        smoothedTiltX += (targetTiltX - smoothedTiltX) * gyroLerp
-        smoothedTiltY += (targetTiltY - smoothedTiltY) * gyroLerp
+        val curTargetTiltX = if (isGyro) targetTiltX else 0f
+        val curTargetTiltY = if (isGyro) targetTiltY else 0f
+        smoothedTiltX += (curTargetTiltX - smoothedTiltX) * gyroLerp
+        smoothedTiltY += (curTargetTiltY - smoothedTiltY) * gyroLerp
 
         syncTurtleCount()
         syncFishCount()

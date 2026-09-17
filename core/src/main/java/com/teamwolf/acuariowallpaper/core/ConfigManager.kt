@@ -75,6 +75,9 @@ class ConfigManager(context: Context) : ConfigProvider {
 
         const val KEY_SUBMARINE_COLOR = "submarine_color"
         const val DEFAULT_SUBMARINE_COLOR = 0
+
+        const val KEY_GYRO_ENABLED = "gyro_enabled"
+        const val DEFAULT_GYRO_ENABLED = true
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
@@ -120,4 +123,7 @@ class ConfigManager(context: Context) : ConfigProvider {
 
     override fun getSubmarineColor(): Int = acuario.getSubmarineColor()
     fun setSubmarineColor(color: Int) = acuario.setSubmarineColor(color)
+
+    override fun isGyroEnabled(): Boolean = acuario.isGyroEnabled()
+    fun setGyroEnabled(enabled: Boolean) = acuario.setGyroEnabled(enabled)
 }

@@ -80,20 +80,20 @@ void main() {
     // 2. Trunk / Main Body
     float aBody = ellipseAlpha(pWarped, vec2(-0.02, 0.0), vec2(0.38, 0.14), 0.025);
 
-    // 3. Elongated muscular tail stem (central fleshy core of the tail)
+    // 3. Elongated muscular tail stem (central fleshy core of the tail) - slenderized by ~15%
     float tailLen = 0.76;
     float tailStartX = -0.05;
     float tX = (pWarped.x - tailStartX) / (-tailLen);
     float tXClamped = clamp(tX, 0.0, 1.0);
-    float stemHalfHeight = 0.11 * (1.0 - tXClamped * 0.82);
+    float stemHalfHeight = 0.0935 * (1.0 - tXClamped * 0.82);
     float aTailStem = smoothstep(0.0, 0.05, tX) * smoothstep(1.0, 0.92, tX) * smoothstep(stemHalfHeight, stemHalfHeight - 0.02, abs(pWarped.y));
 
-    // 4. Paddle Tail Fin membrane (broad translucent swimming fold running along the back/tail)
+    // 4. Paddle Tail Fin membrane (slenderized by ~15% for a sleeker profile)
     float finStartX = 0.05;
     float finLen = tailLen + (finStartX - tailStartX);
     float tFin = (pWarped.x - finStartX) / (-finLen);
     float tFinClamped = clamp(tFin, 0.0, 1.0);
-    float finHeight = 0.04 + 0.17 * sin(tFinClamped * 3.14159);
+    float finHeight = 0.034 + 0.1445 * sin(tFinClamped * 3.14159);
     float aTailFin = smoothstep(0.0, 0.05, tFin) * smoothstep(1.0, 0.90, tFin) * smoothstep(finHeight, finHeight - 0.02, abs(pWarped.y));
 
     // 5. Feathery External Gills (3 top, 3 bottom on head/neck at x = 0.18)
