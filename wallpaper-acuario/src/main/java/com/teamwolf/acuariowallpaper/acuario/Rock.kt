@@ -17,10 +17,10 @@ class Rock {
     var depth = 0f
         private set
 
-    var scaleX = 0.4f
+    var scaleX = 0.65f
         private set
 
-    var scaleY = 0.25f
+    var scaleY = 0.38f
         private set
 
     var shapeType = 0

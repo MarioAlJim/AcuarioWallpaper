@@ -102,20 +102,20 @@ void main() {
     float aDorsal = aDorsalRaw * (1.0 - aBodyRaw);
 
     // 3. Pectoral fins (foreground and background to show two lateral fins),
-    // tapered to a less pointy, more rounded tip.
+    // horizontally reflected so the base attaches behind the gills and sweeps backward/downward.
     float cos35 = 0.819;
     float sin35 = -0.574;
 
-    // Foreground fin:
-    vec2 pPect1 = pWarped - vec2(0.22, -0.11);
+    // Foreground fin (horizontal reflection applied to sweep backward):
+    vec2 pPect1 = vec2(-(pWarped.x - 0.14), pWarped.y - (-0.10));
     vec2 pPectRot1 = vec2(pPect1.x * cos35 + pPect1.y * sin35, -pPect1.x * sin35 + pPect1.y * cos35);
     float pect1T = clamp(pPectRot1.x / 0.19, 0.0, 1.0);
     float pect1Curve = 0.03 * pect1T * pect1T; // droops downward toward the tip
     float pect1Taper = clamp(1.0 - pect1T, 0.22, 1.0);
     float aPectoral1 = ellipseAlpha(vec2(pPectRot1.x, (pPectRot1.y - pect1Curve) / pect1Taper), vec2(0.0, 0.0), vec2(0.19, 0.06), 0.003) * step(pWarped.y, 0.0);
 
-    // Background fin (shifted slightly left/up and smaller):
-    vec2 pPect2 = pWarped - vec2(0.14, -0.06);
+    // Background fin (horizontally reflected and offset for 3D depth):
+    vec2 pPect2 = vec2(-(pWarped.x - 0.20), pWarped.y - (-0.05));
     vec2 pPectRot2 = vec2(pPect2.x * cos35 + pPect2.y * sin35, -pPect2.x * sin35 + pPect2.y * cos35);
     float pect2T = clamp(pPectRot2.x / 0.155, 0.0, 1.0);
     float pect2Curve = 0.025 * pect2T * pect2T;

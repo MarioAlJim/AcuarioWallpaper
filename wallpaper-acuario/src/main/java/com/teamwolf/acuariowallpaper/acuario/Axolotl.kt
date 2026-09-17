@@ -41,7 +41,7 @@ class Axolotl {
 
     var x = Random.nextFloat() * 1.2f - 0.6f
         private set
-    var y = -0.81f + Random.nextFloat() * 0.06f
+    var y = -0.68f + Random.nextFloat() * 0.06f
         private set
 
     var heading = 0f
@@ -125,8 +125,8 @@ class Axolotl {
         val mirrorLerp = 1f - exp(-kMirrorRate * deltaTime)
         mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
 
-        // Pitch: flatten body horizontally when crawling along rock ledges (y < -0.72f)
-        val isCrawlingOnRocks = y < -0.72f
+        // Pitch: flatten body horizontally when crawling along rock ledges (y < -0.60f)
+        val isCrawlingOnRocks = y < -0.60f
         val desiredPitch = if (isCrawlingOnRocks) 0f else (dy / dist) * kMaxPitchDegrees
         stepPitchSpring(desiredPitch, deltaTime)
 
@@ -159,7 +159,7 @@ class Axolotl {
 
         val fleeDist = 0.6f + Random.nextFloat() * 0.5f
         targetX = x + dirX * fleeDist
-        targetY = (y + dirY * fleeDist).coerceIn(-0.84f, 0.10f)
+        targetY = (y + dirY * fleeDist).coerceIn(-0.72f, 0.10f)
         hasTarget = true
         speedMultiplier = 2.2f
         targetSpeedMultiplier = 2.2f
@@ -171,12 +171,12 @@ class Axolotl {
         val halfWidth = aspectRatio * 0.85f
         targetX = Random.nextFloat() * (halfWidth * 2f) - halfWidth
 
-        // 85% chance to crawl/walk directly on top of rock surface peaks (y = -0.83f to -0.75f),
+        // 85% chance to crawl/walk directly on top of rock surface peaks (y = -0.70f to -0.62f),
         // 15% chance to take a short hop/float into mid-water before landing back on the rocks.
         if (Random.nextFloat() < 0.85f) {
-            targetY = -0.82f + Random.nextFloat() * 0.07f
+            targetY = -0.70f + Random.nextFloat() * 0.08f
         } else {
-            targetY = -0.50f + Random.nextFloat() * 0.25f
+            targetY = -0.45f + Random.nextFloat() * 0.25f
         }
 
         targetDepth = Random.nextFloat()

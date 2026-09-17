@@ -2029,8 +2029,8 @@ class AcuarioRenderer(
                 val rock = Rock()
                 val xPos = startX + i * step + (Random.nextFloat() * 0.10f - 0.05f)
                 val depth = Random.nextFloat()
-                val scaleX = 0.32f + Random.nextFloat() * 0.28f
-                val scaleY = 0.18f + Random.nextFloat() * 0.14f
+                val scaleX = 0.52f + Random.nextFloat() * 0.44f
+                val scaleY = 0.28f + Random.nextFloat() * 0.22f
                 val shapeType = i % 4
                 val rotation = (Random.nextFloat() * 0.20f - 0.10f) * 57.2958f
                 rock.placeAt(xPos, depth, scaleX, scaleY, shapeType, rotation)
