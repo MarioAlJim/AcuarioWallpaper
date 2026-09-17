@@ -593,6 +593,16 @@ fun AcuarioSettingsScreen(
             }
         }
 
+    val isWallpaperActive = remember {
+        try {
+            val wallpaperManager = WallpaperManager.getInstance(context)
+            val info = wallpaperManager.wallpaperInfo
+            info != null && info.packageName == context.packageName && info.serviceName == AcuarioWallpaperService::class.java.name
+        } catch (e: Exception) {
+            false
+        }
+    }
+
         // Fixed Apply Button at Bottom
         Surface(
             modifier = Modifier
@@ -608,20 +618,26 @@ fun AcuarioSettingsScreen(
             ) {
                 Button(
                     onClick = {
-                        try {
-                            val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
-                                putExtra(
-                                    WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                                    ComponentName(context, AcuarioWallpaperService::class.java)
-                                )
-                            }
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
+                        configManager.notifySettingsChanged()
+                        if (isWallpaperActive) {
+                            Toast.makeText(context, "Ajustes aplicados al fondo de pantalla", Toast.LENGTH_SHORT).show()
+                            (context as? android.app.Activity)?.finish()
+                        } else {
                             try {
-                                val chooserIntent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-                                context.startActivity(chooserIntent)
-                            } catch (ex: Exception) {
-                                Toast.makeText(context, "No se pudo abrir el selector de fondos", Toast.LENGTH_SHORT).show()
+                                val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
+                                    putExtra(
+                                        WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                                        ComponentName(context, AcuarioWallpaperService::class.java)
+                                    )
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                try {
+                                    val chooserIntent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                                    context.startActivity(chooserIntent)
+                                } catch (ex: Exception) {
+                                    Toast.makeText(context, "No se pudo abrir el selector de fondos", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     },
@@ -632,7 +648,7 @@ fun AcuarioSettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(
-                        text = "Aplicar Fondo de Pantalla",
+                        text = if (isWallpaperActive) "Aplicar Ajustes" else "Establecer Fondo de Pantalla",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimary

@@ -1,6 +1,9 @@
 package com.teamwolf.acuariowallpaper
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -9,6 +12,7 @@ import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
+import androidx.core.content.ContextCompat
 import com.teamwolf.acuariowallpaper.core.ConfigManager
 import com.teamwolf.acuariowallpaper.core.GLRenderThread
 import com.teamwolf.acuariowallpaper.core.GLRenderer
@@ -38,6 +42,14 @@ class AcuarioWallpaperService : WallpaperService() {
         private var currentWidth = 0
         private var currentHeight = 0
 
+        private val settingsReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (::configManager.isInitialized) {
+                    configManager.reload()
+                }
+            }
+        }
+
         // Sensor variables for 3D tilt (wire up once the renderer reacts to it).
         private var sensorManager: SensorManager? = null
         private var accelerometer: Sensor? = null
@@ -61,6 +73,13 @@ class AcuarioWallpaperService : WallpaperService() {
 
             sensorManager = applicationContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager
             accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+            val filter = IntentFilter(ConfigManager.ACTION_SETTINGS_CHANGED)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.registerReceiver(applicationContext, settingsReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+            } else {
+                applicationContext.registerReceiver(settingsReceiver, filter)
+            }
         }
 
         override fun onTouchEvent(event: MotionEvent?) {
@@ -84,6 +103,11 @@ class AcuarioWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             super.onDestroy()
+            try {
+                applicationContext.unregisterReceiver(settingsReceiver)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             sensorManager?.unregisterListener(this)
             stopRenderThread()
         }

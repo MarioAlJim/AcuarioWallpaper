@@ -26,12 +26,12 @@ internal abstract class CachedPrefStore(protected val prefs: SharedPreferences) 
 
     protected fun putInt(key: String, value: Int) {
         cache[key] = value
-        prefs.edit().putInt(key, value).apply()
+        prefs.edit().putInt(key, value).commit()
     }
 
     protected fun putBoolean(key: String, value: Boolean) {
         cache[key] = value
-        prefs.edit().putBoolean(key, value).apply()
+        prefs.edit().putBoolean(key, value).commit()
     }
 
     /** Drops the cached value for [key], if any, so the next read re-fetches from [prefs]. */

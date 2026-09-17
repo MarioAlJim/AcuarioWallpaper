@@ -3,7 +3,7 @@ package com.teamwolf.acuariowallpaper.core
 import android.content.Context
 import android.content.SharedPreferences
 
-class ConfigManager(context: Context) : ConfigProvider {
+class ConfigManager(private val context: Context) : ConfigProvider {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val acuario = AcuarioConfigStore(prefs)
@@ -18,6 +18,8 @@ class ConfigManager(context: Context) : ConfigProvider {
     private val prefsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key != null) {
             acuario.invalidate(key)
+        } else {
+            acuario.invalidateAll()
         }
     }
 
@@ -29,8 +31,22 @@ class ConfigManager(context: Context) : ConfigProvider {
         acuario.invalidateAll()
     }
 
+    fun notifySettingsChanged(key: String? = null) {
+        acuario.invalidateAll()
+        try {
+            val intent = android.content.Intent(ACTION_SETTINGS_CHANGED).apply {
+                setPackage(context.packageName)
+                if (key != null) putExtra("key", key)
+            }
+            context.sendBroadcast(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     companion object {
         const val PREFS_NAME = "acuario_wallpaper_prefs"
+        const val ACTION_SETTINGS_CHANGED = "com.teamwolf.acuariowallpaper.ACTION_SETTINGS_CHANGED"
 
         const val KEY_ACUARIO_THEME = "acuario_theme"
         const val DEFAULT_ACUARIO_THEME = 0
@@ -81,49 +97,92 @@ class ConfigManager(context: Context) : ConfigProvider {
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
-    fun setAcuarioTheme(theme: Int) = acuario.setAcuarioTheme(theme)
+    fun setAcuarioTheme(theme: Int) {
+        acuario.setAcuarioTheme(theme)
+        notifySettingsChanged(KEY_ACUARIO_THEME)
+    }
 
     override fun getTurtleCount(): Int = acuario.getTurtleCount()
-    fun setTurtleCount(count: Int) = acuario.setTurtleCount(count)
+    fun setTurtleCount(count: Int) {
+        acuario.setTurtleCount(count)
+        notifySettingsChanged(KEY_TURTLE_COUNT)
+    }
 
     override fun getFishCount(): Int = acuario.getFishCount()
-    fun setFishCount(count: Int) = acuario.setFishCount(count)
+    fun setFishCount(count: Int) {
+        acuario.setFishCount(count)
+        notifySettingsChanged(KEY_FISH_COUNT)
+    }
 
     override fun getMantaCount(): Int = acuario.getMantaCount()
-    fun setMantaCount(count: Int) = acuario.setMantaCount(count)
-
+    fun setMantaCount(count: Int) {
+        acuario.setMantaCount(count)
+        notifySettingsChanged(KEY_MANTA_COUNT)
+    }
 
     override fun getJellyfishCount(): Int = acuario.getJellyfishCount()
-    fun setJellyfishCount(count: Int) = acuario.setJellyfishCount(count)
+    fun setJellyfishCount(count: Int) {
+        acuario.setJellyfishCount(count)
+        notifySettingsChanged(KEY_JELLYFISH_COUNT)
+    }
 
     override fun getAxolotlCount(): Int = acuario.getAxolotlCount()
-    fun setAxolotlCount(count: Int) = acuario.setAxolotlCount(count)
+    fun setAxolotlCount(count: Int) {
+        acuario.setAxolotlCount(count)
+        notifySettingsChanged(KEY_AXOLOTL_COUNT)
+    }
 
     override fun getSharkPresence(): Int = acuario.getSharkPresence()
-    fun setSharkPresence(presence: Int) = acuario.setSharkPresence(presence)
+    fun setSharkPresence(presence: Int) {
+        acuario.setSharkPresence(presence)
+        notifySettingsChanged(KEY_SHARK_PRESENCE)
+    }
 
     override fun getSharkColor(): Int = acuario.getSharkColor()
-    fun setSharkColor(color: Int) = acuario.setSharkColor(color)
-
+    fun setSharkColor(color: Int) {
+        acuario.setSharkColor(color)
+        notifySettingsChanged(KEY_SHARK_COLOR)
+    }
 
     override fun getPlantDensity(): Int = acuario.getPlantDensity()
-    fun setPlantDensity(count: Int) = acuario.setPlantDensity(count)
+    fun setPlantDensity(count: Int) {
+        acuario.setPlantDensity(count)
+        notifySettingsChanged(KEY_PLANT_DENSITY)
+    }
 
     override fun getBubbleCount(): Int = acuario.getBubbleCount()
-    fun setBubbleCount(count: Int) = acuario.setBubbleCount(count)
+    fun setBubbleCount(count: Int) {
+        acuario.setBubbleCount(count)
+        notifySettingsChanged(KEY_BUBBLE_COUNT)
+    }
 
     override fun getDayNightCycleDuration(): Int = acuario.getDayNightCycleDuration()
-    fun setDayNightCycleDuration(duration: Int) = acuario.setDayNightCycleDuration(duration)
+    fun setDayNightCycleDuration(duration: Int) {
+        acuario.setDayNightCycleDuration(duration)
+        notifySettingsChanged(KEY_DAY_NIGHT_CYCLE)
+    }
 
     override fun getCustomShallowColor(): Int = acuario.getCustomShallowColor()
-    fun setCustomShallowColor(color: Int) = acuario.setCustomShallowColor(color)
+    fun setCustomShallowColor(color: Int) {
+        acuario.setCustomShallowColor(color)
+        notifySettingsChanged(KEY_CUSTOM_SHALLOW_COLOR)
+    }
 
     override fun getCustomDeepColor(): Int = acuario.getCustomDeepColor()
-    fun setCustomDeepColor(color: Int) = acuario.setCustomDeepColor(color)
+    fun setCustomDeepColor(color: Int) {
+        acuario.setCustomDeepColor(color)
+        notifySettingsChanged(KEY_CUSTOM_DEEP_COLOR)
+    }
 
     override fun getSubmarineColor(): Int = acuario.getSubmarineColor()
-    fun setSubmarineColor(color: Int) = acuario.setSubmarineColor(color)
+    fun setSubmarineColor(color: Int) {
+        acuario.setSubmarineColor(color)
+        notifySettingsChanged(KEY_SUBMARINE_COLOR)
+    }
 
     override fun isGyroEnabled(): Boolean = acuario.isGyroEnabled()
-    fun setGyroEnabled(enabled: Boolean) = acuario.setGyroEnabled(enabled)
+    fun setGyroEnabled(enabled: Boolean) {
+        acuario.setGyroEnabled(enabled)
+        notifySettingsChanged(KEY_GYRO_ENABLED)
+    }
 }
