@@ -59,7 +59,6 @@ class AcuarioRenderer(
     private var bgThemeHandle = 0
     private var bgAspectHandle = 0
     private var bgParallaxHandle = 0
-    private var bgGyroOffsetHandle = 0
     private var bgDayNightHandle = 0
     private var bgCustomShallowHandle = 0
     private var bgCustomDeepHandle = 0
@@ -102,20 +101,12 @@ class AcuarioRenderer(
     // (1 - e^(-kParallaxEaseRate*0.3) ~= 0.95).
     private val kParallaxEaseRate = 10f
 
-    private var targetTiltX = 0f
-    private var targetTiltY = 0f
-    private var smoothedTiltX = 0f
-    private var smoothedTiltY = 0f
-
     private fun getParallaxX(depth: Float): Float {
         val rangeX = 0.12f - 0.06f * depth
-        return (parallaxRaw + smoothedTiltX) * rangeX
+        return parallaxRaw * rangeX
     }
 
-    private fun getParallaxY(depth: Float): Float {
-        val rangeY = 0.06f * (1.0f - 0.5f * depth)
-        return smoothedTiltY * rangeY
-    }
+    private fun getParallaxY(depth: Float): Float = 0f
 
     // Bubbles (instanced quads, same attribute layout as the "wallpaper" reference project's
     // particle.vert/frag)
@@ -261,6 +252,7 @@ class AcuarioRenderer(
     private var sandHighlightColorHandle = 0
     private var sandShadowColorHandle = 0
     private var sandDeepColorHandle = 0
+    private var sandIsForegroundHandle = 0
 
     private val kSandBaseColor = floatArrayOf(0.78f, 0.70f, 0.54f)
     private val kSandHighlightColor = floatArrayOf(0.90f, 0.84f, 0.70f)
@@ -627,7 +619,6 @@ class AcuarioRenderer(
             bgThemeHandle = GLES30.glGetUniformLocation(backgroundProgram, "uTheme")
             bgAspectHandle = GLES30.glGetUniformLocation(backgroundProgram, "uAspectRatio")
             bgParallaxHandle = GLES30.glGetUniformLocation(backgroundProgram, "uParallaxOffset")
-            bgGyroOffsetHandle = GLES30.glGetUniformLocation(backgroundProgram, "uGyroOffset")
             bgDayNightHandle = GLES30.glGetUniformLocation(backgroundProgram, "uDayNight")
             bgCustomShallowHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomShallowColor")
             bgCustomDeepHandle = GLES30.glGetUniformLocation(backgroundProgram, "uCustomDeepColor")
@@ -758,6 +749,7 @@ class AcuarioRenderer(
             sandHighlightColorHandle = GLES30.glGetUniformLocation(sandProgram, "uHighlightColor")
             sandShadowColorHandle = GLES30.glGetUniformLocation(sandProgram, "uShadowColor")
             sandDeepColorHandle = GLES30.glGetUniformLocation(sandProgram, "uDeepColor")
+            sandIsForegroundHandle = GLES30.glGetUniformLocation(sandProgram, "uIsForeground")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -969,10 +961,7 @@ class AcuarioRenderer(
         targetOffsetX = xOffset
     }
 
-    override fun onSensorValuesChanged(tiltX: Float, tiltY: Float) {
-        targetTiltX = tiltX
-        targetTiltY = tiltY
-    }
+    override fun onSensorValuesChanged(tiltX: Float, tiltY: Float) {}
 
     /**
      * Hit-tests a raw screen-pixel tap against the turtles: converts it into the same [-aspectRatio,
@@ -1264,12 +1253,6 @@ class AcuarioRenderer(
         parallaxRaw = offsetX - 0.5f
         foregroundParallax = parallaxRaw * kForegroundParallaxRange
 
-        val isGyro = configProvider.isGyroEnabled()
-        val gyroLerp = 1f - exp(-8f * deltaTime)
-        val curTargetTiltX = if (isGyro) targetTiltX else 0f
-        val curTargetTiltY = if (isGyro) targetTiltY else 0f
-        smoothedTiltX += (curTargetTiltX - smoothedTiltX) * gyroLerp
-        smoothedTiltY += (curTargetTiltY - smoothedTiltY) * gyroLerp
 
         syncTurtleCount()
         syncFishCount()
@@ -2105,6 +2088,7 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandHighlightColorHandle, 1, scratchSandHighlightColor, 0)
         GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
+        GLES30.glUniform1i(sandIsForegroundHandle, 0)
 
         val sandWidth = aspectRatio * 4.2f
         val sandHeight = 0.95f
@@ -2126,9 +2110,9 @@ class AcuarioRenderer(
     }
 
     /**
-     * Draws a smaller, foreground layer of seabed sand directly in front of the flora, subtly
-     * covering and embedding the very lowest part of the plants (near [kPlantFloorY] = -0.80f)
-     * so they appear naturally rooted in the ocean substrate rather than cut off flat.
+     * Draws a smaller, foreground layer of seabed sand directly in front of the flora, strictly
+     * covering only ~10% above the flora baseline (anchored at [kPlantFloorY] = -0.80f) with the
+     * remaining ~90% extending downward to anchor the seabed to the bottom of the screen.
      */
     private fun drawForeSand(deepColor: FloatArray) {
         if (sandProgram == 0) return
@@ -2148,10 +2132,11 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandHighlightColorHandle, 1, scratchSandHighlightColor, 0)
         GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
+        GLES30.glUniform1i(sandIsForegroundHandle, 1)
 
         val sandWidth = aspectRatio * 4.5f
-        val sandHeight = 0.65f
-        val sandCenterY = -0.74f
+        val sandHeight = 0.33f
+        val sandCenterY = -0.915f
         val sandDepth = 0.08f
 
         Matrix.setIdentityM(modelMatrix, 0)
@@ -2521,7 +2506,7 @@ class AcuarioRenderer(
         GLES30.glUniform1i(bgThemeHandle, theme)
         GLES30.glUniform1f(bgAspectHandle, aspectRatio)
         GLES30.glUniform1f(bgParallaxHandle, parallaxRaw)
-        GLES30.glUniform2f(bgGyroOffsetHandle, smoothedTiltX, smoothedTiltY)
+
         GLES30.glUniform1f(bgDayNightHandle, dayNight)
         GLES30.glUniform1f(bgStormIntensityHandle, stormVisualIntensity)
 

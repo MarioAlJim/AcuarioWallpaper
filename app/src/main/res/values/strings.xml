@@ -54,7 +54,4 @@
     <string name="submarine_color_verde">Verde</string>
     <string name="submarine_color_rosa">Rosa</string>
     <string name="submarine_color_naranja">Naranja</string>
-    <string name="settings_section_gyroscope">Efecto Parallax (Giroscopio)</string>
-    <string name="gyroscope_enabled">Activado</string>
-    <string name="gyroscope_disabled">Desactivado</string>
 </resources>

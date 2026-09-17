@@ -48,7 +48,6 @@ class AcuarioSettingsFragment : Fragment() {
         setupBubbleCountCards(view)
         setupDayNightCycleCards(view)
         setupSubmarineColorCards(view)
-        setupGyroscopeCards(view)
 
         view.findViewById<View>(R.id.buttonHelpInteractions).setOnClickListener {
             (requireActivity() as WallpaperSettingsActivity).showHelpDialog()
@@ -483,31 +482,6 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setSharkColor(selectedIndex)
-        }
-    }
-
-    private fun setupGyroscopeCards(parent: View) {
-        val container = parent.findViewById<LinearLayout>(R.id.containerGyroscope) ?: return
-        val options = arrayOf(
-            getString(R.string.gyroscope_enabled),
-            getString(R.string.gyroscope_disabled)
-        )
-        val initialIndex = if (configManager.isGyroEnabled()) 0 else 1
-
-        SettingsCardSelectorHelper.populate(
-            requireContext(),
-            container,
-            options,
-            initialIndex,
-            previewFactory = { index ->
-                TextView(requireContext()).apply {
-                    text = if (index == 0) "📱" else "🚫"
-                    textSize = 15f
-                    gravity = Gravity.CENTER
-                }
-            }
-        ) { selectedIndex ->
-            configManager.setGyroEnabled(selectedIndex == 0)
         }
     }
 }

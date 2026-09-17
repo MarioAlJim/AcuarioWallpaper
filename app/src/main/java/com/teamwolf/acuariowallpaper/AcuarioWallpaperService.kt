@@ -50,11 +50,8 @@ class AcuarioWallpaperService : WallpaperService() {
             }
         }
 
-        // Sensor variables for 3D tilt (wire up once the renderer reacts to it).
         private var sensorManager: SensorManager? = null
         private var accelerometer: Sensor? = null
-        private var smoothedTiltX = 0f
-        private var smoothedTiltY = 0f
 
         // "Bubble Pop" shake gesture: needs SHAKES_REQUIRED separate acceleration peaks within
         // SHAKE_WINDOW_MS of each other (not just one hard jolt) before it counts as a deliberate
@@ -182,23 +179,6 @@ class AcuarioWallpaperService : WallpaperService() {
             val ax = event.values[0]
             val ay = event.values[1]
             val az = event.values[2]
-
-            if (configManager.isGyroEnabled()) {
-                val targetTiltX = (ax / 9.8f).coerceIn(-1f, 1f)
-                val targetTiltY = ((ay - 4.9f) / 4.9f).coerceIn(-1f, 1f)
-
-                val alpha = 0.1f
-                smoothedTiltX += alpha * (targetTiltX - smoothedTiltX)
-                smoothedTiltY += alpha * (targetTiltY - smoothedTiltY)
-
-                renderThread?.queueSensorValues(smoothedTiltX, smoothedTiltY)
-            } else {
-                if (smoothedTiltX != 0f || smoothedTiltY != 0f) {
-                    smoothedTiltX = 0f
-                    smoothedTiltY = 0f
-                    renderThread?.queueSensorValues(0f, 0f)
-                }
-            }
 
             detectShake(ax, ay, az)
         }

@@ -21,5 +21,4 @@ interface ConfigProvider {
     fun getCustomShallowColor(): Int   // Custom top gradient color
     fun getCustomDeepColor(): Int      // Custom bottom gradient color
     fun getSubmarineColor(): Int       // 0: Amarillo, 1: Rojo, 2: Azul, 3: Verde, 4: Rosa, 5: Naranja
-    fun isGyroEnabled(): Boolean       // Whether 3D parallax tilt responds to gyroscope / accelerometer
 }
