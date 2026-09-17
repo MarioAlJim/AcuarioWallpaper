@@ -216,11 +216,8 @@ void main() {
     float beam2 = pow(max(0.0, sin(rayPhase2)), 10.0);
     float ray = max(beam1, beam2 * 0.7);
 
-    // Storm at the Surface: during a Bubble Storm the shafts flicker instead of holding steady,
-    // as if scattering through a choppy surface rather than still water. Two high, non-harmonic
-    // frequencies (not one) so the flicker itself looks irregular rather than a metronomic strobe.
-    // mix()'d by uStormIntensity so this is exactly 1.0 (no-op) whenever there's no storm.
-    float rayJitter = 0.7 + 0.3 * sin(uTime * 23.0) * sin(uTime * 31.0 + 1.3);
+    // Storm at the Surface: soft aquatic wave modulation during a Bubble Storm (smooth, no harsh strobe flashing).
+    float rayJitter = 0.88 + 0.12 * sin(uTime * 3.5);
     ray *= mix(1.0, rayJitter, uStormIntensity);
 
     // Occasional sun flashes (only in open-water themes: 1, 2, 4) fanning from the top edge.
@@ -260,14 +257,19 @@ void main() {
     // coordinates and sin() outputs respectively, never growing over time - only `t` (and
     // `phase` above) are direct multiples of the unbounded uTime.
     highp float t = uTime * 0.35;
-    // Storm at the Surface: a churned-up surface ripples faster AND wider than calm water, so
-    // both the warp's time rate and its amplitude scale up together with uStormIntensity - at
-    // 0.0 this multiplies out to the original, unboosted warp.
-    float stormWarpBoost = 1.0 + uStormIntensity * 1.8;
-    vec2 warp = vec2(
-        sin(p.y * 1.3 + t * 2.0 * stormWarpBoost),
-        sin(p.x * 1.1 - t * 1.6 * stormWarpBoost)
-    ) * 0.3 * stormWarpBoost;
+    // Storm at the Surface: a churned-up surface ripples wider and adds a secondary fast wave.
+    // Modulation is applied to amplitude and additive phase offset without multiplying the accumulated time `t`
+    // by a time-varying intensity factor inside sin(), preventing chaotic phase-derivative speed spikes during fade-out.
+    highp float stormTime = mod(uTime * 2.5, 62.831853);
+    vec2 stormRipple = vec2(
+        sin(p.y * 3.2 + stormTime),
+        cos(p.x * 2.8 - stormTime)
+    ) * 0.15 * uStormIntensity;
+    float stormWarpBoost = 0.30 + uStormIntensity * 0.35;
+    vec2 warp = (vec2(
+        sin(p.y * 1.3 + t * 2.0),
+        sin(p.x * 1.1 - t * 1.6)
+    ) + stormRipple) * stormWarpBoost;
     vec2 cp = p + warp;
 
     // Chromatic aberration: real underwater caustics separate slightly by wavelength right at

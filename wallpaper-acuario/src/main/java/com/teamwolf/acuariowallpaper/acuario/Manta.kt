@@ -66,6 +66,7 @@ class Manta {
     var depth = Random.nextFloat()
         private set
     private var targetDepth = depth
+    private var depthRetargetTimer = 4f + Random.nextFloat() * 6f
 
     private var targetX = 0f
     private var targetY = 0f
@@ -147,6 +148,11 @@ class Manta {
         }
 
         // Depth drift
+        depthRetargetTimer -= deltaTime
+        if (depthRetargetTimer <= 0f) {
+            targetDepth = Random.nextFloat()
+            depthRetargetTimer = 4f + Random.nextFloat() * 6f
+        }
         val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
         depth += (targetDepth - depth) * depthLerp
 

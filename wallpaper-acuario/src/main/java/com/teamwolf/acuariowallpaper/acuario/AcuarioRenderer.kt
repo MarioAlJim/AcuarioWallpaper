@@ -1234,15 +1234,16 @@ class AcuarioRenderer(
             burstBubbles[activeBurstCount].apply {
                 reset(
                     startX = Random.nextFloat() * (aspectRatio * 2f) - aspectRatio,
-                    startY = -1.1f - Random.nextFloat() * 0.5f,
+                    // Stagger start Y deep below screen so bubbles rise in a smooth continuous wave without a bottom flash
+                    startY = -1.25f - Random.nextFloat() * 1.6f,
                     // Bigger and faster than ambient/propulsion bubbles - a churning storm, not
                     // the water's usual gentle trickle.
-                    size = 0.03f + Random.nextFloat() * 0.05f,
+                    size = 0.025f + Random.nextFloat() * 0.045f,
                     speed = 0.30f + Random.nextFloat() * 0.35f,
                     wobbleAmplitude = 0.02f + Random.nextFloat() * 0.03f,
                     wobbleSpeed = 1.0f + Random.nextFloat() * 2.0f,
                     wobbleSeed = Random.nextFloat() * 6.2832f,
-                    alpha = 0.45f + Random.nextFloat() * 0.35f
+                    alpha = 0.25f + Random.nextFloat() * 0.25f
                 )
                 isStorm = true
             }

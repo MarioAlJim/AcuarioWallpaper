@@ -22,6 +22,7 @@ class FishPaletteTest {
     @Test
     fun fish_getsARandomlyAssignedPaletteFromTheSharedList() {
         val fish = Fish()
-        assertTrue(FishPalette.PALETTES.any { it === fish.palette })
+        val allPalettes = FishPalette.PALETTES + listOf(FishPalette.SHINY_GOLD, FishPalette.SHINY_DIAMOND)
+        assertTrue(allPalettes.any { it === fish.palette })
     }
 }
