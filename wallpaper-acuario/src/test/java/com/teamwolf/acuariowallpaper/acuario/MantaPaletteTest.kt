@@ -22,6 +22,7 @@ class MantaPaletteTest {
     @Test
     fun manta_getsARandomlyAssignedPaletteFromTheSharedList() {
         val manta = Manta()
-        assertTrue(MantaPalette.PALETTES.any { it === manta.palette })
+        val validPalettes = MantaPalette.PALETTES + listOf(MantaPalette.SHINY_GOLD, MantaPalette.SHINY_DIAMOND)
+        assertTrue(validPalettes.any { it === manta.palette })
     }
 }

@@ -178,7 +178,7 @@ class AcuarioRenderer(
     private var turtleGlowColorHandle = 0
     private var turtleShinyTypeHandle = 0
     private val turtles = mutableListOf<Turtle>()
-    private val kTurtleScale = 0.28f
+    private val kTurtleScale = 0.308f
     private val kMaxTurtles = 5
 
     // Fish (drawn in back-to-front order by depth, single draw call per fish)
@@ -193,7 +193,7 @@ class AcuarioRenderer(
     private val fishGlowColorHandles = IntArray(4)
     private val fishShinyTypeHandles = IntArray(4)
     private val fishes = mutableListOf<Fish>()
-    private val kFishScale = 0.18f
+    private val kFishScale = 0.198f
     private val kMaxFish = 8
 
     // Manta rays (same single-transformed-quad shape as fish/turtles, but bigger and drawn
@@ -210,7 +210,7 @@ class AcuarioRenderer(
     private var mantaGlowColorHandle = 0
     private var mantaShinyTypeHandle = 0
     private val mantas = mutableListOf<Manta>()
-    private val kMantaScale = 0.34f
+    private val kMantaScale = 0.374f
     private val kMaxMantas = 4
 
 
@@ -229,7 +229,7 @@ class AcuarioRenderer(
     private var jellyfishTimeHandle = 0
     private var jellyfishElectricIntensityHandle = 0
     private val jellyfishes = mutableListOf<Jellyfish>()
-    private val kJellyfishScale = 0.26f
+    private val kJellyfishScale = 0.286f
     private val kMaxJellyfish = 6
 
     // Axolotls (crawling/swimming bottom-dwellers with feathery gills)
@@ -247,8 +247,9 @@ class AcuarioRenderer(
     private var axolotlShinyTypeHandle = 0
     private var axolotlTimeHandle = 0
     private val axolotls = mutableListOf<Axolotl>()
-    private val kAxolotlScale = 0.312f
+    private val kAxolotlScale = 0.3432f
     private val kMaxAxolotls = 4
+    private val kSharkScale = 1.21f
 
     // Rocks (substrate boulders along the tank floor bed)
     private var rockProgram = 0
@@ -964,7 +965,7 @@ class AcuarioRenderer(
         val targets = ArrayList<TouchTarget>()
 
         if (shark.active) {
-            val depthScale = 1.10f * (1f - (1f - kMinScaleAtDepth) * shark.depth)
+            val depthScale = kSharkScale * (1f - (1f - kMinScaleAtDepth) * shark.depth)
             targets.add(TouchTarget(
                 type = 3,
                 obj = shark,
@@ -1691,7 +1692,7 @@ class AcuarioRenderer(
         GLES30.glUseProgram(sharkProgram)
         GLES30.glUniform1f(sharkDayNightHandle, dayNight)
 
-        val depthScale = 1.10f * (1f - (1f - kMinScaleAtDepth) * shark.depth)
+        val depthScale = kSharkScale * (1f - (1f - kMinScaleAtDepth) * shark.depth)
         val tintAmount = shark.depth * kMaxDepthTint
 
         Matrix.setIdentityM(modelMatrix, 0)
