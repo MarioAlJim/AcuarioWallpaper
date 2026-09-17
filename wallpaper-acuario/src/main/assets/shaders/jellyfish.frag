@@ -19,7 +19,7 @@ uniform vec3 uGlowColor;
 // 0.0 = normal, 1.0 = "shiny gold", 2.0 = "shiny diamond" (see Jellyfish.kt's shinyType) - drives
 // the premium halo/sheen finish below.
 uniform float uShinyType;
-uniform float uTime;
+uniform highp float uTime;
 uniform float uElectricIntensity;
 
 out vec4 fragColor;
@@ -39,33 +39,20 @@ void main() {
     // fish/manta/seahorse there's no left/right asymmetry to preserve here.
     vec2 p = vec2((vUV.x - 0.5) * 2.0, (0.5 - vUV.y) * 2.0);
 
-    // Bell pulse: contracts taller/narrower on the power stroke, then relaxes back to a wider,
-    // flatter dome - the same rhythm that drives the upward thrust in Jellyfish.kt. Squash/
-    // stretch is inverse on the two axes so the bell reads as pushing water down rather than
-    // just uniformly scaling.
+    // Bell pulse: contracts taller/narrower on the power stroke (muscular squeeze), then relaxes
+    // back to a wider, flatter dome - pronounced squash & stretch for realistic propulsion.
     float pulse = sin(uPulsePhase);
-    float bellScaleX = 1.0 - pulse * 0.10;
-    float bellScaleY = 1.0 + pulse * 0.14;
+    float bellScaleX = 1.0 - pulse * 0.22;
+    float bellScaleY = 1.0 + pulse * 0.28;
 
     // Breathing size envelope, layered on top of the squash/stretch above: the whole bell also
-    // swells a little right as a pulse is about to fire, snaps into a slightly smaller contracted
-    // size during the power stroke itself, then relaxes back to its normal size by the time the
-    // stroke ends and holds there through the rest of the recovery half - until it starts
-    // swelling again as the next pulse approaches. cyclePos is a 0..1 sawtooth over one full
-    // pulse period, shifted so cyclePos == 0 lines up with the start of the power stroke (the
-    // same instant Jellyfish.kt's "contracting" flag flips true, i.e. where sin(uPulsePhase)
-    // bottoms out - see its comment).
+    // swells right as a pulse is about to fire, snaps into a contracted size during the power
+    // stroke, then relaxes back during recovery.
     const float kTwoPi = 6.28318530718;
     const float kHalfPi = 1.5707963;
     float cyclePos = fract((uPulsePhase + kHalfPi) / kTwoPi);
-    const float kExpandAmount = 0.10;
-    const float kContractAmount = 0.08;
-    // k1 carries the envelope from +expand (cyclePos 0) down to -contract (cyclePos 0.22, roughly
-    // the middle of the power stroke); k2 carries it back up from -contract to normal (0) by
-    // cyclePos 0.5 (the end of the stroke); k3 ramps it from normal back up to +expand across the
-    // last sliver of the cycle (0.85-1.0), in anticipation of the next stroke. Continuous and
-    // branchless by construction: at cyclePos == 1.0 this evaluates to the same +kExpandAmount as
-    // cyclePos == 0.0, so it wraps with no discontinuity.
+    const float kExpandAmount = 0.18;
+    const float kContractAmount = 0.14;
     float k1 = smoothstep(0.0, 0.22, cyclePos);
     float k2 = smoothstep(0.22, 0.5, cyclePos);
     float k3 = smoothstep(0.85, 1.0, cyclePos);
@@ -151,7 +138,8 @@ void main() {
     float jellyAlpha = max(max(aBell, aMargin), aTentacles);
 
     // Shiny halo - see fish.frag's identical block for the full explanation. Anchored to the bell
-    // itself via the already-named kBellCenter/kBellRadii consts (no literal copy needed here).
+    // itself via the already-named kBellCenter/kBellRadii consts (masked by domeMask so it
+    // contours the bell dome instead of drawing a full closed ellipse underneath).
     float haloAlpha = 0.0;
     if (uShinyType > 0.5) {
         vec2 qHalo = (pBell - kBellCenter) / kBellRadii;
@@ -166,6 +154,7 @@ void main() {
 
         float halo = exp(-(dEdge * dEdge) / (haloSigma * haloSigma));
         halo *= mix(0.12, 1.0, smoothstep(-0.06, 0.02, dEdge));
+        halo *= domeMask;
         haloAlpha = halo * breathe;
     }
 
@@ -182,21 +171,24 @@ void main() {
     // Electrification effect when touched:
     float electricGlow = 0.0;
     if (uElectricIntensity > 0.0) {
+        // Use bounded high-precision time modulo to prevent float precision loss over long runs
+        highp float eTime = mod(uTime, 62.831853);
+
         // High frequency flicker (crackling look)
-        float flicker = 0.6 + 0.4 * sin(uTime * 80.0);
+        float flicker = 0.6 + 0.4 * sin(eTime * 80.0);
         
         // Wavy vertical ray 1 down the middle
-        float w1 = sin(p.y * 25.0 + uTime * 35.0) * 0.15 * cos(p.y * 12.0 - uTime * 20.0);
+        float w1 = sin(p.y * 25.0 + eTime * 35.0) * 0.15 * cos(p.y * 12.0 - eTime * 20.0);
         float d1 = abs(p.x - w1);
         float s1 = smoothstep(0.02, 0.0, d1);
         
         // Ray 2 (warping on the right side)
-        float w2 = sin(p.y * 40.0 - uTime * 45.0) * 0.10 * sin(p.y * 15.0 + uTime * 25.0) + 0.25 * sin(uTime * 5.0);
+        float w2 = sin(p.y * 40.0 - eTime * 45.0) * 0.10 * sin(p.y * 15.0 + eTime * 25.0) + 0.25 * sin(eTime * 5.0);
         float d2 = abs(p.x - w2);
         float s2 = smoothstep(0.015, 0.0, d2);
 
         // Ray 3 (warping on the left side)
-        float w3 = cos(p.y * 35.0 + uTime * 50.0) * 0.10 * cos(p.y * 18.0 - uTime * 30.0) - 0.25 * sin(uTime * 6.0);
+        float w3 = cos(p.y * 35.0 + eTime * 50.0) * 0.10 * cos(p.y * 18.0 - eTime * 30.0) - 0.25 * sin(eTime * 6.0);
         float d3 = abs(p.x - w3);
         float s3 = smoothstep(0.015, 0.0, d3);
 
@@ -214,13 +206,12 @@ void main() {
         color += vec3(0.0, 0.55, 1.0) * electricGlow;
     }
 
-    // Bioluminescent glow along the margin, radial pattern and tentacles at night - see
-    // fish.frag's identical fix for why this is ramped through
-    // smoothstep(0.0, kNightGlowEdge, uDayNight) rather than a plain (1.0 - uDayNight).
-    const float kNightGlowEdge = 0.25;
+    // Bioluminescent glow along the margin, radial pattern and tentacles
+    const float kNightGlowEdge = 0.70;
     float nightGlow = 1.0 - smoothstep(0.0, kNightGlowEdge, uDayNight);
     float glowAlpha = max(max(aMargin, aTentacles * 0.7), patternAlpha * 0.6);
-    color += uGlowColor * glowAlpha * nightGlow * 1.3;
+    float glowMult = mix(0.8, 1.5, nightGlow);
+    color += uGlowColor * glowAlpha * glowMult;
 
     // Shiny sheen - see fish.frag's identical block for the full explanation. Masked by aBell
     // (not jellyAlpha) so the sweep/glints stay on the bell's own gelatinous surface rather than

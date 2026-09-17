@@ -60,8 +60,8 @@ class Jellyfish {
     // pulse period, see "contracting" below) makes the average drift rate scale directly with
     // this value regardless of pulseSpeed, so this alone is what controls how forceful the
     // movement reads.
-    private val thrustStrength = 0.32f + Random.nextFloat() * 0.20f
-    private val sinkSpeed = 0.12f + Random.nextFloat() * 0.08f
+    private val thrustStrength = 0.45f + Random.nextFloat() * 0.25f
+    private val sinkSpeed = 0.14f + Random.nextFloat() * 0.08f
 
     private var previousPulseSin = sin(pulsePhase)
 

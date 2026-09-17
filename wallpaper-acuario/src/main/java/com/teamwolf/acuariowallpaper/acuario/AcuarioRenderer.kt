@@ -1651,12 +1651,15 @@ class AcuarioRenderer(
 
             GLES30.glUniform1f(jellyfishPulsePhaseHandle, jf.pulsePhase % kTwoPi)
 
-            val ambientFactor = 0.35f + 0.65f * dayNight
+            // Jellyfish are self-illuminating translucent creatures - apply light depth tint and high ambient factor
+            // so their colors remain vibrant and luminous regardless of depth or time of day.
+            val jellyTintAmount = jf.depth * 0.15f
+            val jellyAmbientFactor = 0.85f + 0.15f * dayNight
             val palette = jf.palette
-            mixColorInto(scratchJellyfishBellColor, palette.bellColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchJellyfishMarginColor, palette.marginColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchJellyfishTentacleColor, palette.tentacleColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchJellyfishPatternColor, palette.patternColor, deepColor, tintAmount, ambientFactor)
+            mixColorInto(scratchJellyfishBellColor, palette.bellColor, deepColor, jellyTintAmount, jellyAmbientFactor)
+            mixColorInto(scratchJellyfishMarginColor, palette.marginColor, deepColor, jellyTintAmount, jellyAmbientFactor)
+            mixColorInto(scratchJellyfishTentacleColor, palette.tentacleColor, deepColor, jellyTintAmount, jellyAmbientFactor)
+            mixColorInto(scratchJellyfishPatternColor, palette.patternColor, deepColor, jellyTintAmount, jellyAmbientFactor)
 
             GLES30.glUniform3fv(jellyfishBellColorHandle, 1, scratchJellyfishBellColor, 0)
             GLES30.glUniform3fv(jellyfishMarginColorHandle, 1, scratchJellyfishMarginColor, 0)
