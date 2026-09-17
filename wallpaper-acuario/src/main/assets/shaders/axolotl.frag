@@ -69,8 +69,8 @@ void main() {
     // Transform UV to [-1, 1] space. Axolotl faces right (+x).
     vec2 p = vec2((vUV.x - 0.5) * 2.0, (0.5 - vUV.y) * 2.0);
 
-    // Undulating body wave from head (p.x > 0.2) to tail tip (p.x < -0.6)
-    float wave = sin(uSwimPhase - p.x * 4.0) * 0.12 * smoothstep(0.2, -0.6, p.x);
+    // Undulating body wave from head (p.x > 0.2) to extended tail tip (p.x < -0.8)
+    float wave = sin(uSwimPhase - p.x * 4.0) * 0.13 * smoothstep(0.2, -0.82, p.x);
     vec2 pWarped = vec2(p.x, p.y + wave);
 
     // --- Anatomical Masks ---
@@ -80,14 +80,23 @@ void main() {
     // 2. Trunk / Main Body
     float aBody = ellipseAlpha(pWarped, vec2(-0.02, 0.0), vec2(0.38, 0.14), 0.025);
 
-    // 3. Paddle Tail Fin (runs along back/tail, extending to x = -0.55)
-    float tailLen = 0.50;
-    float tX = (pWarped.x - (-0.05)) / (-tailLen);
+    // 3. Elongated muscular tail stem (central fleshy core of the tail)
+    float tailLen = 0.76;
+    float tailStartX = -0.05;
+    float tX = (pWarped.x - tailStartX) / (-tailLen);
     float tXClamped = clamp(tX, 0.0, 1.0);
-    float finHeight = 0.04 + 0.18 * sin(tXClamped * 3.14159);
-    float aTailFin = smoothstep(0.0, 0.04, tX) * smoothstep(1.0, 0.90, tX) * smoothstep(finHeight, finHeight - 0.02, abs(pWarped.y));
+    float stemHalfHeight = 0.11 * (1.0 - tXClamped * 0.82);
+    float aTailStem = smoothstep(0.0, 0.05, tX) * smoothstep(1.0, 0.92, tX) * smoothstep(stemHalfHeight, stemHalfHeight - 0.02, abs(pWarped.y));
 
-    // 4. Feathery External Gills (3 top, 3 bottom on head/neck at x = 0.18)
+    // 4. Paddle Tail Fin membrane (broad translucent swimming fold running along the back/tail)
+    float finStartX = 0.05;
+    float finLen = tailLen + (finStartX - tailStartX);
+    float tFin = (pWarped.x - finStartX) / (-finLen);
+    float tFinClamped = clamp(tFin, 0.0, 1.0);
+    float finHeight = 0.04 + 0.17 * sin(tFinClamped * 3.14159);
+    float aTailFin = smoothstep(0.0, 0.05, tFin) * smoothstep(1.0, 0.90, tFin) * smoothstep(finHeight, finHeight - 0.02, abs(pWarped.y));
+
+    // 5. Feathery External Gills (3 top, 3 bottom on head/neck at x = 0.18)
     vec2 neckPivot = vec2(0.18, 0.0);
     float flutter1 = sin(uGillPhase) * 0.10;
     float flutter2 = sin(uGillPhase + 1.0) * 0.12;
@@ -105,7 +114,7 @@ void main() {
 
     float aGills = max(max(max(gTop1, gTop2), gTop3), max(max(gBot1, gBot2), gBot3));
 
-    // 5. 4 Small Limbs / Legs
+    // 6. 4 Small Limbs / Legs
     float legSwingFront = sin(uLegPhase) * 0.35;
     float legSwingBack = cos(uLegPhase) * 0.35;
 
@@ -116,7 +125,7 @@ void main() {
 
     float aLegs = max(max(aLegFrontTop, aLegFrontBot), max(aLegBackTop, aLegBackBot));
 
-    // 6. Facial Features (Cute Eye, Pupil, Shine, Mouth, Blush)
+    // 7. Facial Features (Cute Eye, Pupil, Shine, Mouth, Blush)
     vec2 eyeCenter = vec2(0.36, 0.07);
     float aEye = ellipseAlpha(pWarped, eyeCenter, vec2(0.035, 0.035), 0.015);
     float aPupil = ellipseAlpha(pWarped, eyeCenter + vec2(0.005, 0.0), vec2(0.020, 0.020), 0.01);
@@ -129,14 +138,22 @@ void main() {
     // Cute blush cheek
     float aBlush = ellipseAlpha(pWarped, vec2(0.33, -0.04), vec2(0.045, 0.03), 0.03) * 0.45;
 
-    // Combine overall alpha
-    float coreBodyAlpha = max(max(aHead, aBody), aLegs);
-    float creatureAlpha = max(max(coreBodyAlpha, aGills), aTailFin);
+    // Combine overall alpha with realistic tail translucency
+    float stemOpacity = mix(0.95, 0.65, tXClamped);
+    float solidCore = max(max(aHead, aBody), aLegs);
+    solidCore = max(solidCore, aTailStem * stemOpacity);
+
+    // Delicate translucent tail fin membrane (alpha ~ 0.45 - 0.68)
+    float finEdgeDist = abs(pWarped.y) / max(0.001, finHeight);
+    float finAlpha = aTailFin * mix(0.68, 0.45, finEdgeDist);
+
+    float coreBodyAlpha = max(solidCore, aTailStem);
+    float creatureAlpha = max(max(solidCore, aGills), finAlpha);
 
     // --- Shiny Rare Aura ---
     float haloAlpha = 0.0;
     if (uShinyType > 0.5) {
-        vec2 qHalo = (pWarped - vec2(0.10, 0.0)) / vec2(0.45, 0.22);
+        vec2 qHalo = (pWarped - vec2(-0.04, 0.0)) / vec2(0.58, 0.23);
         float dEdge = length(qHalo) - 1.0;
         float isDiamond = step(1.5, uShinyType);
         float haloSigma = mix(0.24, 0.15, isDiamond);
@@ -152,9 +169,9 @@ void main() {
     }
 
     // --- Shading & Texturing ---
-    // Spot mottling texture across body
-    float spotPattern = sin(pWarped.x * 25.0) * cos(pWarped.y * 25.0);
-    spotPattern = smoothstep(0.2, 0.7, spotPattern * 0.5 + 0.5) * 0.35;
+    // Wavy ripple texture pattern across body (undulating waves instead of grid squares)
+    float wavePattern = sin(pWarped.x * 20.0 + sin(pWarped.y * 14.0) * 1.6);
+    float spotPattern = smoothstep(0.15, 0.80, wavePattern * 0.5 + 0.5) * 0.35;
 
     // Gradient shading: lighter belly at bottom, soft rim on top
     float verticalGrad = smoothstep(-0.15, 0.15, pWarped.y);
