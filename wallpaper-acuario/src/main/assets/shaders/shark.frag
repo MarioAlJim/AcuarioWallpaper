@@ -8,7 +8,7 @@ uniform vec3 uBodyColor;
 uniform float uDayNight;
 uniform vec3 uGlowColor;
 uniform float uBiteProgress; // 0.0 to 1.0 (interaction)
-uniform float uTime;
+uniform highp float uTime;
 
 out vec4 fragColor;
 
@@ -84,10 +84,10 @@ void main() {
     float aBodyRaw = ellipseAlpha(pBody, vec2(0.05, -0.02), vec2(0.55, 0.15), 0.012);
 
     // Mouth cut-out shifted closer to the tip/nose
-    // Mouth opens during bite interaction
-    float mouthOpenY = -0.11 - 0.04 * uBiteProgress;
-    float mouthRadiusY = 0.022 + 0.05 * uBiteProgress;
-    float aMouthCut = ellipseAlpha(pWarped, vec2(0.41, mouthOpenY), vec2(0.065, mouthRadiusY), 0.01) * aBodyRaw;
+    // Mouth opens wide during bite interaction
+    float mouthOpenY = -0.11 - 0.05 * uBiteProgress;
+    float mouthRadiusY = 0.020 + 0.065 * uBiteProgress;
+    float aMouthCut = ellipseAlpha(pWarped, vec2(0.41, mouthOpenY), vec2(0.072, mouthRadiusY), 0.008) * aBodyRaw;
     float aBody = clamp(aBodyRaw - aMouthCut, 0.0, 1.0);
 
 
@@ -168,38 +168,43 @@ void main() {
     bodyCol = mix(bodyCol, finalBodyColor * 0.75, aGills);
     bodyCol = mix(bodyCol, vec3(0.05, 0.05, 0.05), aEye);
 
-    // Mouth throat and teeth (shifted closer to the snout tip)
-    float inMouthX = smoothstep(0.33, 0.35, pWarped.x) * smoothstep(0.49, 0.47, pWarped.x);
+    // Mouth throat cavity and razor-sharp serrated teeth (visible whenever bared)
+    float inMouthX = smoothstep(0.335, 0.355, pWarped.x) * smoothstep(0.485, 0.465, pWarped.x);
     float aTeeth = 0.0;
-    if (inMouthX > 0.0) {
-        float toothPattern = fract((pWarped.x - 0.33) * 35.0);
-        float triangle = 1.0 - 2.0 * abs(toothPattern - 0.5);
-        float toothHeight = 0.02 * triangle;
-        
-        // Upper jaw teeth hanging down
-        float upperJawY = -0.09 + (pWarped.x - 0.33) * 0.12;
-        if (pWarped.y < upperJawY && pWarped.y > upperJawY - toothHeight) {
-            aTeeth = inMouthX * smoothstep(-0.005, 0.0, pWarped.y - (upperJawY - toothHeight));
+    if (inMouthX > 0.0 && aMouthCut > 0.05 && uBiteProgress > 0.02) {
+        // Upper jaw teeth: sharp triangles pointing down from upper jaw rim
+        float upperToothPattern = fract((pWarped.x - 0.33) * 36.0);
+        float upperTriangle = clamp(1.0 - 2.0 * abs(upperToothPattern - 0.5), 0.0, 1.0);
+        float upperToothHeight = 0.028 * upperTriangle;
+        float upperJawY = -0.082 + (pWarped.x - 0.33) * 0.11;
+        if (pWarped.y <= upperJawY && pWarped.y >= upperJawY - upperToothHeight) {
+            float tMask = smoothstep(-0.003, 0.002, pWarped.y - (upperJawY - upperToothHeight));
+            aTeeth = max(aTeeth, inMouthX * tMask);
         }
-        
-        // Lower jaw teeth pointing up
-        float lowerJawY = -0.12 - 0.04 * uBiteProgress + (pWarped.x - 0.33) * 0.12;
-        if (pWarped.y > lowerJawY && pWarped.y < lowerJawY + toothHeight) {
-            aTeeth = max(aTeeth, inMouthX * smoothstep(0.005, 0.0, pWarped.y - (lowerJawY + toothHeight)));
+
+        // Lower jaw teeth: sharp triangles pointing up from dropping lower jaw rim
+        float lowerToothPattern = fract((pWarped.x - 0.33 + 0.014) * 36.0);
+        float lowerTriangle = clamp(1.0 - 2.0 * abs(lowerToothPattern - 0.5), 0.0, 1.0);
+        float lowerToothHeight = 0.028 * lowerTriangle;
+        float lowerJawY = -0.108 - 0.065 * uBiteProgress + (pWarped.x - 0.33) * 0.11;
+        if (pWarped.y >= lowerJawY && pWarped.y <= lowerJawY + lowerToothHeight) {
+            float bMask = smoothstep(0.003, -0.002, pWarped.y - (lowerJawY + lowerToothHeight));
+            aTeeth = max(aTeeth, inMouthX * bMask);
         }
     }
-    aTeeth *= aMouthCut;
+    aTeeth = clamp(aTeeth * smoothstep(0.05, 0.25, aMouthCut) * smoothstep(0.02, 0.15, uBiteProgress), 0.0, 1.0);
 
-    vec3 throatColor = vec3(0.3, 0.05, 0.05); // dark blood red
+    vec3 throatColor = vec3(0.18, 0.02, 0.03); // deep dark crimson throat
     bodyCol = mix(bodyCol, throatColor, aMouthCut);
-    bodyCol = mix(bodyCol, vec3(0.95, 0.95, 0.95), aTeeth);
+    vec3 teethColor = vec3(0.98, 0.98, 0.96); // bright ivory teeth
+    bodyCol = mix(bodyCol, teethColor, aTeeth);
 
-    // 3. Blend the body on top of the background fin
-    color = mix(color, bodyCol, aBody);
+    // 3. Blend the entire body (skin + mouth cavity + teeth) on top of the background fin
+    color = mix(color, bodyCol, aBodyRaw);
 
     // Caustics on the shark's skin (back only, similar to the turtle)
-    // uAspectRatio isn't used here, p is already normalized
-    highp float t = uTime * 0.35;
+    highp float safeTime = mod(uTime, 62.831853);
+    highp float t = safeTime * 0.35;
     vec2 cp = pWarped * 5.0 + vec2(sin(pWarped.y * 1.3 + t * 2.0), sin(pWarped.x * 1.1 - t * 1.6)) * 0.3;
     vec2 v = voronoiCaustic(cp);
     float caustic = pow(1.0 - smoothstep(0.0, 0.25, v.y - v.x), 1.5);
@@ -214,7 +219,8 @@ void main() {
 
     // Day-Night shading
     float ambientFactor = 0.35 + 0.65 * uDayNight;
-    color *= ambientFactor;
+    // Ambient dimming for body and fins, but keep teeth gleaming bright white even at night
+    color *= mix(ambientFactor, 1.0, aTeeth);
 
     // Bioluminescent glow (only on the colored part of the body and fins, not on gills, eye, or mouth interior/teeth)
     const float kNightGlowEdge = 0.25;
@@ -226,6 +232,12 @@ void main() {
     float glowMask = max(bodyGlow, finsGlow);
 
     color += uGlowColor * glowMask * glowStrength;
+
+    // Emissive gleaming highlight on teeth whenever bared (visible day and night)
+    if (aTeeth > 0.0) {
+        vec3 toothGlint = vec3(1.0, 1.0, 0.98);
+        color = mix(color, toothGlint, aTeeth * 0.92);
+    }
 
     // Rim lighting (glowing edges)
     float bodyRim = rimLight(pWarped, vec2(0.05, -0.02), vec2(0.55, 0.15), aBody);

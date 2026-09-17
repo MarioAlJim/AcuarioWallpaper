@@ -73,7 +73,7 @@ class Shark {
     }
 
     fun touch() {
-        if (!active || isBiting) return
+        if (!active) return
         isBiting = true
         biteTimer = 0f
     }
@@ -87,26 +87,38 @@ class Shark {
         // Prevent update jumps on massive frames spikes
         val dt = deltaTime.coerceAtMost(0.1f)
 
-        // Handle bite and lunge interaction
+        // Handle bite and lunge interaction: extended duration showing bared teeth
         if (isBiting) {
             biteTimer += dt
-            // Lunge: much sharper and more aggressive speed boost
-            lungeMultiplier = if (biteTimer < 0.5f) {
-                1.0f + (2.5f * (1.0f - biteTimer / 0.5f))
-            } else {
-                1.0f
+
+            // Forward surge / lunge multiplier during the bite display
+            lungeMultiplier = when {
+                biteTimer < 0.8f -> 1.0f + 2.2f * (1.0f - biteTimer / 0.8f) // explosive initial lunge
+                biteTimer < 2.2f -> 1.35f // sustained predatory speed during the hold
+                biteTimer < 3.0f -> 1.0f + 0.35f * (1.0f - (biteTimer - 2.2f) / 0.8f) // settling back to cruising speed
+                else -> 1.0f
             }
 
-            // Bite progress: open mouth fast, close slow
-            biteProgress = if (biteTimer < 0.25f) {
-                biteTimer / 0.25f // Snaps open in 0.25s
-            } else if (biteTimer < 0.8f) {
-                1.0f - (biteTimer - 0.25f) / 0.55f // Closes in 0.55s
-            } else {
-                0f
+            // Bite progress: snap open -> hold showing teeth -> smooth close
+            biteProgress = when {
+                biteTimer < 0.35f -> {
+                    // Quick menacing snap open (0.0 to 1.0)
+                    val t = biteTimer / 0.35f
+                    t * (2.0f - t) // easeOut quad
+                }
+                biteTimer < 2.2f -> {
+                    // Hold open displaying razor-sharp teeth with sustained predatory focus
+                    1.0f
+                }
+                biteTimer < 3.0f -> {
+                    // Smooth, deliberate jaw closure back to normal
+                    val t = (biteTimer - 2.2f) / 0.8f
+                    1.0f - t * t // easeIn quad
+                }
+                else -> 0f
             }
 
-            if (biteTimer >= 1.0f) {
+            if (biteTimer >= 3.0f) {
                 isBiting = false
                 biteProgress = 0f
                 lungeMultiplier = 1f
