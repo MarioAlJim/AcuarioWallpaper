@@ -36,7 +36,7 @@ class Jellyfish {
 
     var x = Random.nextFloat() * 1.4f - 0.7f
         private set
-    var y = -0.9f + Random.nextFloat() * 1.7f
+    var y = -0.60f + Random.nextFloat() * 1.45f
         private set
 
     // Drives jellyfish.frag's bell contraction/expansion and trailing tentacle ripple.
@@ -106,7 +106,7 @@ class Jellyfish {
         // jellyfish has no steering to correct course on its own.
         val halfWidth = aspectRatio * 0.85f
         x = x.coerceIn(-halfWidth, halfWidth)
-        y = y.coerceIn(-0.95f, 0.95f)
+        y = y.coerceIn(-0.65f, 0.95f)
 
         depthRetargetTimer -= deltaTime
         if (depthRetargetTimer <= 0f) {

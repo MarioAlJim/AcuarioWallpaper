@@ -34,7 +34,7 @@ class Manta {
 
     var x = Random.nextFloat() * 1.2f - 0.6f
         private set
-    var y = -0.9f + Random.nextFloat() * 1.5f
+    var y = -0.65f + Random.nextFloat() * 1.35f
         private set
 
     var heading = 0f
@@ -108,7 +108,7 @@ class Manta {
         val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth) * speedMultiplier
         val activeSpeed = if (loopTimer > 0f) effectiveSpeed * 2.5f else effectiveSpeed
         x += (dx / dist) * activeSpeed * deltaTime
-        y += (dy / dist) * activeSpeed * deltaTime
+        y = (y + (dy / dist) * activeSpeed * deltaTime).coerceIn(-0.68f, 0.78f)
 
         // Heading steering and mirror flip are paused during a loop
         if (loopTimer <= 0f) {
@@ -190,7 +190,7 @@ class Manta {
         // Roams the entire vertical range, same as Fish - unlike turtles, mantas don't stick to
         // the lower/mid water column.
         targetX = Random.nextFloat() * (aspectRatio * 1.6f) - aspectRatio * 0.8f
-        targetY = -0.85f + Random.nextFloat() * 1.65f
+        targetY = -0.68f + Random.nextFloat() * 1.48f
         hasTarget = true
         targetDepth = Random.nextFloat()
 

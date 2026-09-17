@@ -75,7 +75,7 @@ class Turtle {
     // generic-enough range and the first update() call picks a proper waypoint right after.
     var x = Random.nextFloat() * 1.2f - 0.6f
         private set
-    var y = -0.9f + Random.nextFloat() * 1.1f
+    var y = -0.65f + Random.nextFloat() * 0.95f
         private set
 
     /** Current facing angle in radians, smoothed each frame - see class doc. */
@@ -204,7 +204,7 @@ class Turtle {
         speedMultiplier += (targetSpeedMultiplier - speedMultiplier) * speedLerp
         val effectiveSpeed = speed * (1f - (1f - kMinSpeedAtDepth) * depth) * speedMultiplier
         x += (dx / dist) * effectiveSpeed * deltaTime
-        y += (dy / dist) * effectiveSpeed * deltaTime
+        y = (y + (dy / dist) * effectiveSpeed * deltaTime).coerceIn(-0.68f, 0.90f)
 
         // Steer heading toward the target angle instead of snapping to it: each frame it
         // closes a fraction of the remaining angular gap (framerate-independent via the usual
@@ -338,7 +338,7 @@ class Turtle {
         }
         val fleeDist = kFleeDistanceMin + Random.nextFloat() * (kFleeDistanceMax - kFleeDistanceMin)
         targetX = (x + dirX * fleeDist).coerceIn(-aspectRatio * 0.9f, aspectRatio * 0.9f)
-        targetY = (y + dirY * fleeDist).coerceIn(-0.9f, 0.2f)
+        targetY = (y + dirY * fleeDist).coerceIn(-0.68f, 0.2f)
         hasTarget = true
         targetSpeedMultiplier = kFleeSpeedMultiplier
         speedMultiplier = kFleeSpeedMultiplier
@@ -441,7 +441,7 @@ class Turtle {
         // Roams the lower two-thirds of the water column - turtles cruise nearer the
         // bottom/mid-depth rather than right at the surface.
         targetX = Random.nextFloat() * (aspectRatio * 1.6f) - aspectRatio * 0.8f
-        targetY = -0.9f + Random.nextFloat() * 1.1f
+        targetY = -0.68f + Random.nextFloat() * 0.90f
         hasTarget = true
         // A new "decision" to come closer or recede is made alongside every new waypoint.
         targetDepth = Random.nextFloat()

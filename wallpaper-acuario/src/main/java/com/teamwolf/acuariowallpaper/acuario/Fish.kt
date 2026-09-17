@@ -43,7 +43,7 @@ class Fish {
 
     var x = Random.nextFloat() * 1.2f - 0.6f
         private set
-    var y = -0.9f + Random.nextFloat() * 1.5f
+    var y = -0.65f + Random.nextFloat() * 1.35f
         private set
 
     var heading = 0f
@@ -133,6 +133,7 @@ class Fish {
         if (dist > 0.001f) {
             x += (dx / dist) * effectiveSpeed * deltaTime
             y += (dy / dist) * effectiveSpeed * deltaTime
+            y = y.coerceIn(-0.68f, 0.85f)
         }
 
         // Heading steering
@@ -177,7 +178,7 @@ class Fish {
     private fun pickNewTarget(aspectRatio: Float) {
         // Roams the entire vertical range, unlike turtles who stay lower
         targetX = Random.nextFloat() * (aspectRatio * 1.6f) - aspectRatio * 0.8f
-        targetY = -0.85f + Random.nextFloat() * 1.65f
+        targetY = -0.68f + Random.nextFloat() * 1.48f
         hasTarget = true
         targetDepth = Random.nextFloat()
 

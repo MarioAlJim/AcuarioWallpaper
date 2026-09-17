@@ -2149,7 +2149,7 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
 
-        val sandWidth = aspectRatio * 3.8f
+        val sandWidth = aspectRatio * 4.2f
         val sandHeight = 0.36f
         val sandCenterY = -0.84f
         val sandDepth = 0.08f
@@ -2157,7 +2157,7 @@ class AcuarioRenderer(
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.translateM(
             modelMatrix, 0,
-            getParallaxX(sandDepth) + 0.45f,
+            getParallaxX(sandDepth),
             sandCenterY + getParallaxY(sandDepth),
             0f
         )

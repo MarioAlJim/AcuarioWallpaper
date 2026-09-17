@@ -161,7 +161,7 @@ class Shark {
             // Move forward in current heading direction
             val speed = baseSpeed * (1f - (1f - kMinSpeedAtDepth) * depth) * lungeMultiplier
             x += cos(heading) * speed * dt
-            y += sin(heading) * speed * dt
+            y = (y + sin(heading) * speed * dt).coerceIn(-0.65f, 0.75f)
 
             // Smooth depth change
             depth += (targetDepth - depth) * (1f - exp(-0.6f * dt))
@@ -195,7 +195,7 @@ class Shark {
                 x += dirX * speed * dt
 
                 // Float slightly up/down in a slow wave
-                y += sin(timeAccumulator) * 0.05f * dt
+                y = (y + sin(timeAccumulator) * 0.05f * dt).coerceIn(-0.65f, 0.75f)
                 timeAccumulator = (timeAccumulator + dt) % TWO_PI
 
                 // Face the direction of travel
@@ -239,7 +239,7 @@ class Shark {
 
     private fun pickNewTarget(aspectRatio: Float) {
         targetX = Random.nextFloat() * (aspectRatio * 1.6f) - aspectRatio * 0.8f
-        targetY = -0.6f + Random.nextFloat() * 1.2f
+        targetY = -0.55f + Random.nextFloat() * 1.15f
         targetDepth = 0.3f + Random.nextFloat() * 0.4f
         hasTarget = true
     }
