@@ -371,9 +371,9 @@ class AcuarioRenderer(
     // Coral gets whatever's left after the three shares above, so rounding always adds up to
     // the full requested density instead of possibly dropping a plant to rounding error.
     private val kMaxPlantDensity = 24
-    // The floor plants are anchored to - low enough that a full-height kelp clump's tip stays
-    // comfortably inside the tank rather than poking past the turtles' own roaming floor.
-    private val kPlantFloorY = -1.0f
+    // The floor plants are anchored to - set slightly below -1.0f (-1.08f) so vertical tilt parallax
+    // (getParallaxY up to +0.06f) and device display aspect ratios never leave a gap under the plant bases.
+    private val kPlantFloorY = -1.08f
     // Splits every plant list into a back layer (depth >= this, drawn before the creatures) and
     // a front layer (depth < this, drawn after) - see drawPlants()'s comment.
     private val kPlantLayerSplitDepth = 0.5f
