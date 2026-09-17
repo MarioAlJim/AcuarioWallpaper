@@ -251,6 +251,25 @@ class AcuarioRenderer(
     private val kMaxAxolotls = 4
     private val kSharkScale = 1.21f
 
+    // Sand seabed (drawn behind rocks and flora along the aquarium floor)
+    private var sandProgram = 0
+    private var sandMVPHandle = 0
+    private var sandDayNightHandle = 0
+    private var sandTimeHandle = 0
+    private var sandAspectHandle = 0
+    private var sandBaseColorHandle = 0
+    private var sandHighlightColorHandle = 0
+    private var sandShadowColorHandle = 0
+    private var sandDeepColorHandle = 0
+
+    private val kSandBaseColor = floatArrayOf(0.76f, 0.68f, 0.52f)
+    private val kSandHighlightColor = floatArrayOf(0.88f, 0.82f, 0.68f)
+    private val kSandShadowColor = floatArrayOf(0.55f, 0.48f, 0.36f)
+
+    private val scratchSandBaseColor = FloatArray(3)
+    private val scratchSandHighlightColor = FloatArray(3)
+    private val scratchSandShadowColor = FloatArray(3)
+
     // Rocks (substrate boulders along the tank floor bed)
     private var rockProgram = 0
     private var rockMVPHandle = 0
@@ -263,7 +282,7 @@ class AcuarioRenderer(
     private var rockGlowColorHandle = 0
     private var rockTimeHandle = 0
     private val rocks = mutableListOf<Rock>()
-    private val kRockFloorY = -1.05f
+    private val kRockFloorY = -0.92f
 
     // Submarine (rendered as a single quad with its own vertex and fragment shader, traveling in the far background)
     private var submarineProgram = 0
@@ -404,9 +423,10 @@ class AcuarioRenderer(
     // Coral gets whatever's left after the three shares above, so rounding always adds up to
     // the full requested density instead of possibly dropping a plant to rounding error.
     private val kMaxPlantDensity = 24
-    // The floor plants are anchored to - set slightly below -1.0f (-1.08f) so vertical tilt parallax
-    // (getParallaxY up to +0.06f) and device display aspect ratios never leave a gap under the plant bases.
-    private val kPlantFloorY = -1.08f
+    // The floor plants are anchored to - raised to -0.80f so plants sit gracefully on top of
+    // the sandy seabed floor (sand.frag) with their bases embedded into the dunes rather than
+    // floating in open water.
+    private val kPlantFloorY = -0.80f
     // Splits every plant list into a back layer (depth >= this, drawn before the creatures) and
     // a front layer (depth < this, drawn after) - see drawPlants()'s comment.
     private val kPlantLayerSplitDepth = 0.5f
@@ -722,6 +742,22 @@ class AcuarioRenderer(
             axolotlGlowColorHandle = GLES30.glGetUniformLocation(axolotlProgram, "uGlowColor")
             axolotlShinyTypeHandle = GLES30.glGetUniformLocation(axolotlProgram, "uShinyType")
             axolotlTimeHandle = GLES30.glGetUniformLocation(axolotlProgram, "uTime")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            val vert = readAssetFile(context, "shaders/sand.vert")
+            val frag = readAssetFile(context, "shaders/sand.frag")
+            sandProgram = createProgram(vert, frag)
+            sandMVPHandle = GLES30.glGetUniformLocation(sandProgram, "uMVPMatrix")
+            sandDayNightHandle = GLES30.glGetUniformLocation(sandProgram, "uDayNight")
+            sandTimeHandle = GLES30.glGetUniformLocation(sandProgram, "uTime")
+            sandAspectHandle = GLES30.glGetUniformLocation(sandProgram, "uAspect")
+            sandBaseColorHandle = GLES30.glGetUniformLocation(sandProgram, "uBaseColor")
+            sandHighlightColorHandle = GLES30.glGetUniformLocation(sandProgram, "uHighlightColor")
+            sandShadowColorHandle = GLES30.glGetUniformLocation(sandProgram, "uShadowColor")
+            sandDeepColorHandle = GLES30.glGetUniformLocation(sandProgram, "uDeepColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1065,7 +1101,10 @@ class AcuarioRenderer(
                         (target.obj as Shark).touch()
                     }
                     4 -> { // Axolotl
-                        (target.obj as Axolotl).touch(worldX, worldY)
+                        val ax = target.obj as Axolotl
+                        synchronized(rocks) {
+                            ax.touch(worldX, worldY, rocks)
+                        }
                     }
                 }
                 animalTouched = true
@@ -1509,6 +1548,7 @@ class AcuarioRenderer(
         // drawPlants()'s comment - so fish/turtles/mantas can pass behind some plants and in
         // front of others instead of always sitting on top of the whole tank floor.
         drawSubmarine(deepColor)
+        drawSand(deepColor)
         drawRocks(deepColor)
         drawPlants(backLayer = true, deepColor)
         drawMantas(deepColor)
@@ -1517,6 +1557,7 @@ class AcuarioRenderer(
         drawFish(deepColor)
         drawTurtles(deepColor)
         drawPlants(backLayer = false, deepColor)
+        drawForeSand(deepColor)
         drawAxolotls(deepColor)
         drawFood()
         drawBubbles()
@@ -2044,6 +2085,87 @@ class AcuarioRenderer(
             }
             rocks.sortByDescending { it.depth }
         }
+    }
+
+    private fun drawSand(deepColor: FloatArray) {
+        if (sandProgram == 0) return
+        GLES30.glUseProgram(sandProgram)
+
+        val ambientFactor = 0.40f + 0.60f * dayNight
+        val tintAmount = 0.25f
+
+        mixColorInto(scratchSandBaseColor, kSandBaseColor, deepColor, tintAmount, ambientFactor)
+        mixColorInto(scratchSandHighlightColor, kSandHighlightColor, deepColor, tintAmount, ambientFactor)
+        mixColorInto(scratchSandShadowColor, kSandShadowColor, deepColor, tintAmount, ambientFactor)
+
+        GLES30.glUniform1f(sandDayNightHandle, dayNight)
+        GLES30.glUniform1f(sandTimeHandle, time)
+        GLES30.glUniform1f(sandAspectHandle, aspectRatio)
+        GLES30.glUniform3fv(sandBaseColorHandle, 1, scratchSandBaseColor, 0)
+        GLES30.glUniform3fv(sandHighlightColorHandle, 1, scratchSandHighlightColor, 0)
+        GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
+        GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
+
+        val sandWidth = aspectRatio * 3.5f
+        val sandHeight = 0.75f
+        val sandCenterY = -0.85f
+        val sandDepth = 0.75f
+
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(
+            modelMatrix, 0,
+            getParallaxX(sandDepth),
+            sandCenterY + getParallaxY(sandDepth),
+            0f
+        )
+        Matrix.scaleM(modelMatrix, 0, sandWidth, sandHeight, 1f)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+
+        GLES30.glUniformMatrix4fv(sandMVPHandle, 1, false, mvpMatrix, 0)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    }
+
+    /**
+     * Draws a smaller, foreground layer of seabed sand directly in front of the flora, subtly
+     * covering and embedding the very lowest part of the plants (near [kPlantFloorY] = -0.80f)
+     * so they appear naturally rooted in the ocean substrate rather than cut off flat.
+     */
+    private fun drawForeSand(deepColor: FloatArray) {
+        if (sandProgram == 0) return
+        GLES30.glUseProgram(sandProgram)
+
+        val ambientFactor = 0.45f + 0.55f * dayNight
+        val tintAmount = 0.08f
+
+        mixColorInto(scratchSandBaseColor, kSandBaseColor, deepColor, tintAmount, ambientFactor)
+        mixColorInto(scratchSandHighlightColor, kSandHighlightColor, deepColor, tintAmount, ambientFactor)
+        mixColorInto(scratchSandShadowColor, kSandShadowColor, deepColor, tintAmount, ambientFactor)
+
+        GLES30.glUniform1f(sandDayNightHandle, dayNight)
+        GLES30.glUniform1f(sandTimeHandle, time)
+        GLES30.glUniform1f(sandAspectHandle, aspectRatio)
+        GLES30.glUniform3fv(sandBaseColorHandle, 1, scratchSandBaseColor, 0)
+        GLES30.glUniform3fv(sandHighlightColorHandle, 1, scratchSandHighlightColor, 0)
+        GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
+        GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
+
+        val sandWidth = aspectRatio * 3.8f
+        val sandHeight = 0.36f
+        val sandCenterY = -0.84f
+        val sandDepth = 0.08f
+
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(
+            modelMatrix, 0,
+            getParallaxX(sandDepth) + 0.45f,
+            sandCenterY + getParallaxY(sandDepth),
+            0f
+        )
+        Matrix.scaleM(modelMatrix, 0, sandWidth, sandHeight, 1f)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+
+        GLES30.glUniformMatrix4fv(sandMVPHandle, 1, false, mvpMatrix, 0)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }
 
     private fun drawRocks(deepColor: FloatArray) {

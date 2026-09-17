@@ -83,6 +83,12 @@ class Axolotl {
     private var startleTimer = 0f
     private var isStartled = false
 
+    var isSeekingRock = false
+        private set
+
+    var isRestingOnRock = false
+        private set
+
     fun update(deltaTime: Float, aspectRatio: Float) {
         // Clamp deltaTime to prevent spring destabilization or massive phase jumps
         val dt = deltaTime.coerceIn(0f, 0.05f)
@@ -91,7 +97,7 @@ class Axolotl {
         val gillSpeed = if (isStartled) 6.0f else 2.5f
         gillPhase = (gillPhase + dt * gillSpeed) % TWO_PI
 
-        if (isStartled) {
+        if (isStartled && !isSeekingRock) {
             startleTimer -= dt
             if (startleTimer <= 0f) {
                 isStartled = false
@@ -112,6 +118,13 @@ class Axolotl {
             // Gentle idle drift for tail and legs (wrap periodically to prevent float precision loss)
             swimPhase = (swimPhase + dt * 1.2f) % FOUR_PI
             legPhase = (legPhase + dt * 0.8f) % TWO_PI
+
+            if (pauseTimer <= 0f) {
+                if (isRestingOnRock) {
+                    isRestingOnRock = false
+                }
+                pickNewTarget(aspectRatio)
+            }
             return
         }
 
@@ -124,6 +137,15 @@ class Axolotl {
         val dist = sqrt(dx * dx + dy * dy)
 
         if (dist < 0.04f) {
+            if (isSeekingRock) {
+                isSeekingRock = false
+                isRestingOnRock = true
+                isStartled = false
+                targetSpeedMultiplier = 1f
+                speedMultiplier = 1f
+                pauseTimer = 2.0f + Random.nextFloat() * 0.6f
+                return
+            }
             if (!isStartled && Random.nextFloat() < 0.40f) {
                 pauseTimer = 1.2f + Random.nextFloat() * 1.8f
             }
@@ -177,31 +199,49 @@ class Axolotl {
     }
 
     /**
-     * Triggered when touched: startles the axolotl into a quick gill flutter and swim dart.
+     * Triggered when touched: causes the axolotl to swim towards a rock on the tank seabed,
+     * stay resting there for a couple of seconds, and then resume its normal wandering behavior.
      */
-    fun touch(touchX: Float, touchY: Float) {
+    fun touch(touchX: Float, touchY: Float, availableRocks: List<Rock> = emptyList()) {
+        isSeekingRock = true
+        isRestingOnRock = false
         isStartled = true
-        startleTimer = 2.5f
+        startleTimer = 5f
         pauseTimer = 0f
+        swimWaypointsRemaining = 0
 
-        var dirX = x - touchX
-        var dirY = y - touchY
-        val len = sqrt(dirX * dirX + dirY * dirY)
-        if (len < 0.001f) {
-            dirX = cos(heading)
-            dirY = sin(heading)
+        val awaySign = if (x >= touchX) 1f else -1f
+
+        if (availableRocks.isNotEmpty()) {
+            // Find rocks adequately distanced from touch point
+            val safeRocks = availableRocks.filter { kotlin.math.abs(it.x - touchX) > 0.20f }
+            val pool = if (safeRocks.isNotEmpty()) safeRocks else availableRocks
+
+            // Prefer rocks at least slightly away from current x so the swim to the rock is clearly visible
+            val farEnough = pool.filter { kotlin.math.abs(it.x - x) > 0.12f }
+            val candidatePool = if (farEnough.isNotEmpty()) farEnough else pool
+
+            val chosenRock = candidatePool.minByOrNull { rock ->
+                val dx = rock.x - x
+                val sameDirection = (dx * awaySign) > 0f
+                val dirPenalty = if (sameDirection) 0f else 0.6f
+                kotlin.math.abs(dx) + dirPenalty
+            } ?: candidatePool.random()
+
+            val depthScale = 1f - (1f - kMinScaleAtDepth) * chosenRock.depth
+            targetX = chosenRock.x
+            targetY = (kRockFloorY + chosenRock.scaleY * depthScale * 0.95f).coerceIn(-0.71f, -0.62f)
+            targetDepth = chosenRock.depth
         } else {
-            dirX /= len
-            dirY /= len
+            val fleeDist = 0.45f + Random.nextFloat() * 0.4f
+            targetX = (x + awaySign * fleeDist).coerceIn(-1.1f, 1.1f)
+            targetY = -0.68f + Random.nextFloat() * 0.05f
+            targetDepth = Random.nextFloat()
         }
 
-        val fleeDist = 0.6f + Random.nextFloat() * 0.5f
-        targetX = x + dirX * fleeDist
-        targetY = (y + dirY * fleeDist).coerceIn(-0.70f, 0.65f)
-        swimWaypointsRemaining = Random.nextInt(1, 3)
         hasTarget = true
-        speedMultiplier = 2.2f
-        targetSpeedMultiplier = 2.2f
+        speedMultiplier = 2.0f
+        targetSpeedMultiplier = 2.0f
     }
 
     fun facingScale(): Float = mirrorBlend
@@ -287,6 +327,8 @@ class Axolotl {
         private const val kPitchSpringDamping = 8.5f
         private const val kMaxPitchOvershoot = 48f
         private const val kMinSpeedAtDepth = 0.45f
+        private const val kRockFloorY = -1.05f
+        private const val kMinScaleAtDepth = 0.40f
         private const val kDepthEaseRate = 1.5f
         private const val kSpeedEaseRate = 1.5f
     }

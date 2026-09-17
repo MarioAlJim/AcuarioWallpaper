@@ -39,6 +39,7 @@ class AxolotlTest {
 
         axolotl.touch(0f, 0f)
 
+        assertTrue("axolotl should seek a rock when touched", axolotl.isSeekingRock)
         // Update frame
         axolotl.update(0.1f, aspectRatio = 1.0f)
         assertTrue("facing scale non-zero", axolotl.facingScale() != 0f)
@@ -58,11 +59,37 @@ class AxolotlTest {
     }
 
     @Test
-    fun touch_canFleeUpward() {
+    fun touch_swimsToRockThenRestsAndResumesNormalBehavior() {
         val axolotl = Axolotl()
-        // Touch axolotl from below
-        axolotl.touch(axolotl.x, axolotl.y - 0.5f)
-        assertTrue("Target Y after touch from below should be higher", axolotl.targetY > axolotl.y)
+        val rock = Rock()
+        rock.placeAt(x = 0.5f, depth = 0.2f, scaleX = 0.6f, scaleY = 0.4f, shapeType = 0)
+
+        // Axolotl is touched
+        axolotl.touch(touchX = 0f, touchY = 0f, availableRocks = listOf(rock))
+
+        assertTrue("Axolotl should be seeking rock", axolotl.isSeekingRock)
+        assertTrue("Target should match rock X coordinate", axolotl.targetX == rock.x)
+        assertTrue("Target Y should be on seabed rock level", axolotl.targetY <= -0.60f)
+
+        // Simulate frames until reaching the rock
+        var frames = 0
+        while (axolotl.isSeekingRock && frames < 600) {
+            axolotl.update(1f / 60f, aspectRatio = 1.0f)
+            frames++
+        }
+
+        assertTrue("Axolotl should have reached the rock and be resting", axolotl.isRestingOnRock)
+        assertFalse("Axolotl should no longer be seeking rock", axolotl.isSeekingRock)
+
+        // Simulate resting period (a couple of seconds, e.g. ~3 seconds)
+        val restFrames = (3.0f * 60).toInt()
+        repeat(restFrames) {
+            axolotl.update(1f / 60f, aspectRatio = 1.0f)
+        }
+
+        // After the rest period, normal behavior resumes
+        assertFalse("Axolotl should no longer be resting on rock", axolotl.isRestingOnRock)
+        assertFalse("Axolotl should not be seeking rock", axolotl.isSeekingRock)
     }
 
     @Test
