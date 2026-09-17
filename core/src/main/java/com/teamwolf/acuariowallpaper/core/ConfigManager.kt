@@ -25,6 +25,10 @@ class ConfigManager(context: Context) : ConfigProvider {
         prefs.registerOnSharedPreferenceChangeListener(prefsChangeListener)
     }
 
+    fun reload() {
+        acuario.invalidateAll()
+    }
+
     companion object {
         const val PREFS_NAME = "acuario_wallpaper_prefs"
 

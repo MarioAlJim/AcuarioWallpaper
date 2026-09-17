@@ -90,6 +90,9 @@ class AcuarioWallpaperService : WallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
+            if (visible) {
+                configManager.reload()
+            }
             renderThread?.setVisible(visible)
 
             // Sensor listener was previously never registered at all (only ever unregistered in

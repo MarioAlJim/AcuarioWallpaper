@@ -25,17 +25,22 @@ internal abstract class CachedPrefStore(protected val prefs: SharedPreferences) 
         cache.getOrPut(key) { prefs.getBoolean(key, default) } as Boolean
 
     protected fun putInt(key: String, value: Int) {
-        prefs.edit().putInt(key, value).apply()
         cache[key] = value
+        prefs.edit().putInt(key, value).apply()
     }
 
     protected fun putBoolean(key: String, value: Boolean) {
-        prefs.edit().putBoolean(key, value).apply()
         cache[key] = value
+        prefs.edit().putBoolean(key, value).apply()
     }
 
     /** Drops the cached value for [key], if any, so the next read re-fetches from [prefs]. */
     open fun invalidate(key: String) {
         cache.remove(key)
+    }
+
+    /** Drops all cached values so every subsequent getter re-fetches from [prefs]. */
+    open fun invalidateAll() {
+        cache.clear()
     }
 }
