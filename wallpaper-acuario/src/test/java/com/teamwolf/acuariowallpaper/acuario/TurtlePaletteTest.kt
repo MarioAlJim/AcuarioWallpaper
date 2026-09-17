@@ -22,6 +22,7 @@ class TurtlePaletteTest {
     @Test
     fun turtle_getsARandomlyAssignedPaletteFromTheSharedList() {
         val turtle = Turtle()
-        assertTrue(TurtlePalette.PALETTES.any { it === turtle.palette })
+        val validPalettes = TurtlePalette.PALETTES + listOf(TurtlePalette.SHINY_GOLD, TurtlePalette.SHINY_DIAMOND)
+        assertTrue(validPalettes.any { it === turtle.palette })
     }
 }

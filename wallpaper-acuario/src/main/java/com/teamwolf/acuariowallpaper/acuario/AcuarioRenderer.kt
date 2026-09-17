@@ -1508,10 +1508,10 @@ class AcuarioRenderer(
         drawMantas(deepColor)
         drawShark(deepColor)
         drawJellyfish(deepColor)
-        drawAxolotls(deepColor)
         drawFish(deepColor)
         drawTurtles(deepColor)
         drawPlants(backLayer = false, deepColor)
+        drawAxolotls(deepColor)
         drawFood()
         drawBubbles()
 

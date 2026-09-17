@@ -41,7 +41,7 @@ class Axolotl {
 
     var x = Random.nextFloat() * 1.2f - 0.6f
         private set
-    var y = -0.75f + Random.nextFloat() * 0.30f
+    var y = -0.81f + Random.nextFloat() * 0.06f
         private set
 
     var heading = 0f
@@ -125,8 +125,9 @@ class Axolotl {
         val mirrorLerp = 1f - exp(-kMirrorRate * deltaTime)
         mirrorBlend += (facingSign - mirrorBlend) * mirrorLerp
 
-        // Pitch: nose up when ascending, down when descending
-        val desiredPitch = (dy / dist) * kMaxPitchDegrees
+        // Pitch: flatten body horizontally when crawling along rock ledges (y < -0.72f)
+        val isCrawlingOnRocks = y < -0.72f
+        val desiredPitch = if (isCrawlingOnRocks) 0f else (dy / dist) * kMaxPitchDegrees
         stepPitchSpring(desiredPitch, deltaTime)
 
         val depthLerp = 1f - exp(-kDepthEaseRate * deltaTime)
@@ -135,7 +136,7 @@ class Axolotl {
         // Swim and leg animation phases
         val movementFactor = effectiveSpeed * 8f
         swimPhase += deltaTime * (2.0f + movementFactor)
-        legPhase += deltaTime * (3.0f + movementFactor * 1.5f)
+        legPhase += deltaTime * (4.0f + movementFactor * 2.0f)
     }
 
     /**
@@ -158,7 +159,7 @@ class Axolotl {
 
         val fleeDist = 0.6f + Random.nextFloat() * 0.5f
         targetX = x + dirX * fleeDist
-        targetY = (y + dirY * fleeDist).coerceIn(-0.90f, 0.10f)
+        targetY = (y + dirY * fleeDist).coerceIn(-0.84f, 0.10f)
         hasTarget = true
         speedMultiplier = 2.2f
         targetSpeedMultiplier = 2.2f
@@ -170,13 +171,12 @@ class Axolotl {
         val halfWidth = aspectRatio * 0.85f
         targetX = Random.nextFloat() * (halfWidth * 2f) - halfWidth
 
-        // Axolotls are the EXCLUSIVE fauna species that interact with the bottom rock bed.
-        // 70% chance to crawl/rest directly along the stone rock ledges (y = -0.74f to -0.62f),
-        // 30% chance to float into mid-water before returning to the rock floor.
-        if (Random.nextFloat() < 0.70f) {
-            targetY = -0.74f + Random.nextFloat() * 0.12f
+        // 85% chance to crawl/walk directly on top of rock surface peaks (y = -0.83f to -0.75f),
+        // 15% chance to take a short hop/float into mid-water before landing back on the rocks.
+        if (Random.nextFloat() < 0.85f) {
+            targetY = -0.82f + Random.nextFloat() * 0.07f
         } else {
-            targetY = -0.45f + Random.nextFloat() * 0.45f
+            targetY = -0.50f + Random.nextFloat() * 0.25f
         }
 
         targetDepth = Random.nextFloat()
