@@ -42,4 +42,25 @@ class AxolotlTest {
         axolotl.update(0.1f, aspectRatio = 1.0f)
         assertTrue("facing scale non-zero", axolotl.facingScale() != 0f)
     }
+
+    @Test
+    fun axolotl_canTargetUpperWater() {
+        val axolotl = Axolotl()
+        var upperWaterTargetChosen = false
+        repeat(50) {
+            axolotl.pickNewTarget(1.0f)
+            if (axolotl.targetY > 0.0f) {
+                upperWaterTargetChosen = true
+            }
+        }
+        assertTrue("Axolotl should be able to choose targets in upper water (y > 0)", upperWaterTargetChosen)
+    }
+
+    @Test
+    fun touch_canFleeUpward() {
+        val axolotl = Axolotl()
+        // Touch axolotl from below
+        axolotl.touch(axolotl.x, axolotl.y - 0.5f)
+        assertTrue("Target Y after touch from below should be higher", axolotl.targetY > axolotl.y)
+    }
 }
