@@ -28,8 +28,9 @@
         </service>
 
         <activity
-            android:name="com.teamwolf.acuariowallpaper.ui.settings.MainActivity"
+            android:name="com.teamwolf.acuariowallpaper.WallpaperSettingsActivity"
             android:label="@string/settings_title"
+            android:theme="@style/Theme.AcuarioWallpaper"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
