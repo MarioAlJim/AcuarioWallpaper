@@ -282,7 +282,7 @@ class AcuarioRenderer(
     private var rockGlowColorHandle = 0
     private var rockTimeHandle = 0
     private val rocks = mutableListOf<Rock>()
-    private val kRockFloorY = -0.92f
+    private val kRockFloorY = -0.84f
 
     // Submarine (rendered as a single quad with its own vertex and fragment shader, traveling in the far background)
     private var submarineProgram = 0
@@ -2107,8 +2107,8 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
 
         val sandWidth = aspectRatio * 3.5f
-        val sandHeight = 0.75f
-        val sandCenterY = -0.85f
+        val sandHeight = 0.80f
+        val sandCenterY = -0.78f
         val sandDepth = 0.75f
 
         Matrix.setIdentityM(modelMatrix, 0)
@@ -2150,8 +2150,8 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
 
         val sandWidth = aspectRatio * 4.2f
-        val sandHeight = 0.36f
-        val sandCenterY = -0.84f
+        val sandHeight = 0.44f
+        val sandCenterY = -0.80f
         val sandDepth = 0.08f
 
         Matrix.setIdentityM(modelMatrix, 0)

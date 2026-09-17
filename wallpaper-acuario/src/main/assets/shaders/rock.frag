@@ -32,43 +32,53 @@ float noise(vec2 p) {
     );
 }
 
+// Polynomial smooth minimum for organic, curved blending of overlapping shapes
+float smin(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+}
+
 void main() {
     highp float safeTime = mod(uTime, 62.831853);
 
     // Map UVs: x in [-1, 1], y in [-1, 1] (y = -1 is base on floor, y = +1 is top of rock quad)
     vec2 p = vec2((vUV.x - 0.5) * 2.0, (vUV.y - 0.5) * 2.0);
 
-    // Surface texture noise for organic rock displacement
-    float n = noise(p * 4.5 + vec2(uShapeType * 3.7, uShapeType * 1.9)) * 0.12;
+    // Soft organic surface displacement noise
+    float n = noise(p * 3.5 + vec2(uShapeType * 3.7, uShapeType * 1.9)) * 0.09;
 
     float dist = 1.0;
     float type = floor(uShapeType + 0.5);
 
     if (type < 0.5) {
-        // Shape 0: Smooth rounded river boulder
-        vec2 q = p * vec2(1.0, 1.35) - vec2(0.0, -0.20);
-        dist = length(q) - (0.75 + n);
+        // Shape 0: Smooth rounded river boulder (Canto rodado suave)
+        vec2 q = p * vec2(0.95, 1.35) - vec2(0.0, -0.15);
+        dist = length(q) - (0.72 + n);
     } else if (type < 1.5) {
-        // Shape 1: Flat slate ledge (wide low-profile stone)
-        vec2 q = p * vec2(0.85, 1.70) - vec2(0.0, -0.30);
-        float dBox = max(abs(q.x) - 0.70, abs(q.y) - 0.45);
-        dist = dBox - n;
+        // Shape 1: Water-worn flat river slate (Piedra plana curva)
+        vec2 q = p * vec2(0.90, 1.45) - vec2(0.0, -0.22);
+        vec2 dBox = abs(q) - vec2(0.48, 0.28);
+        float roundedBox = length(max(dBox, 0.0)) + min(max(dBox.x, dBox.y), 0.0) - 0.22;
+        dist = roundedBox - n;
     } else if (type < 2.5) {
-        // Shape 2: Jagged faceted aquarium rock
-        vec2 q = p * vec2(1.1, 1.2) - vec2(0.0, -0.15);
-        float tri = max(abs(q.x) * 0.85 + q.y * 0.5, -q.y * 0.7);
-        dist = tri - (0.65 + n * 1.3);
+        // Shape 2: Curved dome aquarium rock (Roca domo redondeada)
+        vec2 q1 = p * vec2(1.0, 1.18) - vec2(-0.15, -0.10);
+        vec2 q2 = p * vec2(1.18, 1.35) - vec2(0.20, -0.22);
+        float d1 = length(q1) - 0.65;
+        float d2 = length(q2) - 0.48;
+        dist = smin(d1, d2, 0.28) - n;
     } else {
-        // Shape 3: Twin-hump substrate rock
-        vec2 q1 = p * vec2(1.3, 1.4) - vec2(-0.35, -0.25);
-        vec2 q2 = p * vec2(1.4, 1.5) - vec2(0.35, -0.15);
-        float d1 = length(q1) - (0.55 + n);
-        float d2 = length(q2) - (0.48 + n);
-        dist = min(d1, d2);
+        // Shape 3: Smooth twin-hump substrate rock (Roca de dos jorobas suaves)
+        vec2 q1 = p * vec2(1.2, 1.3) - vec2(-0.32, -0.20);
+        vec2 q2 = p * vec2(1.3, 1.4) - vec2(0.32, -0.15);
+        float d1 = length(q1) - 0.52;
+        float d2 = length(q2) - 0.46;
+        dist = smin(d1, d2, 0.32) - n;
     }
 
-    // Flat bottom truncation anchor at the seabed floor (p.y = -0.9)
-    dist = max(dist, -p.y - 0.95);
+    // Soft bottom truncation anchor at the seabed floor
+    float bottomCut = -p.y - 0.92;
+    dist = smin(dist, max(dist, bottomCut), 0.08);
 
     // Alpha with smooth anti-aliased edge
     float alpha = smoothstep(0.02, -0.02, dist);

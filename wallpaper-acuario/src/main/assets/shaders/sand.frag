@@ -31,10 +31,13 @@ void main() {
     vec2 uvScale = vec2(vUV.x * uAspect * 6.0, (1.0 - vUV.y) * 2.5);
 
     // 1. Dual-layer dune silhouettes
-    // Back ridge (distant deeper seabed)
-    float duneBack = 0.36 + sin(vUV.x * 7.5 + 1.2) * 0.08 + sin(vUV.x * 16.0) * 0.035 + cos(vUV.x * 3.2) * 0.05;
-    // Foreground dune (main seabed profile)
-    float duneFront = 0.18 + sin(vUV.x * 11.5 + 0.4) * 0.07 + sin(vUV.x * 22.0 + 2.0) * 0.03 + cos(vUV.x * 4.5) * 0.06;
+    // Scaled horizontal coordinate for aspect-ratio invariant dune shapes
+    float duneX = vUV.x * max(uAspect, 0.5) * 3.5;
+
+    // Back ridge (distant deeper seabed): base height raised and dune troughs bounded so back sand always spans well above flora roots
+    float duneBack = 0.38 + sin(duneX * 2.2 + 1.2) * 0.06 + sin(duneX * 4.8) * 0.03 + cos(duneX * 0.95) * 0.04;
+    // Foreground dune (main seabed profile): base height elevated to embed flora roots seamlessly across all screen aspect ratios
+    float duneFront = 0.22 + sin(duneX * 3.3 + 0.4) * 0.05 + sin(duneX * 6.5 + 2.0) * 0.025 + cos(duneX * 1.3) * 0.04;
 
     float alphaBack = smoothstep(duneBack + 0.015, duneBack - 0.010, p.y);
     float alphaFront = smoothstep(duneFront + 0.015, duneFront - 0.010, p.y);
