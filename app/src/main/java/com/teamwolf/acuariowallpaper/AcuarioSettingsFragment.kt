@@ -120,7 +120,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = { index ->
                 TextView(requireContext()).apply {
                     text = if (index == 0) "🚫" else "🐢"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -141,7 +141,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = { index ->
                 TextView(requireContext()).apply {
                     text = if (index == 0) "🚫" else "🐠"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -165,7 +165,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = { index ->
                 TextView(requireContext()).apply {
                     text = if (index == 0) "🚫" else "🛸"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -187,7 +187,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = { index ->
                 TextView(requireContext()).apply {
                     text = if (index == 0) "🚫" else "🪼"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -209,7 +209,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = { index ->
                 TextView(requireContext()).apply {
                     text = if (index == 0) "🚫" else "🦎"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -239,7 +239,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = {
                 TextView(requireContext()).apply {
                     text = "🌿"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -270,7 +270,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = {
                 TextView(requireContext()).apply {
                     text = "🫧"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -303,7 +303,7 @@ class AcuarioSettingsFragment : Fragment() {
                         2 -> "🐢"
                         else -> "🌍"
                     }
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -412,8 +412,8 @@ class AcuarioSettingsFragment : Fragment() {
                         setColor(colors[index])
                     }
                     layoutParams = android.widget.FrameLayout.LayoutParams(
-                        (24 * resources.displayMetrics.density).toInt(),
-                        (24 * resources.displayMetrics.density).toInt()
+                        (18 * resources.displayMetrics.density).toInt(),
+                        (18 * resources.displayMetrics.density).toInt()
                     ).apply {
                         gravity = Gravity.CENTER
                     }
@@ -444,7 +444,7 @@ class AcuarioSettingsFragment : Fragment() {
                         1 -> "🦈"
                         else -> "🌊"
                     }
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }
@@ -477,7 +477,7 @@ class AcuarioSettingsFragment : Fragment() {
                 View(requireContext()).apply {
                     background = GradientDrawable().apply {
                         setColor(colors[index])
-                        cornerRadius = 6f * resources.displayMetrics.density
+                        cornerRadius = 4f * resources.displayMetrics.density
                     }
                 }
             }
@@ -502,7 +502,7 @@ class AcuarioSettingsFragment : Fragment() {
             previewFactory = { index ->
                 TextView(requireContext()).apply {
                     text = if (index == 0) "📱" else "🚫"
-                    textSize = 22f
+                    textSize = 15f
                     gravity = Gravity.CENTER
                 }
             }

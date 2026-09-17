@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Settings for the Acuario effect: environment (theme), turtle/fish/manta ray/seahorse/
-    jellyfish/bubble count selectors. Grouped logically into cards for a cleaner, modern user
-    experience.
+    jellyfish/bubble count selectors. Grouped logically into compact cards for a cleaner, modern user
+    experience with minimal unused space.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="12dp"
     android:clipToPadding="false"
     android:background="?attr/colorSurface">
 
@@ -23,46 +26,46 @@
             android:layout_height="wrap_content"
             android:text="@string/settings_title"
             android:textColor="?attr/colorOnSurface"
-            android:textSize="24sp"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:layout_marginBottom="24dp"
-            android:layout_marginTop="8dp" />
+            android:layout_marginBottom="10dp"
+            android:layout_marginTop="4dp" />
 
         <!-- SECCIÓN 0: AYUDA E INTERACCIONES -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="10dp"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="1dp"
             app:cardBackgroundColor="?attr/colorSurface">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="12dp">
+                    android:layout_marginBottom="6dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="📖"
-                        android:textSize="20sp"
-                        android:layout_marginEnd="8dp" />
+                        android:textSize="16sp"
+                        android:layout_marginEnd="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Guía de Interacciones"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="16sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -71,20 +74,26 @@
                     android:layout_height="wrap_content"
                     android:text="Aprende cómo interactuar con los animales y gestos del acuario."
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="13sp"
-                    android:layout_marginBottom="12dp" />
+                    android:textSize="11.5sp"
+                    android:layout_marginBottom="8dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonHelpInteractions"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingTop="0dp"
+                    android:paddingBottom="0dp"
                     android:text="Ver Guía Completa"
                     android:textAllCaps="false"
+                    android:textSize="12sp"
                     android:textColor="?attr/colorPrimary"
                     app:icon="@android:drawable/ic_dialog_info"
+                    app:iconSize="16dp"
                     app:iconTint="?attr/colorPrimary"
-                    app:cornerRadius="8dp"
+                    app:cornerRadius="6dp"
                     app:strokeColor="?attr/colorPrimary" />
 
             </LinearLayout>
@@ -94,37 +103,37 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="10dp"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="1dp"
             app:cardBackgroundColor="?attr/colorSurface">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="16dp">
+                    android:layout_marginBottom="8dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🌅"
-                        android:textSize="20sp"
-                        android:layout_marginEnd="8dp" />
+                        android:textSize="16sp"
+                        android:layout_marginEnd="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Entorno e Iluminación"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="16sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -134,24 +143,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_environment"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerAcuarioTheme"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <!-- Custom Color Selectors Layout -->
@@ -167,8 +176,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:background="#1F000000"
-                        android:layout_marginTop="12dp"
-                        android:layout_marginBottom="12dp" />
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="6dp" />
 
                     <!-- Configuración: Color Superior -->
                     <TextView
@@ -176,24 +185,24 @@
                         android:layout_height="wrap_content"
                         android:text="Color Superior (Superficie)"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
+                        android:textSize="12.5sp"
                         android:textStyle="bold"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="4dp" />
 
                     <HorizontalScrollView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:scrollbars="none"
                         android:requiresFadingEdge="horizontal"
-                        android:fadingEdgeLength="24dp">
+                        android:fadingEdgeLength="16dp">
 
                         <LinearLayout
                             android:id="@+id/containerCustomShallowColor"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-                            android:paddingBottom="8dp"
-                            android:paddingTop="4dp" />
+                            android:paddingBottom="2dp"
+                            android:paddingTop="0dp" />
                     </HorizontalScrollView>
 
                     <!-- Configuración: Color Inferior -->
@@ -202,25 +211,25 @@
                         android:layout_height="wrap_content"
                         android:text="Color Inferior (Fondo)"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
+                        android:textSize="12.5sp"
                         android:textStyle="bold"
-                        android:layout_marginTop="12dp"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="4dp" />
 
                     <HorizontalScrollView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:scrollbars="none"
                         android:requiresFadingEdge="horizontal"
-                        android:fadingEdgeLength="24dp">
+                        android:fadingEdgeLength="16dp">
 
                         <LinearLayout
                             android:id="@+id/containerCustomDeepColor"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-                            android:paddingBottom="8dp"
-                            android:paddingTop="4dp" />
+                            android:paddingBottom="2dp"
+                            android:paddingTop="0dp" />
                     </HorizontalScrollView>
                 </LinearLayout>
 
@@ -229,8 +238,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Ciclo Día y Noche -->
                 <TextView
@@ -238,24 +247,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_day_night_cycle"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerDayNightCycle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <!-- Divisor -->
@@ -263,8 +272,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Giroscopio / Parallax -->
                 <TextView
@@ -272,24 +281,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_gyroscope"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerGyroscope"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
             </LinearLayout>
@@ -299,37 +308,37 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="10dp"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="1dp"
             app:cardBackgroundColor="?attr/colorSurface">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="16dp">
+                    android:layout_marginBottom="8dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🐠"
-                        android:textSize="20sp"
-                        android:layout_marginEnd="8dp" />
+                        android:textSize="16sp"
+                        android:layout_marginEnd="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Fauna Marina"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="16sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -339,24 +348,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_fish_count"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerFishCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <TextView
@@ -364,16 +373,16 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_fish_color_note"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="12dp" />
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Divisor -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Tortugas -->
                 <TextView
@@ -381,24 +390,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_turtle_count"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerTurtleCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <TextView
@@ -406,16 +415,16 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_turtle_color_note"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="12dp" />
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Divisor -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Mantarrayas -->
                 <TextView
@@ -423,24 +432,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_manta_count"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerMantaCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <TextView
@@ -448,18 +457,16 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_manta_color_note"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="12dp" />
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Divisor -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginBottom="12dp" />
-
-
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Medusas -->
                 <TextView
@@ -467,24 +474,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_jellyfish_count"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerJellyfishCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <TextView
@@ -492,16 +499,16 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_jellyfish_color_note"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp" />
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp" />
 
                 <!-- Divisor -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Ajolotes -->
                 <TextView
@@ -509,24 +516,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_axolotl_count"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerAxolotlCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <TextView
@@ -534,16 +541,16 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_axolotl_color_note"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp" />
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp" />
 
                 <!-- Divisor -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Presencia del Tiburón -->
                 <TextView
@@ -551,24 +558,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_shark_presence"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerSharkPresence"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <!-- Divisor -->
@@ -576,8 +583,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Color del Tiburón -->
                 <TextView
@@ -585,24 +592,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_shark_color"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerSharkColor"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
             </LinearLayout>
@@ -612,37 +619,37 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="10dp"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="1dp"
             app:cardBackgroundColor="?attr/colorSurface">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="16dp">
+                    android:layout_marginBottom="8dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🌿"
-                        android:textSize="20sp"
-                        android:layout_marginEnd="8dp" />
+                        android:textSize="16sp"
+                        android:layout_marginEnd="6dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Paisaje y Detalles"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="16sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -652,24 +659,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_plant_density"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerPlantDensity"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <TextView
@@ -677,16 +684,16 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_plant_color_note"
                     android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="12dp" />
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Divisor -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Burbujas -->
                 <TextView
@@ -694,24 +701,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_bubble_count"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerBubbleCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
                 <!-- Divisor -->
@@ -719,8 +726,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="#1F000000"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp" />
 
                 <!-- Color del submarino -->
                 <TextView
@@ -728,24 +735,24 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_section_submarine_color"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="4dp" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
                     android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="24dp">
+                    android:fadingEdgeLength="16dp">
 
                     <LinearLayout
                         android:id="@+id/containerSubmarineColor"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="8dp"
-                        android:paddingTop="4dp" />
+                        android:paddingBottom="2dp"
+                        android:paddingTop="0dp" />
                 </HorizontalScrollView>
 
             </LinearLayout>
@@ -757,10 +764,10 @@
             android:layout_height="wrap_content"
             android:text="@string/settings_placeholder"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="13sp"
+            android:textSize="11sp"
             android:gravity="center_horizontal"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp" />
 
     </LinearLayout>
 </ScrollView>

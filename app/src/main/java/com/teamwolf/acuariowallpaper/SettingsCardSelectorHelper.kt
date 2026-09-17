@@ -67,10 +67,10 @@ object SettingsCardSelectorHelper {
 
         for (i in options.indices) {
             val card = MaterialCardView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(92.px(), 92.px()).apply {
-                    setMargins(0, 0, 10.px(), 0)
+                layoutParams = LinearLayout.LayoutParams(68.px(), 64.px()).apply {
+                    setMargins(0, 0, 6.px(), 0)
                 }
-                radius = 12.px().toFloat()
+                radius = 8.px().toFloat()
                 strokeWidth = 1.px()
                 strokeColor = strokeInactiveColor
                 cardElevation = 0f
@@ -83,19 +83,19 @@ object SettingsCardSelectorHelper {
                 layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(6.px(), 6.px(), 6.px(), 6.px())
+                setPadding(3.px(), 3.px(), 3.px(), 3.px())
             }
 
             val previewFrame = FrameLayout(context).apply {
-                layoutParams = LinearLayout.LayoutParams(38.px(), 50.px()).apply {
-                    setMargins(0, 0, 0, 4.px())
+                layoutParams = LinearLayout.LayoutParams(32.px(), 34.px()).apply {
+                    setMargins(0, 0, 0, 2.px())
                 }
                 background = if (previewFrameBackgroundRes != 0) {
                     ContextCompat.getDrawable(context, previewFrameBackgroundRes)
                 } else {
                     GradientDrawable().apply {
                         shape = GradientDrawable.RECTANGLE
-                        cornerRadius = 6 * density
+                        cornerRadius = 4 * density
                         setColor(ContextCompat.getColor(context, R.color.settings_card_bg_alt2))
                         setStroke(1.px(), strokeInactiveColor)
                     }
@@ -113,8 +113,10 @@ object SettingsCardSelectorHelper {
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 text = options[i]
                 setTextColor(if (i == selectedIndex) activeColor else inactiveColor)
-                textSize = 10f
+                textSize = 9.5f
                 gravity = Gravity.CENTER
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
                 setTypeface(null, android.graphics.Typeface.BOLD)
             }
 
