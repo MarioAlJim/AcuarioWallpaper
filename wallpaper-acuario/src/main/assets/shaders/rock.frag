@@ -1,5 +1,5 @@
 #version 300 es
-precision mediump float;
+precision highp float;
 
 in vec2 vUV;
 
@@ -80,8 +80,8 @@ void main() {
     float bottomCut = -p.y - 0.92;
     dist = smin(dist, max(dist, bottomCut), 0.08);
 
-    // Alpha with smooth anti-aliased edge
-    float alpha = smoothstep(0.02, -0.02, dist);
+    // Alpha with smooth anti-aliased edge (strictly edge0 < edge1)
+    float alpha = 1.0 - smoothstep(-0.02, 0.02, dist);
 
     if (alpha <= 0.0) {
         discard;
@@ -93,10 +93,10 @@ void main() {
     spot = smoothstep(0.35, 0.75, spot) * 0.40;
 
     // Top lighting highlight (light coming from surface above)
-    float topHighlight = smoothstep(-0.1, 0.7, p.y) * smoothstep(0.9, 0.0, abs(p.x * 0.7));
+    float topHighlight = smoothstep(-0.1, 0.7, p.y) * (1.0 - smoothstep(0.0, 0.9, abs(p.x * 0.7)));
 
     // Base ambient shadow (darker near bottom floor crevice)
-    float baseShadow = smoothstep(0.2, -0.9, p.y) * 0.50;
+    float baseShadow = (1.0 - smoothstep(-0.9, 0.2, p.y)) * 0.40;
 
     // Horizontal mineral strata / grain lines for stone texture
     float strata = sin(p.y * 24.0 + n * 8.0) * 0.08 + 0.08;

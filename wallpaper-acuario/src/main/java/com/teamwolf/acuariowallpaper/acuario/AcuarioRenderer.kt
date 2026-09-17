@@ -262,9 +262,9 @@ class AcuarioRenderer(
     private var sandShadowColorHandle = 0
     private var sandDeepColorHandle = 0
 
-    private val kSandBaseColor = floatArrayOf(0.76f, 0.68f, 0.52f)
-    private val kSandHighlightColor = floatArrayOf(0.88f, 0.82f, 0.68f)
-    private val kSandShadowColor = floatArrayOf(0.55f, 0.48f, 0.36f)
+    private val kSandBaseColor = floatArrayOf(0.78f, 0.70f, 0.54f)
+    private val kSandHighlightColor = floatArrayOf(0.90f, 0.84f, 0.70f)
+    private val kSandShadowColor = floatArrayOf(0.62f, 0.54f, 0.42f)
 
     private val scratchSandBaseColor = FloatArray(3)
     private val scratchSandHighlightColor = FloatArray(3)
@@ -2091,8 +2091,8 @@ class AcuarioRenderer(
         if (sandProgram == 0) return
         GLES30.glUseProgram(sandProgram)
 
-        val ambientFactor = 0.40f + 0.60f * dayNight
-        val tintAmount = 0.25f
+        val ambientFactor = 0.55f + 0.45f * dayNight
+        val tintAmount = 0.14f
 
         mixColorInto(scratchSandBaseColor, kSandBaseColor, deepColor, tintAmount, ambientFactor)
         mixColorInto(scratchSandHighlightColor, kSandHighlightColor, deepColor, tintAmount, ambientFactor)
@@ -2106,9 +2106,9 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
 
-        val sandWidth = aspectRatio * 3.5f
-        val sandHeight = 0.80f
-        val sandCenterY = -0.78f
+        val sandWidth = aspectRatio * 4.2f
+        val sandHeight = 0.95f
+        val sandCenterY = -0.72f
         val sandDepth = 0.75f
 
         Matrix.setIdentityM(modelMatrix, 0)
@@ -2134,8 +2134,8 @@ class AcuarioRenderer(
         if (sandProgram == 0) return
         GLES30.glUseProgram(sandProgram)
 
-        val ambientFactor = 0.45f + 0.55f * dayNight
-        val tintAmount = 0.08f
+        val ambientFactor = 0.60f + 0.40f * dayNight
+        val tintAmount = 0.06f
 
         mixColorInto(scratchSandBaseColor, kSandBaseColor, deepColor, tintAmount, ambientFactor)
         mixColorInto(scratchSandHighlightColor, kSandHighlightColor, deepColor, tintAmount, ambientFactor)
@@ -2149,9 +2149,9 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
 
-        val sandWidth = aspectRatio * 4.2f
-        val sandHeight = 0.44f
-        val sandCenterY = -0.80f
+        val sandWidth = aspectRatio * 4.5f
+        val sandHeight = 0.65f
+        val sandCenterY = -0.74f
         val sandDepth = 0.08f
 
         Matrix.setIdentityM(modelMatrix, 0)

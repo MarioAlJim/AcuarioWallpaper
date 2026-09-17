@@ -33,7 +33,7 @@ float distantBlobAlpha(vec2 p, vec2 center, vec2 radii, float softness) {
     // washes out completely. Sized to guarantee that the center of the blob reaches
     // full opacity (1.0) instead of being stuck in the middle of a too-wide transition.
     w = min(w, 0.80);
-    return smoothstep(w, -w, d);
+    return 1.0 - smoothstep(-w, w, d);
 }
 
 // Deterministic pseudo-random 2D hash, used to place one "feature point" per grid cell for the

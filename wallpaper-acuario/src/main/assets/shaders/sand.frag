@@ -1,5 +1,5 @@
 #version 300 es
-precision mediump float;
+precision highp float;
 
 in vec2 vUV;
 in vec2 vLocalPos;
@@ -14,11 +14,11 @@ uniform vec3 uDeepColor;
 
 out vec4 fragColor;
 
-// 2D Hash helper for granular sand texture and nocturnal sparkles
-float hash(vec2 p) {
-    p = fract(p * vec2(127.1, 311.7));
-    p += dot(p, p + 43.12);
-    return fract(p.x * p.y);
+// Bounded Hoskins 2D-to-1D hash - completely free of float16/mediump overflow and NaN artifacts
+highp float hash(highp vec2 p) {
+    highp vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 void main() {
@@ -34,50 +34,53 @@ void main() {
     // Scaled horizontal coordinate for aspect-ratio invariant dune shapes
     float duneX = vUV.x * max(uAspect, 0.5) * 3.5;
 
-    // Back ridge (distant deeper seabed): base height raised and dune troughs bounded so back sand always spans well above flora roots
+    // Back ridge (distant deeper seabed): base height raised and dune troughs bounded
     float duneBack = 0.38 + sin(duneX * 2.2 + 1.2) * 0.06 + sin(duneX * 4.8) * 0.03 + cos(duneX * 0.95) * 0.04;
-    // Foreground dune (main seabed profile): base height elevated to embed flora roots seamlessly across all screen aspect ratios
+    // Foreground dune (main seabed profile): base height elevated to embed flora roots seamlessly
     float duneFront = 0.22 + sin(duneX * 3.3 + 0.4) * 0.05 + sin(duneX * 6.5 + 2.0) * 0.025 + cos(duneX * 1.3) * 0.04;
 
-    float alphaBack = smoothstep(duneBack + 0.015, duneBack - 0.010, p.y);
-    float alphaFront = smoothstep(duneFront + 0.015, duneFront - 0.010, p.y);
+    // Standard-compliant smoothstep where edge0 < edge1 strictly holds across all GPUs
+    float alphaBack = 1.0 - smoothstep(duneBack - 0.012, duneBack + 0.015, p.y);
+    float alphaFront = 1.0 - smoothstep(duneFront - 0.012, duneFront + 0.015, p.y);
 
-    if (max(alphaBack, alphaFront) <= 0.001) {
+    float totalAlpha = max(alphaBack, alphaFront);
+    if (totalAlpha <= 0.001) {
         discard;
     }
 
     // 2. Fine mineral sand grains
-    float grain = (hash(floor(vUV * vec2(420.0 * uAspect, 200.0))) - 0.5) * 0.14;
-    float grainFine = (hash(floor(vUV * vec2(840.0 * uAspect, 400.0))) - 0.5) * 0.07;
+    float grain = (hash(floor(vUV * vec2(320.0 * uAspect, 160.0))) - 0.5) * 0.05;
+    float grainFine = (hash(floor(vUV * vec2(640.0 * uAspect, 320.0))) - 0.5) * 0.025;
 
     // 3. Current wave ripples on sand floor
     float rippleAngle = uvScale.x * 3.5 + uvScale.y * 1.2 + sin(uvScale.x * 1.5) * 0.6;
     float ripple = sin(rippleAngle * 6.2831853);
-    float rippleShade = ripple * 0.09;
+    float rippleShade = ripple * 0.035;
 
-    // 4. Foreground dune coloring: gradient from illuminated crest to settled depths
-    float depthInDune = clamp((duneFront - p.y) / 0.85, 0.0, 1.0);
-    vec3 foreColor = mix(uHighlightColor, uBaseColor, smoothstep(0.0, 0.35, depthInDune));
-    foreColor = mix(foreColor, uShadowColor, smoothstep(0.35, 1.0, depthInDune));
-    foreColor += rippleShade * (1.0 - depthInDune * 0.45);
+    // 4. Foreground dune coloring: smooth transition across dune slope, preserving ambient seabed brightness
+    float depthInDune = clamp((duneFront - p.y) * 0.55, 0.0, 1.0);
+    vec3 foreColor = mix(uHighlightColor, uBaseColor, smoothstep(0.0, 0.40, depthInDune));
+    // Soft shadow blending that never crushes the sand into dark mud or black
+    foreColor = mix(foreColor, uShadowColor, smoothstep(0.35, 1.0, depthInDune) * 0.25);
+    foreColor += rippleShade * (1.0 - depthInDune * 0.35);
     foreColor += grain + grainFine;
 
-    // 5. Back ridge coloring: shifted toward deep water ambient for atmospheric perspective
-    float depthInBack = clamp((duneBack - p.y) / 0.85, 0.0, 1.0);
-    vec3 backColor = mix(uBaseColor * 0.82, uDeepColor, 0.40);
-    backColor = mix(backColor, uShadowColor * 0.75, smoothstep(0.3, 1.0, depthInBack));
+    // 5. Back ridge coloring: shifted gently toward water ambient for atmospheric depth
+    float depthInBack = clamp((duneBack - p.y) * 0.55, 0.0, 1.0);
+    vec3 backColor = mix(uBaseColor * 0.90, uDeepColor, 0.20);
+    backColor = mix(backColor, uShadowColor, smoothstep(0.35, 1.0, depthInBack) * 0.25);
     backColor += grain * 0.5;
 
     // Blend foreground dune over back ridge
     vec3 finalColor = mix(backColor, foreColor, alphaFront);
-    float totalAlpha = max(alphaBack, alphaFront);
 
     // 6. Sunlight caustics (active during day, fade out at dusk/night)
     if (uDayNight > 0.02) {
         vec2 cUV = uvScale * 1.8 + vec2(safeTime * 0.06, safeTime * 0.03);
         float c1 = sin(cUV.x * 5.0 + sin(cUV.y * 4.0 + safeTime * 0.8));
         float c2 = cos(cUV.y * 6.0 + sin(cUV.x * 5.0 + safeTime * 0.6));
-        float caustic = pow(clamp(c1 * c2 + 0.3, 0.0, 1.0), 2.5) * 0.26 * uDayNight;
+        float cVal = clamp(c1 * c2 + 0.3, 0.0, 1.0);
+        float caustic = pow(cVal, 2.5) * 0.26 * uDayNight;
         finalColor += vec3(caustic * 0.90, caustic * 0.95, caustic * 1.0);
     }
 
@@ -94,5 +97,7 @@ void main() {
         }
     }
 
-    fragColor = vec4(finalColor, totalAlpha);
+    // Enforce floor ambient floor to guarantee floor is never black
+    finalColor = max(finalColor, uShadowColor * 0.50);
+    fragColor = vec4(clamp(finalColor, 0.0, 1.0), totalAlpha);
 }
