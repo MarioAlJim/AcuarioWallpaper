@@ -63,17 +63,33 @@ void main() {
     // Center UV to [-1, 1] space. Shark faces right (nose toward +x, tail toward -x).
     vec2 p = vec2((vUV.x - 0.5) * 2.0, (0.5 - vUV.y) * 2.0);
 
-    // Organic swimming tail-wag warp - significantly more aggressive when biting (uBiteProgress > 0)
-    // Increases both amplitude and frequency-offset for a "thrashing" look.
-    float wagAmplitude = 0.12 + 0.14 * uBiteProgress;
-    float wagFreq = 2.8 + 1.2 * uBiteProgress;
-    float wave = sin(uSwimPhase - p.x * wagFreq) * wagAmplitude * smoothstep(0.4, -0.6, p.x);
+    // --- REALISTIC 3D SIDE-TO-SIDE (LATERAL UNDULATION) SWIMMING ---
+    // 1. Spatial phase along body length (traveling lateral wave from head to tail)
+    float wavePhase = uSwimPhase - p.x * 2.2;
+    float sideSway = sin(wavePhase); // Primary side-to-side oscillation (-1 to +1)
+    
+    // Tail region mask (0 at head +0.4, increases toward tail -0.6)
+    float tailMask = smoothstep(0.35, -0.55, p.x);
+    // Head region mask
+    float headMask = smoothstep(-0.10, 0.55, p.x);
 
-    // Head shake: sharks thrash their head side-to-side when biting.
-    // This affects the front half (+x) and is synced with a faster harmonic of swimPhase.
-    float headShake = sin(uSwimPhase * 2.2) * 0.07 * uBiteProgress * smoothstep(-0.2, 0.6, p.x);
+    // 2. Horizontal (X) perspective foreshortening:
+    // As the body and tail bend in 3D (away/toward camera), the projected horizontal length compresses.
+    float foreshorten = 1.0 - 0.07 * (sideSway * sideSway) * tailMask;
+    float warpX = p.x * foreshorten;
 
-    vec2 pWarped = vec2(p.x, p.y + wave + headShake);
+    // 3. Vertical (Y) 3D perspective thickness modulation (Depth Perspective):
+    // When the tail turns side-on / edge-on in 3D, its profile height compresses slightly toward the centerline,
+    // creating the vivid optical illusion of depth (moving in and out of the screen plane Z).
+    float tailPerspectiveY = 1.0 - (0.16 + 0.10 * uBiteProgress) * abs(sideSway) * tailMask;
+    
+    // 4. Subtle 3D Body Roll / Yaw alignment:
+    // Hydrodynamic yaw tilt as the tail sways - NO vertical Y flapping!
+    float bodyRoll = 0.035 * sideSway * tailMask;
+    // Head movement during biting: smooth lateral head turn
+    float headYaw = sin(uSwimPhase * 1.8) * 0.04 * uBiteProgress * headMask;
+
+    vec2 pWarped = vec2(warpX, (p.y + bodyRoll + headYaw) * tailPerspectiveY);
 
     // 1. Torpedo-shaped body with a tapered, thinner tail peduncle
     float tailTaper = 1.0;

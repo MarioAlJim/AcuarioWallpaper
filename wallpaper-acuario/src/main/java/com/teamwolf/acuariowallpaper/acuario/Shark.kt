@@ -128,9 +128,9 @@ class Shark {
         if (presenceMode == 2) {
             // Always active: wanders gracefully using steering
             active = true
-            // Swim phase speeds up dramatically during lunge for a "thrashing" tail
-            val swimSpeedBase = 3.5f
-            val swimSpeedBoost = if (isBiting) 8.0f * biteProgress else 0f
+            // Swim phase speeds up smoothly during lunge for energetic swimming
+            val swimSpeedBase = 2.8f
+            val swimSpeedBoost = if (isBiting) 3.2f * biteProgress else 0f
             swimPhase = (swimPhase + dt * (swimSpeedBase + swimSpeedBoost)) % TWO_PI
             
             if (!hasTarget) {
@@ -170,23 +170,15 @@ class Shark {
             facingSign = if (cos(heading) >= 0f) 1f else -1f
             mirrorBlend += (facingSign - mirrorBlend) * (1f - exp(-6.0f * dt))
 
-            // Jitter pitch slightly during bite for "struggle" effect
-            val jitter = if (isBiting) (Random.nextFloat() - 0.5f) * 15f * biteProgress else 0f
-            // Nose lifts whenever heading points upward (sin(heading) > 0), regardless of which
-            // way it's facing horizontally: drawShark() rotates by pitchDegrees BEFORE applying
-            // the mirror flip (facingScale(), X-only) in the model matrix, so that rotation
-            // always happens in the sprite's canonical "facing right" frame and the later mirror
-            // can never undo the vertical lift it added - same contract as Fish/Turtle/Manta's
-            // dy/dist-based pitch. Multiplying by facingSign here was a bug: it inverted the sign
-            // of the pitch whenever cos(heading) < 0 (heading left), pitching the nose DOWN while
-            // actually swimming up-and-left - i.e. reading as swimming tail-first.
-            val desiredPitch = sin(heading) * 18f + jitter
+            // Smooth, fluid body tilt oscillation during bite interaction instead of random 60Hz jitter
+            val biteBodySway = if (isBiting) sin(biteTimer * 8.0f) * 4.0f * biteProgress else 0f
+            val desiredPitch = sin(heading) * 18f + biteBodySway
             pitchDegrees += (desiredPitch - pitchDegrees) * (1f - exp(-4.0f * dt))
         } else {
             // Random pass-by behavior (Sometimes)
             if (active) {
-                val swimSpeedBase = 4.0f
-                val swimSpeedBoost = if (isBiting) 9.0f * biteProgress else 0f
+                val swimSpeedBase = 3.0f
+                val swimSpeedBoost = if (isBiting) 3.5f * biteProgress else 0f
                 swimPhase = (swimPhase + dt * (swimSpeedBase + swimSpeedBoost)) % TWO_PI
                 
                 val dirX = cos(heading)
@@ -202,20 +194,10 @@ class Shark {
                 facingSign = if (dirX > 0f) 1f else -1f
                 mirrorBlend += (facingSign - mirrorBlend) * (1f - exp(-6.0f * dt))
                 
-                // Pitch matches the vertical wave's own instantaneous velocity + jitter during
-                // attack. y's update above is driven by sin(timeAccumulator), so that same
-                // sin() - not cos() - is its rate of change and the correct thing to pitch
-                // toward; using cos() here left pitch a quarter-cycle out of phase with the
-                // actual up/down motion (near-level exactly when rising/sinking fastest, and
-                // maximally tilted exactly when the wave is momentarily flat), reading as an
-                // uncorrelated writhe rather than a gentle bob. Not scaled by facingSign either -
-                // nose-up should mean "actually moving up" regardless of which horizontal
-                // direction the pass-by is headed (see the identical fix in the "Always active"
-                // branch above); drawShark()'s mirror flip alone already handles left/right,
-                // applied after this rotation in the model matrix.
                 val pitchSlope = 0.05f * sin(timeAccumulator) / speed
-                val jitter = if (isBiting) (Random.nextFloat() - 0.5f) * 20f * biteProgress else 0f
-                pitchDegrees = pitchSlope * 18f + jitter
+                val biteBodySway = if (isBiting) sin(biteTimer * 8.0f) * 4.0f * biteProgress else 0f
+                val desiredPitch = pitchSlope * 18f + biteBodySway
+                pitchDegrees += (desiredPitch - pitchDegrees) * (1f - exp(-4.0f * dt))
 
                 // Went off-screen -> become inactive
                 if (dirX > 0 && x > aspectRatio + 1.8f) {
