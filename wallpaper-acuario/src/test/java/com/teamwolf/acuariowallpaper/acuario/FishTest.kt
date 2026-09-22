@@ -27,6 +27,7 @@ class FishTest {
     @Test
     fun update_advancesSwimPhaseWhileMoving() {
         val fish = Fish()
+        fish.setTarget(1.5f, 1.5f)
         val startPhase = fish.swimPhase
         fish.update(1f / 60f, aspectRatio = 1.7f)
         val phaseAfterOneStep = fish.swimPhase

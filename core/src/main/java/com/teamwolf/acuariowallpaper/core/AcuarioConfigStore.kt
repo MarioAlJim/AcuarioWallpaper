@@ -58,4 +58,7 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
 
     fun getChestColor(): Int = cachedInt(ConfigManager.KEY_CHEST_COLOR, ConfigManager.DEFAULT_CHEST_COLOR)
     fun setChestColor(color: Int) = putInt(ConfigManager.KEY_CHEST_COLOR, color.coerceIn(0, 2))
+
+    fun getBioluminescenceEnabled(): Boolean = cachedBoolean(ConfigManager.KEY_BIOLUMINESCENCE_ENABLED, ConfigManager.DEFAULT_BIOLUMINESCENCE_ENABLED)
+    fun setBioluminescenceEnabled(enabled: Boolean) = putBoolean(ConfigManager.KEY_BIOLUMINESCENCE_ENABLED, enabled)
 }

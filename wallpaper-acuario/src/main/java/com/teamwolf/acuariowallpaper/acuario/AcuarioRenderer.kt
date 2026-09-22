@@ -253,6 +253,9 @@ class AcuarioRenderer(
     private var sandShadowColorHandle = 0
     private var sandDeepColorHandle = 0
     private var sandIsForegroundHandle = 0
+    private var sandBioluminescenceHandle = 0
+
+    private val kZeroGlow = floatArrayOf(0f, 0f, 0f)
 
     private val kSandBaseColor = floatArrayOf(0.78f, 0.70f, 0.54f)
     private val kSandHighlightColor = floatArrayOf(0.90f, 0.84f, 0.70f)
@@ -767,6 +770,7 @@ class AcuarioRenderer(
             sandShadowColorHandle = GLES30.glGetUniformLocation(sandProgram, "uShadowColor")
             sandDeepColorHandle = GLES30.glGetUniformLocation(sandProgram, "uDeepColor")
             sandIsForegroundHandle = GLES30.glGetUniformLocation(sandProgram, "uIsForeground")
+            sandBioluminescenceHandle = GLES30.glGetUniformLocation(sandProgram, "uBioluminescence")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1504,7 +1508,7 @@ class AcuarioRenderer(
     }
 
     private fun spawnSparkleAt(originX: Float, originY: Float, shinyType: Int) {
-        if (activeBurstCount >= kMaxBurstBubbles) return
+        if (!configProvider.getBioluminescenceEnabled() || activeBurstCount >= kMaxBurstBubbles) return
         val bubble = burstBubbles[activeBurstCount]
         bubble.reset(
             startX = originX + (Random.nextFloat() - 0.5f) * 0.12f,
@@ -1765,7 +1769,8 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(fishStripeColorHandles[type], 1, scratchStripeColor, 0)
             // Not depth-tinted like the colors above - bioluminescence is its own light source,
             // not reflected ambient light, so it doesn't fade toward deepColor with distance.
-            GLES30.glUniform3fv(fishGlowColorHandles[type], 1, palette.glowColor, 0)
+            val fishGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+            GLES30.glUniform3fv(fishGlowColorHandles[type], 1, fishGlow, 0)
             GLES30.glUniform1f(fishShinyTypeHandles[type], f.shinyType.toFloat())
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
@@ -1825,7 +1830,8 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(mantaMarkingColorHandle, 1, scratchMantaMarkingColor, 0)
             // Not depth-tinted like the colors above - see the identical comment in the fish
             // draw loop.
-            GLES30.glUniform3fv(mantaGlowColorHandle, 1, palette.glowColor, 0)
+            val mantaGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+            GLES30.glUniform3fv(mantaGlowColorHandle, 1, mantaGlow, 0)
             GLES30.glUniform1f(mantaShinyTypeHandle, m.shinyType.toFloat())
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
@@ -1873,7 +1879,8 @@ class AcuarioRenderer(
             3 -> kSharkGlowGolden // Golden/Orange
             else -> kSharkGlowGray // Turquoise/Greenish-blue
         }
-        GLES30.glUniform3fv(sharkGlowColorHandle, 1, glowColor, 0)
+        val sharkGlow = if (configProvider.getBioluminescenceEnabled()) glowColor else kZeroGlow
+        GLES30.glUniform3fv(sharkGlowColorHandle, 1, sharkGlow, 0)
 
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }
@@ -1933,7 +1940,8 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(jellyfishPatternColorHandle, 1, scratchJellyfishPatternColor, 0)
             // Not depth-tinted like the colors above - see the identical comment in the fish
             // draw loop.
-            GLES30.glUniform3fv(jellyfishGlowColorHandle, 1, palette.glowColor, 0)
+            val jfGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+            GLES30.glUniform3fv(jellyfishGlowColorHandle, 1, jfGlow, 0)
             GLES30.glUniform1f(jellyfishShinyTypeHandle, jf.shinyType.toFloat())
 
             val intensity = if (jf.electricTimer > 0f) jf.electricTimer / 1.5f else 0f
@@ -2000,7 +2008,8 @@ class AcuarioRenderer(
                 GLES30.glUniform3fv(axolotlGillColorHandle, 1, scratchAxolotlGillColor, 0)
                 GLES30.glUniform3fv(axolotlBellyColorHandle, 1, scratchAxolotlBellyColor, 0)
                 GLES30.glUniform3fv(axolotlSpotColorHandle, 1, scratchAxolotlSpotColor, 0)
-                GLES30.glUniform3fv(axolotlGlowColorHandle, 1, palette.glowColor, 0)
+                val axGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+                GLES30.glUniform3fv(axolotlGlowColorHandle, 1, axGlow, 0)
                 GLES30.glUniform1f(axolotlShinyTypeHandle, ax.shinyType.toFloat())
 
                 GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
@@ -2205,6 +2214,7 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
         GLES30.glUniform1i(sandIsForegroundHandle, 0)
+        GLES30.glUniform1f(sandBioluminescenceHandle, if (configProvider.getBioluminescenceEnabled()) 1.0f else 0.0f)
 
         val sandWidth = aspectRatio * 4.2f
         val sandHeight = 0.95f
@@ -2249,6 +2259,7 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(sandShadowColorHandle, 1, scratchSandShadowColor, 0)
         GLES30.glUniform3fv(sandDeepColorHandle, 1, deepColor, 0)
         GLES30.glUniform1i(sandIsForegroundHandle, 1)
+        GLES30.glUniform1f(sandBioluminescenceHandle, if (configProvider.getBioluminescenceEnabled()) 1.0f else 0.0f)
 
         val sandWidth = aspectRatio * 4.5f
         val sandHeight = 0.33f
@@ -2307,7 +2318,8 @@ class AcuarioRenderer(
                 GLES30.glUniform3fv(rockHighlightColorHandle, 1, scratchRockHighlightColor, 0)
                 GLES30.glUniform3fv(rockShadowColorHandle, 1, scratchRockShadowColor, 0)
                 GLES30.glUniform3fv(rockSpotColorHandle, 1, scratchRockSpotColor, 0)
-                GLES30.glUniform3fv(rockGlowColorHandle, 1, palette.glowColor, 0)
+                val rockGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+                GLES30.glUniform3fv(rockGlowColorHandle, 1, rockGlow, 0)
 
                 GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
             }
@@ -2370,7 +2382,8 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(kelpHighlightColorHandle, 1, scratchKelpHighlightColor, 0)
             // Not depth-tinted like the colors above - see the identical comment in the fish
             // draw loop.
-            GLES30.glUniform3fv(kelpGlowColorHandle, 1, palette.glowColor, 0)
+            val kelpGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+            GLES30.glUniform3fv(kelpGlowColorHandle, 1, kelpGlow, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -2413,7 +2426,8 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(anemoneHighlightColorHandle, 1, scratchAnemoneHighlightColor, 0)
             // Not depth-tinted like the colors above - see the identical comment in the fish
             // draw loop.
-            GLES30.glUniform3fv(anemoneGlowColorHandle, 1, palette.glowColor, 0)
+            val anemoneGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+            GLES30.glUniform3fv(anemoneGlowColorHandle, 1, anemoneGlow, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -2457,7 +2471,8 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(seaGrassHighlightColorHandle, 1, scratchSeaGrassHighlightColor, 0)
             // Not depth-tinted like the colors above - see the identical comment in the fish
             // draw loop.
-            GLES30.glUniform3fv(seaGrassGlowColorHandle, 1, palette.glowColor, 0)
+            val seaGrassGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+            GLES30.glUniform3fv(seaGrassGlowColorHandle, 1, seaGrassGlow, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -2500,7 +2515,8 @@ class AcuarioRenderer(
             GLES30.glUniform3fv(coralHighlightColorHandle, 1, scratchCoralHighlightColor, 0)
             // Not depth-tinted like the colors above - see the identical comment in the fish
             // draw loop.
-            GLES30.glUniform3fv(coralGlowColorHandle, 1, palette.glowColor, 0)
+            val coralGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+            GLES30.glUniform3fv(coralGlowColorHandle, 1, coralGlow, 0)
 
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         }
@@ -2593,7 +2609,8 @@ class AcuarioRenderer(
                 GLES30.glUniform3fv(turtleSpotColorHandle, 1, scratchSpotColor, 0)
                 // Not depth-tinted like the colors above - see the identical comment in the fish
                 // draw loop.
-                GLES30.glUniform3fv(turtleGlowColorHandle, 1, palette.glowColor, 0)
+                val turtleGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+                GLES30.glUniform3fv(turtleGlowColorHandle, 1, turtleGlow, 0)
                 GLES30.glUniform1f(turtleShinyTypeHandle, t.shinyType.toFloat())
 
                 GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)

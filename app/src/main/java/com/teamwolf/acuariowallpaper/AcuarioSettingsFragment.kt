@@ -47,6 +47,7 @@ class AcuarioSettingsFragment : Fragment() {
         setupPlantDensityCards(view)
         setupBubbleCountCards(view)
         setupDayNightCycleCards(view)
+        setupBioluminescenceCards(view)
         setupSubmarineColorCards(view)
         setupChestColorCards(view)
 
@@ -520,6 +521,32 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setSharkColor(selectedIndex)
+        }
+    }
+
+    private fun setupBioluminescenceCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerBioluminescence)
+        val options = arrayOf(
+            getString(R.string.bioluminescence_enabled),
+            getString(R.string.bioluminescence_disabled)
+        )
+
+        val selectedIndex = if (configManager.getBioluminescenceEnabled()) 0 else 1
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            selectedIndex,
+            previewFactory = { index ->
+                TextView(requireContext()).apply {
+                    text = if (index == 0) "✨" else "🚫"
+                    textSize = 15f
+                    gravity = Gravity.CENTER
+                }
+            }
+        ) { index ->
+            configManager.setBioluminescenceEnabled(index == 0)
         }
     }
 }

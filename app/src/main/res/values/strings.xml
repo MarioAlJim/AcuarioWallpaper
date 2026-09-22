@@ -58,4 +58,7 @@
     <string name="chest_color_pirate">Pirata Clásico</string>
     <string name="chest_color_royal">Bóveda Real</string>
     <string name="chest_color_ancient">Reliquia Antigua</string>
+    <string name="settings_section_bioluminescence">Bioluminiscencia (Brillo Nocturno)</string>
+    <string name="bioluminescence_enabled">Activado</string>
+    <string name="bioluminescence_disabled">Desactivado</string>
 </resources>

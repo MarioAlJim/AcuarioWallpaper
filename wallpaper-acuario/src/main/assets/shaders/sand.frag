@@ -12,6 +12,7 @@ uniform vec3 uHighlightColor;
 uniform vec3 uShadowColor;
 uniform vec3 uDeepColor;
 uniform int uIsForeground; // 0 = main seabed (background layer), 1 = foreground rim covering bottom 10% of flora
+uniform float uBioluminescence; // 1.0 = enabled, 0.0 = disabled
 
 out vec4 fragColor;
 
@@ -102,7 +103,7 @@ void main() {
     }
 
     // Night bioluminescent / mineral sparkles (circular point-like glow, avoiding flat rectangular cells)
-    float nightFactor = 1.0 - uDayNight;
+    float nightFactor = (1.0 - uDayNight) * uBioluminescence;
     if (nightFactor > 0.05) {
         float quadWidth = (uIsForeground == 1) ? (uAspect * 4.5) : (uAspect * 4.2);
         float quadHeight = (uIsForeground == 1) ? 0.33 : 0.95;
