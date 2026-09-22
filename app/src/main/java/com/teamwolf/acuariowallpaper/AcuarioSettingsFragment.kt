@@ -48,6 +48,7 @@ class AcuarioSettingsFragment : Fragment() {
         setupBubbleCountCards(view)
         setupDayNightCycleCards(view)
         setupSubmarineColorCards(view)
+        setupChestColorCards(view)
 
         view.findViewById<View>(R.id.buttonHelpInteractions).setOnClickListener {
             (requireActivity() as WallpaperSettingsActivity).showHelpDialog()
@@ -420,6 +421,43 @@ class AcuarioSettingsFragment : Fragment() {
             }
         ) { selectedIndex ->
             configManager.setSubmarineColor(selectedIndex)
+        }
+    }
+
+    private fun setupChestColorCards(parent: View) {
+        val container = parent.findViewById<LinearLayout>(R.id.containerChestColor) ?: return
+        val options = arrayOf(
+            getString(R.string.chest_color_pirate),
+            getString(R.string.chest_color_royal),
+            getString(R.string.chest_color_ancient)
+        )
+        val colors = intArrayOf(
+            0xFF8B4513.toInt(), // Pirata Clásico
+            0xFF3B1E08.toInt(), // Bóveda Real
+            0xFF2E5A44.toInt()  // Reliquia Antigua
+        )
+
+        SettingsCardSelectorHelper.populate(
+            requireContext(),
+            container,
+            options,
+            configManager.getChestColor(),
+            previewFactory = { index ->
+                View(requireContext()).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(colors[index])
+                    }
+                    layoutParams = android.widget.FrameLayout.LayoutParams(
+                        (18 * resources.displayMetrics.density).toInt(),
+                        (18 * resources.displayMetrics.density).toInt()
+                    ).apply {
+                        gravity = Gravity.CENTER
+                    }
+                }
+            }
+        ) { selectedIndex ->
+            configManager.setChestColor(selectedIndex)
         }
     }
 

@@ -55,4 +55,7 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
 
     fun getSubmarineColor(): Int = cachedInt(ConfigManager.KEY_SUBMARINE_COLOR, ConfigManager.DEFAULT_SUBMARINE_COLOR)
     fun setSubmarineColor(color: Int) = putInt(ConfigManager.KEY_SUBMARINE_COLOR, color.coerceIn(0, 5))
+
+    fun getChestColor(): Int = cachedInt(ConfigManager.KEY_CHEST_COLOR, ConfigManager.DEFAULT_CHEST_COLOR)
+    fun setChestColor(color: Int) = putInt(ConfigManager.KEY_CHEST_COLOR, color.coerceIn(0, 2))
 }

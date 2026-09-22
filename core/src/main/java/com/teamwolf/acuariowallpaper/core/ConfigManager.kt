@@ -91,6 +91,9 @@ class ConfigManager(private val context: Context) : ConfigProvider {
 
         const val KEY_SUBMARINE_COLOR = "submarine_color"
         const val DEFAULT_SUBMARINE_COLOR = 0
+
+        const val KEY_CHEST_COLOR = "chest_color"
+        const val DEFAULT_CHEST_COLOR = 0
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
@@ -175,5 +178,11 @@ class ConfigManager(private val context: Context) : ConfigProvider {
     fun setSubmarineColor(color: Int) {
         acuario.setSubmarineColor(color)
         notifySettingsChanged(KEY_SUBMARINE_COLOR)
+    }
+
+    override fun getChestColor(): Int = acuario.getChestColor()
+    fun setChestColor(color: Int) {
+        acuario.setChestColor(color)
+        notifySettingsChanged(KEY_CHEST_COLOR)
     }
 }

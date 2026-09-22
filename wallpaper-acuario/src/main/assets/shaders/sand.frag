@@ -101,14 +101,30 @@ void main() {
         finalColor += vec3(caustic * 0.90, caustic * 0.95, caustic * 1.0);
     }
 
-    // Night bioluminescent / mineral sparkles
+    // Night bioluminescent / mineral sparkles (circular point-like glow, avoiding flat rectangular cells)
     float nightFactor = 1.0 - uDayNight;
     if (nightFactor > 0.05) {
-        vec2 spUV = floor(vUV * vec2(160.0 * uAspect, 80.0));
+        float quadWidth = (uIsForeground == 1) ? (uAspect * 4.5) : (uAspect * 4.2);
+        float quadHeight = (uIsForeground == 1) ? 0.33 : 0.95;
+        vec2 spCoord = vec2(vUV.x * quadWidth, vUV.y * quadHeight) * 35.0;
+        vec2 spUV = floor(spCoord);
+        vec2 spFrac = fract(spCoord);
         float spHash = hash(spUV);
         if (spHash > 0.965) {
+            // Pseudo-random sub-cell center offset kept within [0.25, 0.75]
+            vec2 center = vec2(
+                fract(spHash * 31.41),
+                fract(spHash * 73.17)
+            ) * 0.5 + 0.25;
+
+            float dist = length(spFrac - center);
+            float radius = 0.22;
+            float spot = smoothstep(radius, 0.0, dist);
+            float core = smoothstep(radius * 0.45, 0.0, dist);
+            float spotMask = spot * spot + core * 0.8;
+
             float sparklePhase = sin(safeTime * 2.5 + spHash * 62.83) * 0.5 + 0.5;
-            float sparkleIntensity = pow(sparklePhase, 3.0) * (spHash - 0.965) * 26.0;
+            float sparkleIntensity = pow(sparklePhase, 3.0) * (spHash - 0.965) * 40.0 * spotMask;
             vec3 sparkleColor = mix(vec3(0.35, 0.85, 0.95), vec3(0.55, 0.95, 0.65), fract(spHash * 19.0));
             finalColor += sparkleColor * sparkleIntensity * nightFactor;
         }

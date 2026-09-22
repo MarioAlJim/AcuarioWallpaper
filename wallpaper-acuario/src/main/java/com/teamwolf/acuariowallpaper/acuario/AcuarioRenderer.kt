@@ -286,6 +286,20 @@ class AcuarioRenderer(
     private val submarine = Submarine()
     private val kSubmarineScale = 0.28f
 
+    // Sunken Treasure Chest
+    private var treasureChestProgram = 0
+    private var treasureChestMVPHandle = 0
+    private var treasureChestTimeHandle = 0
+    private var treasureChestLidOpenHandle = 0
+    private var treasureChestGlowHandle = 0
+    private var treasureChestDayNightHandle = 0
+    private var treasureChestWoodColorHandle = 0
+    private var treasureChestMetalColorHandle = 0
+    private var treasureChestGoldColorHandle = 0
+    private var treasureChestGemColorHandle = 0
+    private val treasureChest = TreasureChest()
+    private val kTreasureChestScale = 0.35f
+
     // Per-configProvider.getSubmarineColor() palettes - hoisted to top-level constants so
     // drawSubmarine() doesn't allocate 3 fresh FloatArrays every single frame the submarine is
     // on screen.
@@ -492,6 +506,9 @@ class AcuarioRenderer(
     private val scratchRockHighlightColor = FloatArray(3)
     private val scratchRockShadowColor = FloatArray(3)
     private val scratchRockSpotColor = FloatArray(3)
+
+    private val scratchWoodColor = FloatArray(3)
+    private val scratchMetalColor = FloatArray(3)
 
     // Written once per frame by getDeepColorForTheme() and then night-tinted in place by
     // onDrawFrame() - reused instead of allocating a fresh FloatArray (via .clone()) every single
@@ -877,6 +894,23 @@ class AcuarioRenderer(
             e.printStackTrace()
         }
 
+        try {
+            val vert = readAssetFile(context, "shaders/treasure_chest.vert")
+            val frag = readAssetFile(context, "shaders/treasure_chest.frag")
+            treasureChestProgram = createProgram(vert, frag)
+            treasureChestMVPHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uMVPMatrix")
+            treasureChestTimeHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uTime")
+            treasureChestLidOpenHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uLidOpen")
+            treasureChestGlowHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uGlowIntensity")
+            treasureChestDayNightHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uDayNight")
+            treasureChestWoodColorHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uWoodColor")
+            treasureChestMetalColorHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uMetalColor")
+            treasureChestGoldColorHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uGoldColor")
+            treasureChestGemColorHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uGemColor")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
 
         val fullscreenCoords = floatArrayOf(
             -1f, 1f,
@@ -1062,6 +1096,17 @@ class AcuarioRenderer(
             }
         }
 
+        val chestScale = kTreasureChestScale * (1f - (1f - kMinScaleAtDepth) * treasureChest.depth)
+        targets.add(TouchTarget(
+            type = 5,
+            obj = treasureChest,
+            depth = treasureChest.depth,
+            x = (treasureChest.x * aspectRatio) + getParallaxX(treasureChest.depth),
+            y = treasureChest.y + getParallaxY(treasureChest.depth),
+            rx = chestScale * 0.8f,
+            ry = chestScale * 0.8f
+        ))
+
         // Sort by depth ascending so the closest creatures (lowest depth value) are checked first
         targets.sortBy { it.depth }
 
@@ -1094,6 +1139,9 @@ class AcuarioRenderer(
                         synchronized(rocks) {
                             ax.touch(worldX, worldY, rocks)
                         }
+                    }
+                    5 -> { // TreasureChest
+                        (target.obj as TreasureChest).touch()
                     }
                 }
                 animalTouched = true
@@ -1307,6 +1355,11 @@ class AcuarioRenderer(
         }
         for (i in corals.indices) {
             corals[i].update(deltaTime)
+        }
+        treasureChest.update(deltaTime, aspectRatio)
+        if (treasureChest.shouldSpawnBubbles) {
+            treasureChest.shouldSpawnBubbles = false
+            spawnChestBubbles(treasureChest.x * aspectRatio, treasureChest.y + 0.05f)
         }
         synchronized(turtles) {
             for (i in turtles.indices) {
@@ -1533,6 +1586,7 @@ class AcuarioRenderer(
         drawSubmarine(deepColor)
         drawSand(deepColor)
         drawRocks(deepColor)
+        drawTreasureChest(deepColor)
         drawPlants(backLayer = true, deepColor)
         drawMantas(deepColor)
         drawShark(deepColor)
@@ -1547,6 +1601,68 @@ class AcuarioRenderer(
 
         GLES30.glDisableVertexAttribArray(0)
         GLES30.glDisableVertexAttribArray(1)
+    }
+
+    private fun spawnChestBubbles(originX: Float, originY: Float) {
+        repeat(2) {
+            if (activeBurstCount >= kMaxBurstBubbles) return@repeat
+            val jitteredX = originX + (Random.nextFloat() - 0.5f) * 0.08f
+            burstBubbles[activeBurstCount].reset(
+                startX = jitteredX,
+                startY = originY,
+                size = 0.025f + Random.nextFloat() * 0.035f,
+                speed = 0.28f + Random.nextFloat() * 0.18f,
+                wobbleAmplitude = 0.012f + Random.nextFloat() * 0.015f,
+                wobbleSpeed = 1.2f + Random.nextFloat() * 1.5f,
+                wobbleSeed = Random.nextFloat() * 6.2832f,
+                alpha = 0.70f + Random.nextFloat() * 0.25f
+            )
+            activeBurstCount++
+        }
+    }
+
+    private fun drawTreasureChest(deepColor: FloatArray) {
+        if (treasureChestProgram == 0) return
+        GLES30.glUseProgram(treasureChestProgram)
+        GLES30.glUniform1f(treasureChestTimeHandle, time)
+        GLES30.glUniform1f(treasureChestLidOpenHandle, treasureChest.lidOpen)
+        GLES30.glUniform1f(treasureChestGlowHandle, treasureChest.glowIntensity)
+        GLES30.glUniform1f(treasureChestDayNightHandle, dayNight)
+
+        val palette = when (configProvider.getChestColor()) {
+            0 -> TreasureChestPalette.CLASSIC_PIRATE
+            1 -> TreasureChestPalette.ROYAL_VAULT
+            2 -> TreasureChestPalette.ANCIENT_RELIC
+            else -> TreasureChestPalette.CLASSIC_PIRATE
+        }
+        treasureChest.palette = palette
+
+        val ambientFactor = 0.55f + 0.45f * dayNight
+        val tintAmount = treasureChest.depth * kMaxDepthTint
+
+        mixColorInto(scratchWoodColor, palette.woodColor, deepColor, tintAmount, ambientFactor)
+        mixColorInto(scratchMetalColor, palette.metalColor, deepColor, tintAmount, ambientFactor)
+
+        GLES30.glUniform3fv(treasureChestWoodColorHandle, 1, scratchWoodColor, 0)
+        GLES30.glUniform3fv(treasureChestMetalColorHandle, 1, scratchMetalColor, 0)
+        GLES30.glUniform3fv(treasureChestGoldColorHandle, 1, palette.goldColor, 0)
+        GLES30.glUniform3fv(treasureChestGemColorHandle, 1, palette.gemColor, 0)
+
+        val depthScale = kTreasureChestScale * (1f - (1f - kMinScaleAtDepth) * treasureChest.depth)
+        val chestWorldX = treasureChest.x * aspectRatio
+
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(
+            modelMatrix, 0,
+            chestWorldX + getParallaxX(treasureChest.depth),
+            treasureChest.y + getParallaxY(treasureChest.depth),
+            0f
+        )
+        Matrix.scaleM(modelMatrix, 0, depthScale * aspectRatio * 0.6f, depthScale, 1f)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+
+        GLES30.glUniformMatrix4fv(treasureChestMVPHandle, 1, false, mvpMatrix, 0)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }
 
     private fun drawFood() {

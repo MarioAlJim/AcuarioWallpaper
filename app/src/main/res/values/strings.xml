@@ -54,4 +54,8 @@
     <string name="submarine_color_verde">Verde</string>
     <string name="submarine_color_rosa">Rosa</string>
     <string name="submarine_color_naranja">Naranja</string>
+    <string name="settings_section_chest_color">Estilo del cofre del tesoro</string>
+    <string name="chest_color_pirate">Pirata Clásico</string>
+    <string name="chest_color_royal">Bóveda Real</string>
+    <string name="chest_color_ancient">Reliquia Antigua</string>
 </resources>

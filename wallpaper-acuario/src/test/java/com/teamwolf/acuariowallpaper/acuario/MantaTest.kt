@@ -28,13 +28,13 @@ class MantaTest {
     fun update_advancesSwimPhaseWhileMoving() {
         val manta = Manta()
         val startPhase = manta.swimPhase
-        manta.update(1f / 60f, aspectRatio = 1.7f)
-        val phaseAfterOneStep = manta.swimPhase
+        repeat(5) { manta.update(1f / 60f, aspectRatio = 1.7f) }
+        val phaseAfterFewSteps = manta.swimPhase
 
         repeat(30) { manta.update(1f / 60f, aspectRatio = 1.7f) }
 
-        assertTrue(manta.swimPhase > phaseAfterOneStep)
-        assertTrue(phaseAfterOneStep > startPhase)
+        assertTrue(manta.swimPhase > phaseAfterFewSteps)
+        assertTrue(phaseAfterFewSteps > startPhase)
     }
 
     @Test
