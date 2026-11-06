@@ -15,14 +15,15 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import com.google.android.material.card.MaterialCardView
 
 /** One step of the onboarding tutorial: the view to spotlight plus its explanation. */
 data class TutorialStep(
     val targetId: Int,
-    val title: String,
-    val description: String
+    @StringRes val title: Int,
+    @StringRes val description: Int
 )
 
 /**
@@ -118,7 +119,7 @@ class TutorialOverlay(private val activity: Activity) {
         }
 
         val skip = TextView(ctx).apply {
-            text = "Saltar tutorial"
+            text = activity.getString(R.string.tutorial_skip)
             textSize = 13f
             setTextColor(ContextCompat.getColor(ctx, R.color.settings_text_secondary))
             setPadding(dp(8), dp(8), dp(8), dp(8))
@@ -208,10 +209,10 @@ class TutorialOverlay(private val activity: Activity) {
         val highlightRect = RectF(left, top, right, bottom)
         spotlightView?.highlightRect = highlightRect
 
-        stepCounterText?.text = "Paso ${index + 1} de ${steps.size}"
-        titleText?.text = step.title
-        descriptionText?.text = step.description
-        nextButton?.text = if (index == steps.size - 1) "Entendido" else "Siguiente"
+        stepCounterText?.text = activity.getString(R.string.tutorial_step_counter, index + 1, steps.size)
+        titleText?.setText(step.title)
+        descriptionText?.setText(step.description)
+        nextButton?.setText(if (index == steps.size - 1) R.string.tutorial_done else R.string.tutorial_next)
 
         val card = cardView ?: return
         val widthSpec = View.MeasureSpec.makeMeasureSpec(card.layoutParams.width, View.MeasureSpec.EXACTLY)

@@ -118,8 +118,27 @@
     <string name="preview_hint">Toca para interactuar y desliza para recorrer el fondo. Los cambios se aplican al instante.</string>
     <string name="preview_bubble_storm">Tormenta de burbujas</string>
     <string name="preview_content_description">Vista previa en vivo del acuario</string>
-    <string name="preview_summary_creatures">%1$d criaturas</string>
-    <string name="preview_shark_off">Sin tiburón</string>
-    <string name="preview_shark_random">Tiburón ocasional</string>
-    <string name="preview_shark_always">Tiburón siempre</string>
+    <plurals name="preview_summary_creatures">
+        <item quantity="one">%1$d criatura en escena</item>
+        <item quantity="many">%1$d criaturas en escena</item>
+        <item quantity="other">%1$d criaturas en escena</item>
+    </plurals>
+
+    <!-- Tutorial interactivo -->
+    <string name="tutorial_skip">Saltar tutorial</string>
+    <string name="tutorial_step_counter">Paso %1$d de %2$d</string>
+    <string name="tutorial_next">Siguiente</string>
+    <string name="tutorial_done">Entendido</string>
+    <string name="tutorial_theme_title">Tema visual</string>
+    <string name="tutorial_theme_desc">Alterna entre modo Claro, Oscuro o Automático según el sistema para la pantalla de ajustes.</string>
+    <string name="tutorial_preview_title">Vista previa en vivo</string>
+    <string name="tutorial_preview_desc">Mira tu acuario en tiempo real mientras ajustas las opciones. Tócalo para interactuar o desliza para recorrerlo.</string>
+    <string name="tutorial_environment_title">Entorno e Iluminación</string>
+    <string name="tutorial_environment_desc">Personaliza el ambiente marino, degradados de color del agua y velocidad del ciclo día/noche.</string>
+    <string name="tutorial_fauna_title">Fauna Marina</string>
+    <string name="tutorial_fauna_desc">Controla la población de peces, tortugas, mantarrayas, medusas, ajolotes y la presencia del tiburón.</string>
+    <string name="tutorial_landscape_title">Paisaje y Elementos</string>
+    <string name="tutorial_landscape_desc">Ajusta la densidad de plantas, burbujas y personaliza los colores del submarino y cofre del tesoro.</string>
+    <string name="tutorial_apply_title">Aplicar Fondo</string>
+    <string name="tutorial_apply_desc">Establece el acuario interactivo 3D como tu fondo de pantalla o pantalla de bloqueo.</string>
 </resources>

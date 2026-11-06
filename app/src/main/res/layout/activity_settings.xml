@@ -244,13 +244,14 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/buttonPreviewBubbles"
-                            style="@style/Widget.Material3.Button.TonalButton"
+                            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
                             android:layout_width="wrap_content"
                             android:layout_height="40dp"
                             android:layout_marginTop="12dp"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
                             android:text="@string/preview_bubble_storm"
+                            android:textAllCaps="false"
                             android:textColor="@color/settings_accent_text"
                             android:textSize="12sp"
                             app:backgroundTint="@color/settings_chip_bg_active"
@@ -285,12 +286,13 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:text="@string/settings_apply_wallpaper"
-            android:textColor="@color/white"
+            android:textColor="@color/settings_on_accent"
             android:textSize="15sp"
             android:textStyle="bold"
-            android:backgroundTint="@color/settings_accent"
+            app:backgroundTint="@color/settings_accent"
             app:cornerRadius="12dp"
             app:icon="@drawable/ic_background"
+            app:iconTint="@color/settings_on_accent"
             app:iconGravity="textStart"
             app:iconPadding="8dp" />
     </FrameLayout>

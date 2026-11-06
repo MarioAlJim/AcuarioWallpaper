@@ -118,28 +118,15 @@ class WallpaperSettingsActivity : AppCompatActivity() {
         updatePreviewSummary()
     }
 
-    /** Two short lines under the preview title: water theme, then creature count + shark mode. */
+    /**
+     * Total creature count under the preview title. Theme, cycle, shark and per-species counts are
+     * already in the section headers' summaries, so the card only shows what none of them do.
+     */
     private fun updatePreviewSummary() {
-        val themeNames = intArrayOf(
-            R.string.acuario_theme_turquesa,
-            R.string.acuario_theme_azul_profundo,
-            R.string.acuario_theme_atardecer,
-            R.string.acuario_theme_abisal,
-            R.string.acuario_theme_arrecife,
-            R.string.acuario_theme_personalizado
-        )
-        val theme = getString(themeNames.getOrElse(configManager.getAcuarioTheme()) { themeNames[0] })
         val creatures = configManager.getFishCount() + configManager.getTurtleCount() +
             configManager.getMantaCount() + configManager.getJellyfishCount() +
             configManager.getAxolotlCount() + configManager.getStarfishCount()
-        val shark = getString(
-            when (configManager.getSharkPresence()) {
-                0 -> R.string.preview_shark_off
-                1 -> R.string.preview_shark_random
-                else -> R.string.preview_shark_always
-            }
-        )
-        previewSummary.text = "$theme\n${getString(R.string.preview_summary_creatures, creatures)} · $shark"
+        previewSummary.text = resources.getQuantityString(R.plurals.preview_summary_creatures, creatures, creatures)
     }
 
     fun showHelpDialog() {
@@ -198,36 +185,12 @@ class WallpaperSettingsActivity : AppCompatActivity() {
 
     fun startTutorial() {
         val steps = listOf(
-            TutorialStep(
-                R.id.layoutThemeMode,
-                "Tema visual",
-                "Alterna entre modo Claro, Oscuro o Automático según el sistema para la pantalla de ajustes."
-            ),
-            TutorialStep(
-                R.id.cardLivePreview,
-                "Vista previa en vivo",
-                "Mira tu acuario en tiempo real mientras ajustas las opciones. Tócalo para interactuar o desliza para recorrerlo."
-            ),
-            TutorialStep(
-                R.id.headerAcuarioEnvironment,
-                "Entorno e Iluminación",
-                "Personaliza el ambiente marino, degradados de color del agua y velocidad del ciclo día/noche."
-            ),
-            TutorialStep(
-                R.id.headerAcuarioFauna,
-                "Fauna Marina",
-                "Controla la población de peces, tortugas, mantarrayas, medusas, ajolotes y la presencia del tiburón."
-            ),
-            TutorialStep(
-                R.id.headerAcuarioLandscape,
-                "Paisaje y Elementos",
-                "Ajusta la densidad de plantas, burbujas y personaliza los colores del submarino y cofre del tesoro."
-            ),
-            TutorialStep(
-                R.id.buttonApplyWallpaper,
-                "Aplicar Fondo",
-                "Establece el acuario interactivo 3D como tu fondo de pantalla o pantalla de bloqueo."
-            )
+            TutorialStep(R.id.layoutThemeMode, R.string.tutorial_theme_title, R.string.tutorial_theme_desc),
+            TutorialStep(R.id.cardLivePreview, R.string.tutorial_preview_title, R.string.tutorial_preview_desc),
+            TutorialStep(R.id.headerAcuarioEnvironment, R.string.tutorial_environment_title, R.string.tutorial_environment_desc),
+            TutorialStep(R.id.headerAcuarioFauna, R.string.tutorial_fauna_title, R.string.tutorial_fauna_desc),
+            TutorialStep(R.id.headerAcuarioLandscape, R.string.tutorial_landscape_title, R.string.tutorial_landscape_desc),
+            TutorialStep(R.id.buttonApplyWallpaper, R.string.tutorial_apply_title, R.string.tutorial_apply_desc)
         )
         tutorialOverlay.start(steps)
     }

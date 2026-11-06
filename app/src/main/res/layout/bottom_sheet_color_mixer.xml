@@ -276,7 +276,7 @@
             android:layout_marginStart="10dp"
             android:backgroundTint="@color/settings_accent"
             android:text="@string/color_mixer_accept"
-            android:textColor="@color/white"
+            android:textColor="@color/settings_on_accent"
             app:cornerRadius="24dp" />
     </LinearLayout>
 

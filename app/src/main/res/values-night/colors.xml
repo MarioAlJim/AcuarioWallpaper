@@ -18,6 +18,8 @@
     <color name="settings_text_disabled">#60717A</color>
     <color name="settings_accent">#00E5FF</color>
     <color name="settings_accent_text">#00E5FF</color>
+    <!-- Text/icons drawn on a settings_accent fill (dark teal on cyan, ~10:1) -->
+    <color name="settings_on_accent">#00363D</color>
     <color name="settings_accent_ripple">#2200E5FF</color>
     <color name="settings_section_warning">#FF9800</color>
     <color name="settings_section_info">#29B6F6</color>

@@ -26,6 +26,8 @@
     <color name="settings_text_disabled">#90A4AE</color>
     <color name="settings_accent">#0097A7</color>
     <color name="settings_accent_text">#00838F</color>
+    <!-- Text/icons drawn on a settings_accent fill (white on teal, ~3.5:1: enough for 15sp bold text) -->
+    <color name="settings_on_accent">#FFFFFF</color>
     <color name="settings_accent_ripple">#220097A7</color>
     <color name="settings_section_warning">#E65100</color>
     <color name="settings_section_info">#0288D1</color>
