@@ -14,6 +14,7 @@ interface ConfigProvider {
     fun getMantaCount(): Int   // 0-4
     fun getJellyfishCount(): Int  // 0-6
     fun getAxolotlCount(): Int    // 0-4
+    fun getStarfishCount(): Int   // 0-3 on the front glass
     fun getSharkPresence(): Int   // 0: Disabled, 1: Sometimes, 2: Always
     fun getSharkColor(): Int      // 0: Gray, 1: Blue, 2: White, 3: Golden
     fun getPlantDensity(): Int // 0-24 anchored plants (kelp + anemones) on the tank floor
@@ -23,4 +24,5 @@ interface ConfigProvider {
     fun getSubmarineColor(): Int       // 0: Amarillo, 1: Rojo, 2: Azul, 3: Verde, 4: Rosa, 5: Naranja
     fun getChestColor(): Int           // 0: Pirata Clásico, 1: Bóveda Real, 2: Reliquia Antigua
     fun getBioluminescenceEnabled(): Boolean // true: enabled, false: disabled
+    fun getRealisticModeEnabled(): Boolean   // true: enabled, false: disabled
 }

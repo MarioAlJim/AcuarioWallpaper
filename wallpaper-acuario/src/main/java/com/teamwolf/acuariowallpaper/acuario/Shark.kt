@@ -10,7 +10,7 @@ import kotlin.random.Random
 /**
  * Movement + swim-animation state for the Shark.
  * Uses steering behavior to ensure graceful, curved turns (no abrupt sliding)
- * and smooth mirror flipping.
+ * and smooth mirror flipping. Supports predatory hunting in realistic mode.
  */
 class Shark {
     var active = false
@@ -28,6 +28,16 @@ class Shark {
     private var biteTimer = 0f
     private var lungeMultiplier = 1.0f
 
+    // Predatory hunting state
+    var isHunting = false
+        private set
+    var huntTargetX = 0f
+    var huntTargetY = 0f
+    var huntTargetDepth = 0.5f
+    var huntTargetObject: Any? = null
+        private set
+    private var huntDuration = 0f
+
     private var targetX = 0f
     private var targetY = 0f
     private var targetDepth = 0.5f
@@ -37,6 +47,11 @@ class Shark {
     private var mirrorBlend = 1f
 
     private val baseSpeed = 0.14f // slow, majestic cruising speed
+
+    // Presence & life-cycle
+    var canSpawn = true
+    var isRetiring = false
+        private set
 
     // 0 = Disabled, 1 = Sometimes (Random), 2 = Always
     var presenceMode = 1
@@ -69,6 +84,8 @@ class Shark {
         isBiting = false
         biteProgress = 0f
         lungeMultiplier = 1f
+        isHunting = false
+        huntTargetObject = null
         resetTimer()
     }
 
@@ -78,61 +95,183 @@ class Shark {
         biteTimer = 0f
     }
 
+    fun startHunt(targetX: Float, targetY: Float, targetDepth: Float, prey: Any) {
+        if (!active) return
+        isHunting = true
+        huntDuration = 0f
+        huntTargetX = targetX
+        huntTargetY = targetY
+        huntTargetDepth = targetDepth
+        huntTargetObject = prey
+        isBiting = true
+        biteTimer = 0f
+    }
+
+    fun updateHuntTarget(targetX: Float, targetY: Float, targetDepth: Float) {
+        if (isHunting) {
+            huntTargetX = targetX
+            huntTargetY = targetY
+            huntTargetDepth = targetDepth
+        }
+    }
+
+    /**
+     * Calculates the exact world position of the shark's snout/mouth based on current
+     * position, facing scale, pitch rotation, and depth scale.
+     */
+    fun getHeadWorldPosition(depthScale: Float): Pair<Float, Float> {
+        val headLocalX = 0.46f * depthScale
+        val headLocalY = -0.04f * depthScale
+        val pitchRad = Math.toRadians(pitchDegrees.toDouble()).toFloat()
+        val cosP = cos(pitchRad)
+        val sinP = sin(pitchRad)
+        // Local rotation first
+        val rotX = headLocalX * cosP - headLocalY * sinP
+        val rotY = headLocalX * sinP + headLocalY * cosP
+        // Apply facing sign flip and body world position
+        val headX = x + rotX * facingSign
+        val headY = y + rotY
+        return Pair(headX, headY)
+    }
+
+    fun retire() {
+        if (!active) return
+        isRetiring = true
+        isHunting = false
+        huntTargetObject = null
+    }
+
+    fun finishHunt(preyCaught: Boolean) {
+        isHunting = false
+        huntTargetObject = null
+        huntDuration = 0f
+        if (preyCaught) {
+            // Snaps jaw and glides satisfied
+            isBiting = true
+            biteTimer = 1.0f
+            lungeMultiplier = 1.25f
+        }
+    }
+
     fun update(deltaTime: Float, aspectRatio: Float) {
-        if (presenceMode == 0) {
+        if (presenceMode == 0 || (!canSpawn && !active)) {
             active = false
             return
         }
 
-        // Prevent update jumps on massive frames spikes
         val dt = deltaTime.coerceAtMost(0.1f)
 
-        // Handle bite and lunge interaction: extended duration showing bared teeth
-        if (isBiting) {
+        // Handle retreating off-screen when fauna is depleted
+        if (isRetiring) {
+            val speed = 0.22f * (1f - (1f - kMinSpeedAtDepth) * depth)
+            val dirX = if (facingSign >= 0f) 1f else -1f
+            x += dirX * speed * dt
+            swimPhase = (swimPhase + dt * 3.2f) % TWO_PI
+            mirrorBlend += (facingSign - mirrorBlend) * (1f - exp(-6.0f * dt))
+            if (kotlin.math.abs(x) > aspectRatio + 2.0f) {
+                active = false
+                isRetiring = false
+                resetTimer()
+            }
+            return
+        }
+
+        // Handle hunting timeout
+        if (isHunting) {
+            huntDuration += dt
+            if (huntDuration > 6.0f) {
+                finishHunt(false)
+            }
+        }
+
+        // Handle bite and lunge interaction
+        if (isHunting) {
+            lungeMultiplier = 1.75f
+            // Wide open jaws while chasing down prey
+            biteProgress = (0.75f + 0.25f * sin(huntDuration * 9f)).coerceIn(0.55f, 1.0f)
+        } else if (isBiting) {
             biteTimer += dt
 
-            // Forward surge / lunge multiplier during the bite display
             lungeMultiplier = when {
-                biteTimer < 0.8f -> 1.0f + 2.2f * (1.0f - biteTimer / 0.8f) // explosive initial lunge
-                biteTimer < 2.2f -> 1.35f // sustained predatory speed during the hold
-                biteTimer < 3.0f -> 1.0f + 0.35f * (1.0f - (biteTimer - 2.2f) / 0.8f) // settling back to cruising speed
+                biteTimer < 0.6f -> 1.0f + 0.6f * (1.0f - biteTimer / 0.6f)
+                biteTimer < 2.0f -> 1.25f
+                biteTimer < 2.8f -> 1.0f + 0.25f * (1.0f - (biteTimer - 2.0f) / 0.8f)
                 else -> 1.0f
             }
 
-            // Bite progress: snap open -> hold showing teeth -> smooth close
             biteProgress = when {
                 biteTimer < 0.35f -> {
-                    // Quick menacing snap open (0.0 to 1.0)
                     val t = biteTimer / 0.35f
-                    t * (2.0f - t) // easeOut quad
+                    t * (2.0f - t)
                 }
-                biteTimer < 2.2f -> {
-                    // Hold open displaying razor-sharp teeth with sustained predatory focus
-                    1.0f
-                }
-                biteTimer < 3.0f -> {
-                    // Smooth, deliberate jaw closure back to normal
-                    val t = (biteTimer - 2.2f) / 0.8f
-                    1.0f - t * t // easeIn quad
+                biteTimer < 1.8f -> 1.0f
+                biteTimer < 2.6f -> {
+                    val t = (biteTimer - 1.8f) / 0.8f
+                    1.0f - t * t
                 }
                 else -> 0f
             }
 
-            if (biteTimer >= 3.0f) {
+            if (biteTimer >= 2.6f) {
                 isBiting = false
                 biteProgress = 0f
                 lungeMultiplier = 1f
             }
         }
 
+        // Active hunting overrides normal wander behavior
+        if (isHunting) {
+            val swimSpeedBoost = 3.2f
+            swimPhase = (swimPhase + dt * (3.0f + swimSpeedBoost)) % TWO_PI
+
+            // Steering towards prey from body center (x, y) prevents erratic chattering
+            val dx = huntTargetX - x
+            val dy = huntTargetY - y
+            val distToTarget = sqrt(dx * dx + dy * dy)
+
+            val targetHeading = atan2(dy, dx)
+            var angleDiff = targetHeading - heading
+            while (angleDiff > PI) angleDiff -= TWO_PI
+            while (angleDiff < -PI) angleDiff += TWO_PI
+
+            // Smooth hydrodynamic turn rate
+            val maxTurnRate = 3.0f
+            val turnStep = angleDiff.coerceIn(-maxTurnRate * dt, maxTurnRate * dt)
+            heading += turnStep
+
+            val speed = baseSpeed * (1f - (1f - kMinSpeedAtDepth) * depth) * lungeMultiplier
+            x += cos(heading) * speed * dt
+            y = (y + sin(heading) * speed * dt).coerceIn(-0.65f, 0.75f)
+
+            depth += (huntTargetDepth - depth) * (1f - exp(-1.5f * dt))
+
+            // Only flip facing sign with hysteresis and when not right on top of target
+            if (distToTarget > 0.22f) {
+                if (facingSign > 0f && cos(heading) < -0.25f) {
+                    facingSign = -1f
+                } else if (facingSign < 0f && cos(heading) > 0.25f) {
+                    facingSign = 1f
+                }
+            }
+            mirrorBlend += (facingSign - mirrorBlend) * (1f - exp(-6.0f * dt))
+
+            // Smooth pitch oriented toward target movement
+            val targetPitch = (sin(heading) * 22f).coerceIn(-28f, 28f)
+            pitchDegrees += (targetPitch - pitchDegrees) * (1f - exp(-6.0f * dt))
+            return
+        }
+
         if (presenceMode == 2) {
+            if (!canSpawn) {
+                active = false
+                return
+            }
             // Always active: wanders gracefully using steering
             active = true
-            // Swim phase speeds up smoothly during lunge for energetic swimming
             val swimSpeedBase = 2.8f
             val swimSpeedBoost = if (isBiting) 3.2f * biteProgress else 0f
             swimPhase = (swimPhase + dt * (swimSpeedBase + swimSpeedBoost)) % TWO_PI
-            
+
             if (!hasTarget) {
                 pickNewTarget(aspectRatio)
             }
@@ -140,37 +279,30 @@ class Shark {
             val dx = targetX - x
             val dy = targetY - y
             val dist = sqrt(dx * dx + dy * dy)
-            
-            // If close to target, pick a new one
+
             if (dist < 0.25f) {
                 pickNewTarget(aspectRatio)
                 return
             }
 
-            // Calculate target heading
             val targetHeading = atan2(dy, dx)
             var angleDiff = targetHeading - heading
             while (angleDiff > PI) angleDiff -= TWO_PI
             while (angleDiff < -PI) angleDiff += TWO_PI
 
-            // More aggressive steering during attack
             val maxTurnRate = if (isBiting) 2.5f else 0.8f
             val turnStep = angleDiff.coerceIn(-maxTurnRate * dt, maxTurnRate * dt)
             heading += turnStep
 
-            // Move forward in current heading direction
             val speed = baseSpeed * (1f - (1f - kMinSpeedAtDepth) * depth) * lungeMultiplier
             x += cos(heading) * speed * dt
             y = (y + sin(heading) * speed * dt).coerceIn(-0.65f, 0.75f)
 
-            // Smooth depth change
             depth += (targetDepth - depth) * (1f - exp(-0.6f * dt))
 
-            // Smooth face flipping (flip when heading crosses vertical axis)
             facingSign = if (cos(heading) >= 0f) 1f else -1f
             mirrorBlend += (facingSign - mirrorBlend) * (1f - exp(-6.0f * dt))
 
-            // Smooth, fluid body tilt oscillation during bite interaction instead of random 60Hz jitter
             val biteBodySway = if (isBiting) sin(biteTimer * 8.0f) * 4.0f * biteProgress else 0f
             val desiredPitch = sin(heading) * 18f + biteBodySway
             pitchDegrees += (desiredPitch - pitchDegrees) * (1f - exp(-4.0f * dt))
@@ -180,26 +312,22 @@ class Shark {
                 val swimSpeedBase = 3.0f
                 val swimSpeedBoost = if (isBiting) 3.5f * biteProgress else 0f
                 swimPhase = (swimPhase + dt * (swimSpeedBase + swimSpeedBoost)) % TWO_PI
-                
+
                 val dirX = cos(heading)
-                // swims slightly faster on pass-by
                 val speed = 0.20f * (1f - (1f - kMinSpeedAtDepth) * depth) * lungeMultiplier
                 x += dirX * speed * dt
 
-                // Float slightly up/down in a slow wave
                 y = (y + sin(timeAccumulator) * 0.05f * dt).coerceIn(-0.65f, 0.75f)
                 timeAccumulator = (timeAccumulator + dt) % TWO_PI
 
-                // Face the direction of travel
                 facingSign = if (dirX > 0f) 1f else -1f
                 mirrorBlend += (facingSign - mirrorBlend) * (1f - exp(-6.0f * dt))
-                
+
                 val pitchSlope = 0.05f * sin(timeAccumulator) / speed
                 val biteBodySway = if (isBiting) sin(biteTimer * 8.0f) * 4.0f * biteProgress else 0f
                 val desiredPitch = pitchSlope * 18f + biteBodySway
                 pitchDegrees += (desiredPitch - pitchDegrees) * (1f - exp(-4.0f * dt))
 
-                // Went off-screen -> become inactive
                 if (dirX > 0 && x > aspectRatio + 1.8f) {
                     active = false
                     resetTimer()
@@ -208,10 +336,13 @@ class Shark {
                     resetTimer()
                 }
             } else {
-                // Inactive, waiting for next spawn
-                spawnTimer += dt
-                if (spawnTimer >= nextSpawnInterval) {
-                    spawn(aspectRatio)
+                if (!canSpawn) {
+                    spawnTimer = 0f
+                } else {
+                    spawnTimer += dt
+                    if (spawnTimer >= nextSpawnInterval) {
+                        spawn(aspectRatio)
+                    }
                 }
             }
         }
@@ -232,5 +363,6 @@ class Shark {
         private const val PI = kotlin.math.PI.toFloat()
         private const val TWO_PI = (kotlin.math.PI * 2.0).toFloat()
         private const val kMinSpeedAtDepth = 0.5f
+        private const val kMinScaleAtDepth = 0.40f
     }
 }

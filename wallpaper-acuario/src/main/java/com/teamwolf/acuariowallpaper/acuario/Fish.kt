@@ -21,7 +21,7 @@ import kotlin.random.Random
  * [pickNewTarget]'s comment - eased toward its target the same way [depth] is, so a burst reads
  * as a deliberate acceleration/deceleration rather than a snap.
  */
-class Fish {
+class Fish(customPalette: FishPalette? = null) {
     val shinyType: Int
     val palette: FishPalette
     val fishType: Int
@@ -32,7 +32,7 @@ class Fish {
         } else {
             0
         }
-        val normalPalette = FishPalette.PALETTES.random()
+        val normalPalette = customPalette ?: FaunaVariationManager.nextFishPalette()
         palette = when (shinyType) {
             1 -> FishPalette.SHINY_GOLD
             2 -> FishPalette.SHINY_DIAMOND
@@ -74,6 +74,30 @@ class Fish {
     private var spinProgress = 0f
     private val spinDuration = 0.6f
 
+    var hungerTimer = 55f
+    var isStarving = false
+        private set
+
+    fun feed() {
+        hungerTimer = 55f
+        isStarving = false
+    }
+
+    fun isOutOfBounds(aspectRatio: Float): Boolean =
+        kotlin.math.abs(x) > aspectRatio + 0.35f
+
+    fun spawnFromEdge(aspectRatio: Float) {
+        val fromLeft = Random.nextBoolean()
+        x = if (fromLeft) -aspectRatio - 0.3f else aspectRatio + 0.3f
+        y = -0.5f + Random.nextFloat() * 1.0f
+        depth = Random.nextFloat()
+        hungerTimer = 55f
+        isStarving = false
+        targetX = if (fromLeft) -aspectRatio * 0.3f else aspectRatio * 0.3f
+        targetY = y
+        hasTarget = true
+    }
+
     private var facingSign = 1f
     private var mirrorBlend = 1f
 
@@ -99,7 +123,21 @@ class Fish {
     }
 
 
-    fun update(deltaTime: Float, aspectRatio: Float) {
+    fun update(deltaTime: Float, aspectRatio: Float, realisticMode: Boolean = false) {
+        if (realisticMode) {
+            hungerTimer -= deltaTime
+            if (hungerTimer <= 0f && !isStarving) {
+                isStarving = true
+                targetX = if (x >= 0f) aspectRatio + 0.8f else -aspectRatio - 0.8f
+                targetY = y
+                hasTarget = true
+                isTargetingFood = false
+            }
+        } else {
+            hungerTimer = 55f
+            isStarving = false
+        }
+
         if (isSpinning) {
             spinProgress += deltaTime / spinDuration
             spinAngle = spinProgress * 360f
@@ -165,6 +203,9 @@ class Fish {
 
         // Swim phase (tail-wag frequency scales slightly with travel speed, including bursts)
         swimPhase += deltaTime * (6.0f + speed * 12f) * speedMultiplier
+        if (swimPhase > 1000f) {
+            swimPhase %= TWO_PI
+        }
     }
 
     private fun stepPitchSpring(desiredPitch: Float, deltaTime: Float) {

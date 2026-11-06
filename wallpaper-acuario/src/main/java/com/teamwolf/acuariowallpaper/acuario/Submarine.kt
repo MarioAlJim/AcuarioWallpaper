@@ -52,7 +52,7 @@ class Submarine {
             x -= speed * deltaTime
 
             // Gentle diving/rising wave motion
-            propellerPhase += deltaTime * 25f
+            propellerPhase = (propellerPhase + deltaTime * 25f) % 6.2831853f
             y = 0.15f + sin(timeActive * 0.4f) * 0.07f
 
             // Check if it has fully exited the left edge of the screen

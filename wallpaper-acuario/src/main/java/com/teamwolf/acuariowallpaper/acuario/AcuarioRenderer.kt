@@ -102,7 +102,7 @@ class AcuarioRenderer(
     private val kParallaxEaseRate = 10f
 
     private fun getParallaxX(depth: Float): Float {
-        val rangeX = 0.12f - 0.06f * depth
+        val rangeX = aspectRatio * (0.45f - 0.22f * depth)
         return parallaxRaw * rangeX
     }
 
@@ -242,6 +242,12 @@ class AcuarioRenderer(
     private val kMaxAxolotls = 4
     private val kSharkScale = 1.21f
 
+    private var lastConfiguredFishCount = -1
+    private var lastConfiguredTurtleCount = -1
+    private var lastConfiguredMantaCount = -1
+    private var lastConfiguredAxolotlCount = -1
+    private var lastRealisticMode = false
+
     // Sand seabed (drawn behind rocks and flora along the aquarium floor)
     private var sandProgram = 0
     private var sandMVPHandle = 0
@@ -276,6 +282,8 @@ class AcuarioRenderer(
     private var rockDayNightHandle = 0
     private var rockGlowColorHandle = 0
     private var rockTimeHandle = 0
+    private var rockAspectHandle = 0
+    private var rockBioluminescenceHandle = 0
     private val rocks = mutableListOf<Rock>()
     private val kRockFloorY = -0.84f
 
@@ -300,8 +308,25 @@ class AcuarioRenderer(
     private var treasureChestMetalColorHandle = 0
     private var treasureChestGoldColorHandle = 0
     private var treasureChestGemColorHandle = 0
+    private var treasureChestBeaconGlowHandle = 0
     private val treasureChest = TreasureChest()
     private val kTreasureChestScale = 0.35f
+
+    // Starfish on the front screen glass
+    private var starfishProgram = 0
+    private var starfishMVPHandle = 0
+    private var starfishTimeHandle = 0
+    private var starfishDayNightHandle = 0
+    private var starfishCrawlPhaseHandle = 0
+    private var starfishTouchReactHandle = 0
+    private var starfishShinyTypeHandle = 0
+    private var starfishBodyColorHandle = 0
+    private var starfishDetailColorHandle = 0
+    private var starfishSuctionColorHandle = 0
+    private var starfishGlowColorHandle = 0
+    private val starfishes = mutableListOf<Starfish>()
+    private val kMaxStarfish = 3
+    private val kStarfishScale = 0.22f
 
     // Per-configProvider.getSubmarineColor() palettes - hoisted to top-level constants so
     // drawSubmarine() doesn't allocate 3 fresh FloatArrays every single frame the submarine is
@@ -431,27 +456,32 @@ class AcuarioRenderer(
     private val kSeaGrassShareOfDensity = 0.30f
     // Coral gets whatever's left after the three shares above, so rounding always adds up to
     // the full requested density instead of possibly dropping a plant to rounding error.
-    private val kMaxPlantDensity = 24
+    private val kMaxPlantDensity = 28
     // The floor plants are anchored to - raised to -0.80f so plants sit gracefully on top of
     // the sandy seabed floor (sand.frag) with their bases embedded into the dunes rather than
     // floating in open water.
     private val kPlantFloorY = -0.80f
-    // Splits every plant list into a back layer (depth >= this, drawn before the creatures) and
-    // a front layer (depth < this, drawn after) - see drawPlants()'s comment.
-    private val kPlantLayerSplitDepth = 0.5f
+    // 3 stepped tiers for flora and seabed depth:
+    // Tier 0 (Fondo): depth >= kTier0DepthThreshold (0.65f)
+    // Tier 1 (Medio): kTier1DepthThreshold <= depth < kTier0DepthThreshold
+    // Tier 2 (Frente): depth < kTier1DepthThreshold (0.35f)
+    private val kTier0DepthThreshold = 0.65f
+    private val kTier1DepthThreshold = 0.35f
     // Sentinel (an impossible real density) forcing layoutPlants() to run once on the very first
     // syncPlants() call, regardless of what ConfigProvider.getPlantDensity() returns.
     private var currentPlantDensity = -1
     private var plantLayoutAspectRatio = -1f
-    // Each list is sorted farthest-first (descending depth) once, in syncPlants() - never
-    // per-frame, since a plant's depth is fixed for life (see Kelp/Anemone/etc.'s class docs) -
-    // so [0, backCount) is always the back layer and [backCount, size) is always the front
-    // layer; the draw*(backLayer) functions below just index into the matching range instead of
-    // re-sorting/re-filtering every frame. See syncPlants()'s comment for how these are computed.
-    private var kelpBackCount = 0
-    private var anemoneBackCount = 0
-    private var seaGrassBackCount = 0
-    private var coralBackCount = 0
+    // Each list is sorted farthest-first (descending depth) once in syncPlants() so:
+    // [0, tier1Index) is Tier 0 (Fondo), [tier1Index, tier2Index) is Tier 1 (Medio),
+    // and [tier2Index, size) is Tier 2 (Frente). Zero-allocation indexing during draw.
+    private var kelpTier1Index = 0
+    private var kelpTier2Index = 0
+    private var anemoneTier1Index = 0
+    private var anemoneTier2Index = 0
+    private var seaGrassTier1Index = 0
+    private var seaGrassTier2Index = 0
+    private var coralTier1Index = 0
+    private var coralTier2Index = 0
 
     // Depth-of-field illusion on an otherwise flat 2D scene: a turtle at Turtle.depth == 1
     // (deep in the tank) is drawn at kMinScaleAtDepth of its normal size and its palette is
@@ -505,6 +535,10 @@ class AcuarioRenderer(
     private val scratchAxolotlBellyColor = FloatArray(3)
     private val scratchAxolotlSpotColor = FloatArray(3)
 
+    private val scratchStarfishBodyColor = FloatArray(3)
+    private val scratchStarfishDetailColor = FloatArray(3)
+    private val scratchStarfishSuctionColor = FloatArray(3)
+
     private val scratchRockBaseColor = FloatArray(3)
     private val scratchRockHighlightColor = FloatArray(3)
     private val scratchRockShadowColor = FloatArray(3)
@@ -557,6 +591,57 @@ class AcuarioRenderer(
     private val modelMatrix = FloatArray(16)
     private val mvpMatrix = FloatArray(16)
 
+    // Realistic Mode Chest Regeneration State
+    private var isRegeneratingFauna = false
+    private var faunaRegenTimer = 0f
+    private val kFaunaRegenInterval = 1.6f
+
+    private fun spawnNextRegenAnimal(): Boolean {
+        val desiredFish = configProvider.getFishCount().coerceIn(0, kMaxFish)
+        val desiredTurtles = configProvider.getTurtleCount().coerceIn(0, kMaxTurtles)
+        val desiredMantas = configProvider.getMantaCount().coerceIn(0, kMaxMantas)
+        val desiredAxolotls = configProvider.getAxolotlCount().coerceIn(0, kMaxAxolotls)
+        val desiredJellyfish = configProvider.getJellyfishCount().coerceIn(0, kMaxJellyfish)
+
+        // Alternate organic arrivals one by one from screen edges:
+        synchronized(fishes) {
+            if (fishes.size < desiredFish) {
+                fishes.add(Fish().apply { spawnFromEdge(aspectRatio) })
+                return true
+            }
+        }
+        synchronized(turtles) {
+            if (turtles.size < desiredTurtles) {
+                turtles.add(Turtle().apply { spawnFromEdge(aspectRatio) })
+                return true
+            }
+        }
+        synchronized(mantas) {
+            if (mantas.size < desiredMantas) {
+                mantas.add(Manta().apply { spawnFromEdge(aspectRatio) })
+                return true
+            }
+        }
+        synchronized(axolotls) {
+            if (axolotls.size < desiredAxolotls) {
+                axolotls.add(Axolotl().apply { spawnFromEdge(aspectRatio) })
+                return true
+            }
+        }
+        synchronized(jellyfishes) {
+            if (jellyfishes.size < desiredJellyfish) {
+                jellyfishes.add(Jellyfish())
+                return true
+            }
+        }
+        return false // Fully restored
+    }
+
+    private fun isFaunaWaitingForChest(): Boolean {
+        if (!configProvider.getRealisticModeEnabled() || isRegeneratingFauna) return false
+        return fishes.isEmpty() && turtles.isEmpty() && mantas.isEmpty() && axolotls.isEmpty() && jellyfishes.isEmpty()
+    }
+
     private class Bubble(
         var x: Float = 0f,
         var y: Float = 0f,
@@ -584,7 +669,10 @@ class AcuarioRenderer(
             wobbleAmplitude: Float,
             wobbleSpeed: Float,
             wobbleSeed: Float,
-            alpha: Float
+            alpha: Float,
+            r: Float = 0.85f,
+            g: Float = 0.95f,
+            b: Float = 1.0f
         ): Bubble {
             this.x = startX
             this.y = startY
@@ -595,9 +683,9 @@ class AcuarioRenderer(
             this.wobbleSpeed = wobbleSpeed
             this.wobbleSeed = wobbleSeed
             this.alpha = alpha
-            this.r = 0.85f
-            this.g = 0.95f
-            this.b = 1.0f
+            this.r = r
+            this.g = g
+            this.b = b
             // Always cleared here (not left to the caller) so a pooled instance previously used
             // for a storm bubble can't stay mismarked once it's recycled for an unrelated
             // exhale/propulsion burst - triggerBubbleStorm() sets it back to true right after
@@ -788,6 +876,8 @@ class AcuarioRenderer(
             rockDayNightHandle = GLES30.glGetUniformLocation(rockProgram, "uDayNight")
             rockGlowColorHandle = GLES30.glGetUniformLocation(rockProgram, "uGlowColor")
             rockTimeHandle = GLES30.glGetUniformLocation(rockProgram, "uTime")
+            rockAspectHandle = GLES30.glGetUniformLocation(rockProgram, "uAspect")
+            rockBioluminescenceHandle = GLES30.glGetUniformLocation(rockProgram, "uBioluminescence")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -911,6 +1001,25 @@ class AcuarioRenderer(
             treasureChestMetalColorHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uMetalColor")
             treasureChestGoldColorHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uGoldColor")
             treasureChestGemColorHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uGemColor")
+            treasureChestBeaconGlowHandle = GLES30.glGetUniformLocation(treasureChestProgram, "uBeaconGlow")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            val vert = readAssetFile(context, "shaders/starfish.vert")
+            val frag = readAssetFile(context, "shaders/starfish.frag")
+            starfishProgram = createProgram(vert, frag)
+            starfishMVPHandle = GLES30.glGetUniformLocation(starfishProgram, "uMVPMatrix")
+            starfishTimeHandle = GLES30.glGetUniformLocation(starfishProgram, "uTime")
+            starfishDayNightHandle = GLES30.glGetUniformLocation(starfishProgram, "uDayNight")
+            starfishCrawlPhaseHandle = GLES30.glGetUniformLocation(starfishProgram, "uCrawlPhase")
+            starfishTouchReactHandle = GLES30.glGetUniformLocation(starfishProgram, "uTouchReact")
+            starfishShinyTypeHandle = GLES30.glGetUniformLocation(starfishProgram, "uShinyType")
+            starfishBodyColorHandle = GLES30.glGetUniformLocation(starfishProgram, "uBodyColor")
+            starfishDetailColorHandle = GLES30.glGetUniformLocation(starfishProgram, "uDetailColor")
+            starfishSuctionColorHandle = GLES30.glGetUniformLocation(starfishProgram, "uSuctionColor")
+            starfishGlowColorHandle = GLES30.glGetUniformLocation(starfishProgram, "uGlowColor")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -974,6 +1083,11 @@ class AcuarioRenderer(
             syncAxolotlCount()
         }
 
+        synchronized(starfishes) {
+            starfishes.clear()
+            syncStarfishCount()
+        }
+
         synchronized(rocks) {
             syncRocks()
         }
@@ -993,6 +1107,12 @@ class AcuarioRenderer(
         screenWidth = width
         screenHeight = height
         Matrix.orthoM(projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f)
+
+        synchronized(starfishes) {
+            for (s in starfishes) {
+                s.ensureWithinBounds(aspectRatio)
+            }
+        }
     }
 
     override fun onOffsetsChanged(xOffset: Float, yOffset: Float) {
@@ -1100,6 +1220,20 @@ class AcuarioRenderer(
             }
         }
 
+        synchronized(starfishes) {
+            for (s in starfishes) {
+                targets.add(TouchTarget(
+                    type = 6,
+                    obj = s,
+                    depth = -0.05f, // Adhered to front glass: highest priority
+                    x = s.x + getParallaxX(0f),
+                    y = s.y,
+                    rx = kStarfishScale * 0.70f,
+                    ry = kStarfishScale * 0.70f
+                ))
+            }
+        }
+
         val chestScale = kTreasureChestScale * (1f - (1f - kMinScaleAtDepth) * treasureChest.depth)
         targets.add(TouchTarget(
             type = 5,
@@ -1107,8 +1241,8 @@ class AcuarioRenderer(
             depth = treasureChest.depth,
             x = (treasureChest.x * aspectRatio) + getParallaxX(treasureChest.depth),
             y = treasureChest.y + getParallaxY(treasureChest.depth),
-            rx = chestScale * 0.8f,
-            ry = chestScale * 0.8f
+            rx = chestScale * 1.30f,
+            ry = chestScale * 0.95f
         ))
 
         // Sort by depth ascending so the closest creatures (lowest depth value) are checked first
@@ -1136,7 +1270,14 @@ class AcuarioRenderer(
                         }
                     }
                     3 -> { // Shark
-                        (target.obj as Shark).touch()
+                        if (configProvider.getRealisticModeEnabled()) {
+                            huntNearestPrey()
+                            if (!shark.isHunting) {
+                                (target.obj as Shark).touch()
+                            }
+                        } else {
+                            (target.obj as Shark).touch()
+                        }
                     }
                     4 -> { // Axolotl
                         val ax = target.obj as Axolotl
@@ -1145,7 +1286,31 @@ class AcuarioRenderer(
                         }
                     }
                     5 -> { // TreasureChest
-                        (target.obj as TreasureChest).touch()
+                        val chest = target.obj as TreasureChest
+                        chest.touch()
+                        val totalFauna = synchronized(fishes) { fishes.size } +
+                                synchronized(turtles) { turtles.size } +
+                                synchronized(mantas) { mantas.size } +
+                                synchronized(axolotls) { axolotls.size } +
+                                synchronized(jellyfishes) { jellyfishes.size }
+                        if (configProvider.getRealisticModeEnabled() && totalFauna == 0 && !isRegeneratingFauna) {
+                            isRegeneratingFauna = true
+                            faunaRegenTimer = 0.4f // First animal enters quickly
+                            repeat(6) {
+                                spawnChestBubbles(chest.x * aspectRatio, chest.y + 0.06f, isGolden = true)
+                            }
+                            for (k in 0 until 18) {
+                                spawnSparkleAt(chest.x * aspectRatio + (Random.nextFloat() - 0.5f) * 0.15f, chest.y + 0.05f + Random.nextFloat() * 0.12f, 1)
+                            }
+                        }
+                    }
+                    6 -> { // Starfish on glass
+                        val s = target.obj as Starfish
+                        s.touch(worldX, worldY, aspectRatio)
+                        spawnChestBubbles(s.x, s.y, isGolden = (s.shinyType == 1))
+                        for (k in 0 until 8) {
+                            spawnSparkleAt(s.x, s.y, if (s.shinyType > 0) s.shinyType else 1)
+                        }
                     }
                 }
                 animalTouched = true
@@ -1156,6 +1321,56 @@ class AcuarioRenderer(
         // Spawning food with 5-second cooldown - only when no animal was touched
         if (!animalTouched && feedingCooldownRemaining <= 0f) {
             feedingCooldownRemaining = kFeedingCooldownSeconds
+
+            val realistic = configProvider.getRealisticModeEnabled()
+            if (realistic) {
+                synchronized(fishes) {
+                    for (f in fishes) {
+                        if (f.isStarving) f.feed()
+                    }
+                }
+                synchronized(turtles) {
+                    for (t in turtles) {
+                        if (t.isStarving) t.feed()
+                    }
+                }
+                synchronized(mantas) {
+                    for (m in mantas) {
+                        if (m.isStarving) m.feed()
+                    }
+                }
+                synchronized(axolotls) {
+                    for (ax in axolotls) {
+                        if (ax.isStarving) ax.feed()
+                    }
+                }
+
+                // If any population is below configured count, attract new animal from screen edge
+                val desiredFish = configProvider.getFishCount().coerceIn(0, kMaxFish)
+                synchronized(fishes) {
+                    if (fishes.size < desiredFish) {
+                        fishes.add(Fish().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
+                val desiredTurtles = configProvider.getTurtleCount().coerceIn(0, kMaxTurtles)
+                synchronized(turtles) {
+                    if (turtles.size < desiredTurtles) {
+                        turtles.add(Turtle().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
+                val desiredMantas = configProvider.getMantaCount().coerceIn(0, kMaxMantas)
+                synchronized(mantas) {
+                    if (mantas.size < desiredMantas) {
+                        mantas.add(Manta().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
+                val desiredAxolotls = configProvider.getAxolotlCount().coerceIn(0, kMaxAxolotls)
+                synchronized(axolotls) {
+                    if (axolotls.size < desiredAxolotls) {
+                        axolotls.add(Axolotl().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
+            }
 
             // Clean up any previously targeted fish, just in case
             for (f in fishes) {
@@ -1197,6 +1412,95 @@ class AcuarioRenderer(
                     }
                 }
             }
+        }
+    }
+
+    private fun huntNearestPrey() {
+        if (!shark.active || shark.isHunting) return
+
+        var nearestPrey: Any? = null
+        var nearestDistSq = Float.MAX_VALUE
+        var targetX = 0f
+        var targetY = 0f
+        var targetDepth = 0.5f
+
+        synchronized(fishes) {
+            for (f in fishes) {
+                val dx = f.x - shark.x
+                val dy = f.y - shark.y
+                val d2 = dx * dx + dy * dy
+                if (d2 < nearestDistSq) {
+                    nearestDistSq = d2
+                    nearestPrey = f
+                    targetX = f.x
+                    targetY = f.y
+                    targetDepth = f.depth
+                }
+            }
+        }
+
+        synchronized(turtles) {
+            for (t in turtles) {
+                val dx = t.x - shark.x
+                val dy = t.y - shark.y
+                val d2 = dx * dx + dy * dy
+                if (d2 < nearestDistSq) {
+                    nearestDistSq = d2
+                    nearestPrey = t
+                    targetX = t.x
+                    targetY = t.y
+                    targetDepth = t.depth
+                }
+            }
+        }
+
+        synchronized(mantas) {
+            for (m in mantas) {
+                val dx = m.x - shark.x
+                val dy = m.y - shark.y
+                val d2 = dx * dx + dy * dy
+                if (d2 < nearestDistSq) {
+                    nearestDistSq = d2
+                    nearestPrey = m
+                    targetX = m.x
+                    targetY = m.y
+                    targetDepth = m.depth
+                }
+            }
+        }
+
+        synchronized(axolotls) {
+            for (ax in axolotls) {
+                val dx = ax.x - shark.x
+                val dy = ax.y - shark.y
+                val d2 = dx * dx + dy * dy
+                if (d2 < nearestDistSq) {
+                    nearestDistSq = d2
+                    nearestPrey = ax
+                    targetX = ax.x
+                    targetY = ax.y
+                    targetDepth = ax.depth
+                }
+            }
+        }
+
+        synchronized(jellyfishes) {
+            for (jf in jellyfishes) {
+                val dx = jf.x - shark.x
+                val dy = jf.y - shark.y
+                val d2 = dx * dx + dy * dy
+                if (d2 < nearestDistSq) {
+                    nearestDistSq = d2
+                    nearestPrey = jf
+                    targetX = jf.x
+                    targetY = jf.y
+                    targetDepth = jf.depth
+                }
+            }
+        }
+
+        if (nearestPrey != null) {
+            shark.startHunt(targetX, targetY, targetDepth, nearestPrey)
         }
     }
 
@@ -1264,6 +1568,7 @@ class AcuarioRenderer(
                     if (closestParticle != null) {
                         if (minDistSq < 0.0064f) { // 0.08f squared = 0.0064f
                             closestParticle.active = false
+                            f.feed()
                             f.startSpin()
                             f.stopTargetingFood(aspectRatio)
                         } else {
@@ -1273,6 +1578,53 @@ class AcuarioRenderer(
                     } else {
                         if (f.isTargetingFood) {
                             f.stopTargetingFood(aspectRatio)
+                        }
+                    }
+                }
+            }
+
+            // Also allow turtles, mantas, and axolotls to eat sinking food particles
+            synchronized(turtles) {
+                for (t in turtles) {
+                    for (p in foodParticles) {
+                        if (p.active) {
+                            val dx = p.x - t.x
+                            val dy = p.y - t.y
+                            if (dx * dx + dy * dy < 0.04f) {
+                                p.active = false
+                                t.feed()
+                                spawnSparkleAt(t.x, t.y, 0)
+                            }
+                        }
+                    }
+                }
+            }
+            synchronized(mantas) {
+                for (m in mantas) {
+                    for (p in foodParticles) {
+                        if (p.active) {
+                            val dx = p.x - m.x
+                            val dy = p.y - m.y
+                            if (dx * dx + dy * dy < 0.05f) {
+                                p.active = false
+                                m.feed()
+                                spawnSparkleAt(m.x, m.y, 0)
+                            }
+                        }
+                    }
+                }
+            }
+            synchronized(axolotls) {
+                for (ax in axolotls) {
+                    for (p in foodParticles) {
+                        if (p.active) {
+                            val dx = p.x - ax.x
+                            val dy = p.y - ax.y
+                            if (dx * dx + dy * dy < 0.04f) {
+                                p.active = false
+                                ax.feed()
+                                spawnSparkleAt(ax.x, ax.y, 0)
+                            }
                         }
                     }
                 }
@@ -1289,11 +1641,10 @@ class AcuarioRenderer(
 
         val cycleDuration = configProvider.getDayNightCycleDuration()
         if (cycleDuration == -1) {
-            val calendar = java.util.Calendar.getInstance()
-            val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-            val minute = calendar.get(java.util.Calendar.MINUTE)
-            val second = calendar.get(java.util.Calendar.SECOND)
-            val fractionOfDay = (hour * 3600f + minute * 60f + second) / 86400f
+            val now = System.currentTimeMillis()
+            val localMillis = now + java.util.TimeZone.getDefault().getOffset(now)
+            val millisInDay = (localMillis % 86400000L + 86400000L) % 86400000L
+            val fractionOfDay = millisInDay.toFloat() / 86400000f
             dayNight = (0.5 + 0.5 * kotlin.math.cos(2.0 * Math.PI * (fractionOfDay.toDouble() - 0.5))).toFloat()
         } else {
             val omega = (2.0 * Math.PI / cycleDuration.toDouble()).toFloat()
@@ -1306,11 +1657,35 @@ class AcuarioRenderer(
         foregroundParallax = parallaxRaw * kForegroundParallaxRange
 
 
+        val realistic = configProvider.getRealisticModeEnabled()
+        val totalFaunaCount = fishes.size + turtles.size + mantas.size + axolotls.size + jellyfishes.size
+        val canRestoreFauna = realistic && totalFaunaCount == 0
+
+        // Special beacon glow when chest can be tapped to restore depleted fauna
+        treasureChest.beaconGlow = if (canRestoreFauna) 1.0f else 0.0f
+
+        // Gradual restoration tick
+        if (isRegeneratingFauna) {
+            if (Random.nextFloat() < 0.35f) {
+                spawnChestBubbles(treasureChest.x * aspectRatio, treasureChest.y + 0.05f, isGolden = true)
+            }
+            faunaRegenTimer += deltaTime
+            if (faunaRegenTimer >= kFaunaRegenInterval) {
+                faunaRegenTimer = 0f
+                val spawned = spawnNextRegenAnimal()
+                if (!spawned) {
+                    isRegeneratingFauna = false
+                }
+            }
+        }
+
         syncTurtleCount()
         syncFishCount()
         syncMantaCount()
         syncJellyfishCount()
         syncAxolotlCount()
+        syncStarfishCount()
+        lastRealisticMode = realistic
         syncPlants()
         syncBubbleCount()
         submarine.update(deltaTime, aspectRatio)
@@ -1318,33 +1693,148 @@ class AcuarioRenderer(
         shark.presenceMode = configProvider.getSharkPresence()
         shark.colorMode = configProvider.getSharkColor()
         shark.update(deltaTime, aspectRatio)
-        for (i in fishes.indices) {
-            val f = fishes[i]
-            f.update(deltaTime, aspectRatio)
-            if (f.shinyType > 0 && Random.nextFloat() < 0.02f) {
-                spawnSparkleAt(f.x, f.y, f.shinyType)
+
+        if (realistic && shark.active && shark.isHunting && shark.huntTargetObject != null) {
+            val prey = shark.huntTargetObject
+            var preyStillExists = false
+            var px = 0f
+            var py = 0f
+            var pDepth = 0.5f
+
+            when (prey) {
+                is Fish -> synchronized(fishes) {
+                    if (fishes.contains(prey)) {
+                        preyStillExists = true
+                        px = prey.x
+                        py = prey.y
+                        pDepth = prey.depth
+                    }
+                }
+                is Turtle -> synchronized(turtles) {
+                    if (turtles.contains(prey)) {
+                        preyStillExists = true
+                        px = prey.x
+                        py = prey.y
+                        pDepth = prey.depth
+                    }
+                }
+                is Manta -> synchronized(mantas) {
+                    if (mantas.contains(prey)) {
+                        preyStillExists = true
+                        px = prey.x
+                        py = prey.y
+                        pDepth = prey.depth
+                    }
+                }
+                is Axolotl -> synchronized(axolotls) {
+                    if (axolotls.contains(prey)) {
+                        preyStillExists = true
+                        px = prey.x
+                        py = prey.y
+                        pDepth = prey.depth
+                    }
+                }
+                is Jellyfish -> synchronized(jellyfishes) {
+                    if (jellyfishes.contains(prey)) {
+                        preyStillExists = true
+                        px = prey.x
+                        py = prey.y
+                        pDepth = prey.depth
+                    }
+                }
+            }
+
+            if (!preyStillExists) {
+                shark.finishHunt(false)
+            } else {
+                shark.updateHuntTarget(px, py, pDepth)
+                val depthScale = kSharkScale * (1f - (1f - kMinScaleAtDepth) * shark.depth)
+                val (headX, headY) = shark.getHeadWorldPosition(depthScale)
+                val hdx = headX - px
+                val hdy = headY - py
+                val headDistSq = hdx * hdx + hdy * hdy
+                val bdx = shark.x - px
+                val bdy = shark.y - py
+                val bodyDistSq = bdx * bdx + bdy * bdy
+
+                // Head reaches over the prey (or body overlaps) before swallowing
+                if (headDistSq < 0.038f || bodyDistSq < 0.035f) {
+                    when (prey) {
+                        is Fish -> synchronized(fishes) {
+                            FaunaVariationManager.recordDepartedFish(prey.palette)
+                            fishes.remove(prey)
+                        }
+                        is Turtle -> synchronized(turtles) {
+                            FaunaVariationManager.recordDepartedTurtle(prey.palette)
+                            turtles.remove(prey)
+                        }
+                        is Manta -> synchronized(mantas) {
+                            FaunaVariationManager.recordDepartedManta(prey.palette)
+                            mantas.remove(prey)
+                        }
+                        is Axolotl -> synchronized(axolotls) {
+                            FaunaVariationManager.recordDepartedAxolotl(prey.palette)
+                            axolotls.remove(prey)
+                        }
+                        is Jellyfish -> synchronized(jellyfishes) {
+                            FaunaVariationManager.recordDepartedJellyfish(prey.palette)
+                            jellyfishes.remove(prey)
+                        }
+                    }
+                    spawnExhaleBubbles(headX, headY)
+                    for (k in 0 until 12) {
+                        spawnSparkleAt(headX, headY, 1)
+                    }
+                    shark.finishHunt(true)
+                }
             }
         }
-        for (i in mantas.indices) {
-            val m = mantas[i]
-            m.update(deltaTime, aspectRatio)
-            if (m.shinyType > 0 && Random.nextFloat() < 0.03f) {
-                spawnSparkleAt(m.x, m.y, m.shinyType)
+
+        synchronized(fishes) {
+            for (i in fishes.indices) {
+                val f = fishes[i]
+                f.update(deltaTime, aspectRatio, realistic)
+                if (f.shinyType > 0 && Random.nextFloat() < 0.02f) {
+                    spawnSparkleAt(f.x, f.y, f.shinyType)
+                }
             }
         }
-        for (i in jellyfishes.indices) {
-            val j = jellyfishes[i]
-            j.update(deltaTime, aspectRatio)
-            if (j.shinyType > 0 && Random.nextFloat() < 0.02f) {
-                spawnSparkleAt(j.x, j.y, j.shinyType)
+        synchronized(mantas) {
+            for (i in mantas.indices) {
+                val m = mantas[i]
+                m.update(deltaTime, aspectRatio, realistic)
+                if (m.shinyType > 0 && Random.nextFloat() < 0.03f) {
+                    spawnSparkleAt(m.x, m.y, m.shinyType)
+                }
+            }
+        }
+        synchronized(jellyfishes) {
+            for (i in jellyfishes.indices) {
+                val j = jellyfishes[i]
+                j.update(deltaTime, aspectRatio)
+                if (j.shinyType > 0 && Random.nextFloat() < 0.02f) {
+                    spawnSparkleAt(j.x, j.y, j.shinyType)
+                }
             }
         }
         synchronized(axolotls) {
             for (i in axolotls.indices) {
                 val ax = axolotls[i]
-                ax.update(deltaTime, aspectRatio)
+                ax.update(deltaTime, aspectRatio, realistic)
                 if (ax.shinyType > 0 && Random.nextFloat() < 0.02f) {
                     spawnSparkleAt(ax.x, ax.y, ax.shinyType)
+                }
+            }
+        }
+        synchronized(starfishes) {
+            for (i in starfishes.indices) {
+                val s = starfishes[i]
+                s.update(deltaTime, aspectRatio)
+                if (s.consumeBubblePuffEvent()) {
+                    spawnChestBubbles(s.x, s.y, isGolden = (s.shinyType == 1))
+                }
+                if (s.shinyType > 0 && Random.nextFloat() < 0.02f) {
+                    spawnSparkleAt(s.x, s.y, s.shinyType)
                 }
             }
         }
@@ -1363,12 +1853,12 @@ class AcuarioRenderer(
         treasureChest.update(deltaTime, aspectRatio)
         if (treasureChest.shouldSpawnBubbles) {
             treasureChest.shouldSpawnBubbles = false
-            spawnChestBubbles(treasureChest.x * aspectRatio, treasureChest.y + 0.05f)
+            spawnChestBubbles(treasureChest.x * aspectRatio, treasureChest.y + 0.05f, isGolden = isRegeneratingFauna)
         }
         synchronized(turtles) {
             for (i in turtles.indices) {
                 val t = turtles[i]
-                t.update(deltaTime, aspectRatio)
+                t.update(deltaTime, aspectRatio, realistic)
                 if (t.consumeExhaleEvent()) {
                     spawnExhaleBubbles(t.x, t.y)
                 }
@@ -1382,6 +1872,63 @@ class AcuarioRenderer(
                     spawnSparkleAt(t.x, t.y, t.shinyType)
                 }
             }
+        }
+
+        // Remove starving animals that swam off-screen
+        if (realistic) {
+            synchronized(fishes) {
+                val it = fishes.iterator()
+                while (it.hasNext()) {
+                    val f = it.next()
+                    if (f.isStarving && f.isOutOfBounds(aspectRatio)) {
+                        FaunaVariationManager.recordDepartedFish(f.palette)
+                        it.remove()
+                    }
+                }
+            }
+            synchronized(mantas) {
+                val it = mantas.iterator()
+                while (it.hasNext()) {
+                    val m = it.next()
+                    if (m.isStarving && m.isOutOfBounds(aspectRatio)) {
+                        FaunaVariationManager.recordDepartedManta(m.palette)
+                        it.remove()
+                    }
+                }
+            }
+            synchronized(turtles) {
+                val it = turtles.iterator()
+                while (it.hasNext()) {
+                    val t = it.next()
+                    if (t.isStarving && t.isOutOfBounds(aspectRatio)) {
+                        FaunaVariationManager.recordDepartedTurtle(t.palette)
+                        it.remove()
+                    }
+                }
+            }
+            synchronized(axolotls) {
+                val it = axolotls.iterator()
+                while (it.hasNext()) {
+                    val ax = it.next()
+                    if (ax.isStarving && ax.isOutOfBounds(aspectRatio)) {
+                        FaunaVariationManager.recordDepartedAxolotl(ax.palette)
+                        it.remove()
+                    }
+                }
+            }
+
+            val remainingFauna = fishes.size + turtles.size + mantas.size + axolotls.size + jellyfishes.size
+            val hasFauna = remainingFauna > 0
+            shark.canSpawn = hasFauna
+            if (!hasFauna) {
+                if (shark.active) {
+                    shark.retire()
+                } else {
+                    shark.spawnTimer = 0f
+                }
+            }
+        } else {
+            shark.canSpawn = true
         }
         for (i in bubbles.indices) {
             val bubble = bubbles[i]
@@ -1583,45 +2130,61 @@ class AcuarioRenderer(
         GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 16, unitQuadBuffer)
         GLES30.glEnableVertexAttribArray(1)
 
-        // Vegetation is split into a back layer (deeper plants, drawn first) and a front layer
-        // (plants nearer the glass, drawn last) with every creature sandwiched in between - see
-        // drawPlants()'s comment - so fish/turtles/mantas can pass behind some plants and in
-        // front of others instead of always sitting on top of the whole tank floor.
+        // 10-layer depth ordering:
+        // 1. Far background: Submarine
+        // 2. Sand seabed dunes (Escalón 0 / fondo)
+        // 3. Seabed rocks
+        // 4. Flora Escalón 0 (Fondo: siluetas lejanas, escala reducida, tinte de agua profunda)
+        // 5. Deep swimming fauna (Mantas, Shark, Jellyfish)
+        // 6. Flora Escalón 1 (Medio: repisa intermedia)
+        // 7. Treasure Chest (descansa en el escalón 1)
+        // 8. Mid/front swimming fauna (Fish, Turtles, Axolotls)
+        // 9. ForeSand (banco de arena frontal del escalón 2)
+        // 10. Flora Escalón 2 (Frente / Primer plano: gran escala, vivos, enmarcando la escena)
+        // 11. Food, Starfish (adherida al cristal frontal) & Bubbles
         drawSubmarine(deepColor)
         drawSand(deepColor)
         drawRocks(deepColor)
-        drawTreasureChest(deepColor)
-        drawPlants(backLayer = true, deepColor)
+        drawPlants(tier = 0, deepColor)
         drawMantas(deepColor)
         drawShark(deepColor)
         drawJellyfish(deepColor)
+        drawPlants(tier = 1, deepColor)
+        drawTreasureChest(deepColor)
         drawFish(deepColor)
         drawTurtles(deepColor)
-        drawPlants(backLayer = false, deepColor)
-        drawForeSand(deepColor)
         drawAxolotls(deepColor)
+        drawForeSand(deepColor)
+        drawPlants(tier = 2, deepColor)
         drawFood()
+        drawStarfish(deepColor)
         drawBubbles()
 
         GLES30.glDisableVertexAttribArray(0)
         GLES30.glDisableVertexAttribArray(1)
     }
 
-    private fun spawnChestBubbles(originX: Float, originY: Float) {
-        repeat(2) {
+    private fun spawnChestBubbles(originX: Float, originY: Float, isGolden: Boolean = false) {
+        repeat(if (isGolden) 3 else 2) {
             if (activeBurstCount >= kMaxBurstBubbles) return@repeat
-            val jitteredX = originX + (Random.nextFloat() - 0.5f) * 0.08f
+            val jitteredX = originX + (Random.nextFloat() - 0.5f) * 0.09f
             burstBubbles[activeBurstCount].reset(
                 startX = jitteredX,
                 startY = originY,
-                size = 0.025f + Random.nextFloat() * 0.035f,
+                size = if (isGolden) 0.030f + Random.nextFloat() * 0.038f else 0.025f + Random.nextFloat() * 0.035f,
                 speed = 0.28f + Random.nextFloat() * 0.18f,
                 wobbleAmplitude = 0.012f + Random.nextFloat() * 0.015f,
                 wobbleSpeed = 1.2f + Random.nextFloat() * 1.5f,
                 wobbleSeed = Random.nextFloat() * 6.2832f,
-                alpha = 0.70f + Random.nextFloat() * 0.25f
+                alpha = if (isGolden) 0.88f + Random.nextFloat() * 0.12f else 0.70f + Random.nextFloat() * 0.25f,
+                r = if (isGolden) 1.0f else 0.85f,
+                g = if (isGolden) 0.82f else 0.95f,
+                b = if (isGolden) 0.22f else 1.0f
             )
             activeBurstCount++
+        }
+        if (isGolden && Random.nextFloat() < 0.65f) {
+            spawnSparkleAt(originX + (Random.nextFloat() - 0.5f) * 0.14f, originY + Random.nextFloat() * 0.08f, 1)
         }
     }
 
@@ -1651,6 +2214,7 @@ class AcuarioRenderer(
         GLES30.glUniform3fv(treasureChestMetalColorHandle, 1, scratchMetalColor, 0)
         GLES30.glUniform3fv(treasureChestGoldColorHandle, 1, palette.goldColor, 0)
         GLES30.glUniform3fv(treasureChestGemColorHandle, 1, palette.gemColor, 0)
+        GLES30.glUniform1f(treasureChestBeaconGlowHandle, treasureChest.beaconGlow)
 
         val depthScale = kTreasureChestScale * (1f - (1f - kMinScaleAtDepth) * treasureChest.depth)
         val chestWorldX = treasureChest.x * aspectRatio
@@ -1662,7 +2226,7 @@ class AcuarioRenderer(
             treasureChest.y + getParallaxY(treasureChest.depth),
             0f
         )
-        Matrix.scaleM(modelMatrix, 0, depthScale * aspectRatio * 0.6f, depthScale, 1f)
+        Matrix.scaleM(modelMatrix, 0, depthScale * 1.32f, depthScale * 0.95f, 1f)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
 
         GLES30.glUniformMatrix4fv(treasureChestMVPHandle, 1, false, mvpMatrix, 0)
@@ -1702,139 +2266,196 @@ class AcuarioRenderer(
      * drops turtles off the end.
      */
     private fun syncTurtleCount() {
+        val realistic = configProvider.getRealisticModeEnabled()
+        if (isFaunaWaitingForChest()) {
+            lastConfiguredTurtleCount = 0
+            return
+        }
         val desired = configProvider.getTurtleCount().coerceIn(0, kMaxTurtles)
         synchronized(turtles) {
-            when {
-                desired > turtles.size -> repeat(desired - turtles.size) { turtles.add(Turtle()) }
-                desired < turtles.size -> while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
+            if (!realistic || !lastRealisticMode) {
+                when {
+                    desired > turtles.size -> repeat(desired - turtles.size) { turtles.add(Turtle()) }
+                    desired < turtles.size -> while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
+                }
+            } else {
+                if (desired < turtles.size) {
+                    while (turtles.size > desired) turtles.removeAt(turtles.size - 1)
+                } else if (!isRegeneratingFauna && lastConfiguredTurtleCount != -1 && desired > lastConfiguredTurtleCount) {
+                    repeat(desired - turtles.size) {
+                        turtles.add(Turtle().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
             }
         }
+        lastConfiguredTurtleCount = desired
     }
 
     private fun syncFishCount() {
-        val desired = configProvider.getFishCount().coerceIn(0, kMaxFish)
-        when {
-            desired > fishes.size -> repeat(desired - fishes.size) { fishes.add(Fish()) }
-            desired < fishes.size -> while (fishes.size > desired) fishes.removeAt(fishes.size - 1)
+        val realistic = configProvider.getRealisticModeEnabled()
+        if (isFaunaWaitingForChest()) {
+            lastConfiguredFishCount = 0
+            return
         }
+        val desired = configProvider.getFishCount().coerceIn(0, kMaxFish)
+        synchronized(fishes) {
+            if (!realistic || !lastRealisticMode) {
+                when {
+                    desired > fishes.size -> repeat(desired - fishes.size) { fishes.add(Fish()) }
+                    desired < fishes.size -> while (fishes.size > desired) fishes.removeAt(fishes.size - 1)
+                }
+            } else {
+                if (desired < fishes.size) {
+                    while (fishes.size > desired) fishes.removeAt(fishes.size - 1)
+                } else if (!isRegeneratingFauna && lastConfiguredFishCount != -1 && desired > lastConfiguredFishCount) {
+                    repeat(desired - fishes.size) {
+                        fishes.add(Fish().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
+            }
+        }
+        lastConfiguredFishCount = desired
     }
 
     private fun drawFish(deepColor: FloatArray) {
-        if (fishes.isEmpty()) return
+        synchronized(fishes) {
+            if (fishes.isEmpty()) return
 
-        // Farthest first, manual insertion sort to avoid allocation
-        for (i in 1 until fishes.size) {
-            val key = fishes[i]
-            var j = i - 1
-            while (j >= 0 && fishes[j].depth < key.depth) {
-                fishes[j + 1] = fishes[j]
-                j--
+            // Farthest first, manual insertion sort to avoid allocation
+            for (i in 1 until fishes.size) {
+                val key = fishes[i]
+                var j = i - 1
+                while (j >= 0 && fishes[j].depth < key.depth) {
+                    fishes[j + 1] = fishes[j]
+                    j--
+                }
+                fishes[j + 1] = key
             }
-            fishes[j + 1] = key
-        }
 
-        for (i in fishes.indices) {
-            val f = fishes[i]
-            val type = f.fishType.coerceIn(0, 3)
-            val prog = fishPrograms[type]
-            if (prog == 0) continue
+            for (i in fishes.indices) {
+                val f = fishes[i]
+                val type = f.fishType.coerceIn(0, 3)
+                val prog = fishPrograms[type]
+                if (prog == 0) continue
 
-            GLES30.glUseProgram(prog)
-            GLES30.glUniform1f(fishDayNightHandles[type], dayNight)
+                GLES30.glUseProgram(prog)
+                GLES30.glUniform1f(fishDayNightHandles[type], dayNight)
 
-            // Depth-of-field illusion
-            val depthScale = kFishScale * (1f - (1f - kMinScaleAtDepth) * f.depth)
-            val tintAmount = f.depth * kMaxDepthTint
+                // Depth-of-field illusion
+                val depthScale = kFishScale * (1f - (1f - kMinScaleAtDepth) * f.depth)
+                val tintAmount = f.depth * kMaxDepthTint
 
-            Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, f.x + getParallaxX(f.depth), f.y + getParallaxY(f.depth), 0f)
-            Matrix.scaleM(modelMatrix, 0, f.facingScale(), 1f, 1f)
-            Matrix.rotateM(modelMatrix, 0, f.pitchDegrees + f.spinAngle, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
-            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-            GLES30.glUniformMatrix4fv(fishMVPHandles[type], 1, false, mvpMatrix, 0)
+                Matrix.setIdentityM(modelMatrix, 0)
+                Matrix.translateM(modelMatrix, 0, f.x + getParallaxX(f.depth), f.y + getParallaxY(f.depth), 0f)
+                Matrix.scaleM(modelMatrix, 0, f.facingScale(), 1f, 1f)
+                Matrix.rotateM(modelMatrix, 0, f.pitchDegrees + f.spinAngle, 0f, 0f, 1f)
+                Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+                GLES30.glUniformMatrix4fv(fishMVPHandles[type], 1, false, mvpMatrix, 0)
 
-            GLES30.glUniform1f(fishSwimPhaseHandles[type], f.swimPhase % kTwoPi)
+                GLES30.glUniform1f(fishSwimPhaseHandles[type], f.swimPhase % kTwoPi)
 
-            val ambientFactor = 0.35f + 0.65f * dayNight
-            val palette = f.palette
-            mixColorInto(scratchBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchFinColor, palette.finColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchTailColor, palette.tailColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchStripeColor, palette.stripeColor, deepColor, tintAmount, ambientFactor)
+                val ambientFactor = 0.35f + 0.65f * dayNight
+                val palette = f.palette
+                mixColorInto(scratchBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchFinColor, palette.finColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchTailColor, palette.tailColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchStripeColor, palette.stripeColor, deepColor, tintAmount, ambientFactor)
 
-            GLES30.glUniform3fv(fishBodyColorHandles[type], 1, scratchBodyColor, 0)
-            GLES30.glUniform3fv(fishFinColorHandles[type], 1, scratchFinColor, 0)
-            GLES30.glUniform3fv(fishTailColorHandles[type], 1, scratchTailColor, 0)
-            GLES30.glUniform3fv(fishStripeColorHandles[type], 1, scratchStripeColor, 0)
-            // Not depth-tinted like the colors above - bioluminescence is its own light source,
-            // not reflected ambient light, so it doesn't fade toward deepColor with distance.
-            val fishGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
-            GLES30.glUniform3fv(fishGlowColorHandles[type], 1, fishGlow, 0)
-            GLES30.glUniform1f(fishShinyTypeHandles[type], f.shinyType.toFloat())
+                GLES30.glUniform3fv(fishBodyColorHandles[type], 1, scratchBodyColor, 0)
+                GLES30.glUniform3fv(fishFinColorHandles[type], 1, scratchFinColor, 0)
+                GLES30.glUniform3fv(fishTailColorHandles[type], 1, scratchTailColor, 0)
+                GLES30.glUniform3fv(fishStripeColorHandles[type], 1, scratchStripeColor, 0)
+                // Not depth-tinted like the colors above - bioluminescence is its own light source,
+                // not reflected ambient light, so it doesn't fade toward deepColor with distance.
+                val fishGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+                GLES30.glUniform3fv(fishGlowColorHandles[type], 1, fishGlow, 0)
+                GLES30.glUniform1f(fishShinyTypeHandles[type], f.shinyType.toFloat())
 
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
         }
     }
 
     private fun syncMantaCount() {
-        val desired = configProvider.getMantaCount().coerceIn(0, kMaxMantas)
-        when {
-            desired > mantas.size -> repeat(desired - mantas.size) { mantas.add(Manta()) }
-            desired < mantas.size -> while (mantas.size > desired) mantas.removeAt(mantas.size - 1)
+        val realistic = configProvider.getRealisticModeEnabled()
+        if (isFaunaWaitingForChest()) {
+            lastConfiguredMantaCount = 0
+            return
         }
+        val desired = configProvider.getMantaCount().coerceIn(0, kMaxMantas)
+        synchronized(mantas) {
+            if (!realistic || !lastRealisticMode) {
+                when {
+                    desired > mantas.size -> repeat(desired - mantas.size) { mantas.add(Manta()) }
+                    desired < mantas.size -> while (mantas.size > desired) mantas.removeAt(mantas.size - 1)
+                }
+            } else {
+                if (desired < mantas.size) {
+                    while (mantas.size > desired) mantas.removeAt(mantas.size - 1)
+                } else if (!isRegeneratingFauna && lastConfiguredMantaCount != -1 && desired > lastConfiguredMantaCount) {
+                    repeat(desired - mantas.size) {
+                        mantas.add(Manta().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
+            }
+        }
+        lastConfiguredMantaCount = desired
     }
 
     private fun drawMantas(deepColor: FloatArray) {
-        if (mantaProgram == 0 || mantas.isEmpty()) return
-        GLES30.glUseProgram(mantaProgram)
-        GLES30.glUniform1f(mantaDayNightHandle, dayNight)
+        if (mantaProgram == 0) return
+        synchronized(mantas) {
+            if (mantas.isEmpty()) return
+            GLES30.glUseProgram(mantaProgram)
+            GLES30.glUniform1f(mantaDayNightHandle, dayNight)
 
-        // Farthest first, manual insertion sort to avoid allocation
-        for (i in 1 until mantas.size) {
-            val key = mantas[i]
-            var j = i - 1
-            while (j >= 0 && mantas[j].depth < key.depth) {
-                mantas[j + 1] = mantas[j]
-                j--
+            // Farthest first, manual insertion sort to avoid allocation
+            for (i in 1 until mantas.size) {
+                val key = mantas[i]
+                var j = i - 1
+                while (j >= 0 && mantas[j].depth < key.depth) {
+                    mantas[j + 1] = mantas[j]
+                    j--
+                }
+                mantas[j + 1] = key
             }
-            mantas[j + 1] = key
-        }
 
-        for (i in mantas.indices) {
-            val m = mantas[i]
-            // Depth-of-field illusion
-            val depthScale = kMantaScale * (1f - (1f - kMinScaleAtDepth) * m.depth)
-            val tintAmount = m.depth * kMaxDepthTint
+            for (i in mantas.indices) {
+                val m = mantas[i]
+                // Depth-of-field illusion
+                val depthScale = kMantaScale * (1f - (1f - kMinScaleAtDepth) * m.depth)
+                val tintAmount = m.depth * kMaxDepthTint
 
-            Matrix.setIdentityM(modelMatrix, 0)
-            Matrix.translateM(modelMatrix, 0, m.x + m.loopOffsetX + getParallaxX(m.depth), m.y + m.loopOffsetY + getParallaxY(m.depth), 0f)
-            Matrix.scaleM(modelMatrix, 0, m.facingScale(), 1f, 1f)
-            Matrix.rotateM(modelMatrix, 0, m.pitchDegrees, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
-            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-            GLES30.glUniformMatrix4fv(mantaMVPHandle, 1, false, mvpMatrix, 0)
+                Matrix.setIdentityM(modelMatrix, 0)
+                Matrix.translateM(modelMatrix, 0, m.x + m.loopOffsetX + getParallaxX(m.depth), m.y + m.loopOffsetY + getParallaxY(m.depth), 0f)
+                Matrix.scaleM(modelMatrix, 0, m.facingScale(), 1f, 1f)
+                Matrix.rotateM(modelMatrix, 0, m.pitchDegrees, 0f, 0f, 1f)
+                Matrix.scaleM(modelMatrix, 0, depthScale, depthScale, 1f)
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+                GLES30.glUniformMatrix4fv(mantaMVPHandle, 1, false, mvpMatrix, 0)
 
-            GLES30.glUniform1f(mantaSwimPhaseHandle, m.swimPhase % kTwoPi)
+                GLES30.glUniform1f(mantaSwimPhaseHandle, m.swimPhase % kTwoPi)
 
-            val ambientFactor = 0.35f + 0.65f * dayNight
-            val palette = m.palette
-            mixColorInto(scratchMantaBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchMantaWingColor, palette.wingColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchMantaTailColor, palette.tailColor, deepColor, tintAmount, ambientFactor)
-            mixColorInto(scratchMantaMarkingColor, palette.markingColor, deepColor, tintAmount, ambientFactor)
+                val ambientFactor = 0.35f + 0.65f * dayNight
+                val palette = m.palette
+                mixColorInto(scratchMantaBodyColor, palette.bodyColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchMantaWingColor, palette.wingColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchMantaTailColor, palette.tailColor, deepColor, tintAmount, ambientFactor)
+                mixColorInto(scratchMantaMarkingColor, palette.markingColor, deepColor, tintAmount, ambientFactor)
 
-            GLES30.glUniform3fv(mantaBodyColorHandle, 1, scratchMantaBodyColor, 0)
-            GLES30.glUniform3fv(mantaWingColorHandle, 1, scratchMantaWingColor, 0)
-            GLES30.glUniform3fv(mantaTailColorHandle, 1, scratchMantaTailColor, 0)
-            GLES30.glUniform3fv(mantaMarkingColorHandle, 1, scratchMantaMarkingColor, 0)
-            // Not depth-tinted like the colors above - see the identical comment in the fish
-            // draw loop.
-            val mantaGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
-            GLES30.glUniform3fv(mantaGlowColorHandle, 1, mantaGlow, 0)
-            GLES30.glUniform1f(mantaShinyTypeHandle, m.shinyType.toFloat())
+                GLES30.glUniform3fv(mantaBodyColorHandle, 1, scratchMantaBodyColor, 0)
+                GLES30.glUniform3fv(mantaWingColorHandle, 1, scratchMantaWingColor, 0)
+                GLES30.glUniform3fv(mantaTailColorHandle, 1, scratchMantaTailColor, 0)
+                GLES30.glUniform3fv(mantaMarkingColorHandle, 1, scratchMantaMarkingColor, 0)
+                // Not depth-tinted like the colors above - see the identical comment in the fish
+                // draw loop.
+                val mantaGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+                GLES30.glUniform3fv(mantaGlowColorHandle, 1, mantaGlow, 0)
+                GLES30.glUniform1f(mantaShinyTypeHandle, m.shinyType.toFloat())
 
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
         }
     }
 
@@ -1886,10 +2507,22 @@ class AcuarioRenderer(
     }
 
     private fun syncJellyfishCount() {
+        val realistic = configProvider.getRealisticModeEnabled()
+        if (isFaunaWaitingForChest()) {
+            return
+        }
         val desired = configProvider.getJellyfishCount().coerceIn(0, kMaxJellyfish)
-        when {
-            desired > jellyfishes.size -> repeat(desired - jellyfishes.size) { jellyfishes.add(Jellyfish()) }
-            desired < jellyfishes.size -> while (jellyfishes.size > desired) jellyfishes.removeAt(jellyfishes.size - 1)
+        synchronized(jellyfishes) {
+            if (!realistic || !lastRealisticMode) {
+                when {
+                    desired > jellyfishes.size -> repeat(desired - jellyfishes.size) { jellyfishes.add(Jellyfish()) }
+                    desired < jellyfishes.size -> while (jellyfishes.size > desired) jellyfishes.removeAt(jellyfishes.size - 1)
+                }
+            } else {
+                if (desired < jellyfishes.size) {
+                    while (jellyfishes.size > desired) jellyfishes.removeAt(jellyfishes.size - 1)
+                }
+            }
         }
     }
 
@@ -1952,13 +2585,29 @@ class AcuarioRenderer(
     }
 
     private fun syncAxolotlCount() {
+        val realistic = configProvider.getRealisticModeEnabled()
+        if (isFaunaWaitingForChest()) {
+            lastConfiguredAxolotlCount = 0
+            return
+        }
         val desired = configProvider.getAxolotlCount().coerceIn(0, kMaxAxolotls)
         synchronized(axolotls) {
-            when {
-                desired > axolotls.size -> repeat(desired - axolotls.size) { axolotls.add(Axolotl()) }
-                desired < axolotls.size -> while (axolotls.size > desired) axolotls.removeAt(axolotls.size - 1)
+            if (!realistic || !lastRealisticMode) {
+                when {
+                    desired > axolotls.size -> repeat(desired - axolotls.size) { axolotls.add(Axolotl()) }
+                    desired < axolotls.size -> while (axolotls.size > desired) axolotls.removeAt(axolotls.size - 1)
+                }
+            } else {
+                if (desired < axolotls.size) {
+                    while (axolotls.size > desired) axolotls.removeAt(axolotls.size - 1)
+                } else if (!isRegeneratingFauna && lastConfiguredAxolotlCount != -1 && desired > lastConfiguredAxolotlCount) {
+                    repeat(desired - axolotls.size) {
+                        axolotls.add(Axolotl().apply { spawnFromEdge(aspectRatio) })
+                    }
+                }
             }
         }
+        lastConfiguredAxolotlCount = desired
     }
 
     private fun drawAxolotls(deepColor: FloatArray) {
@@ -2011,6 +2660,79 @@ class AcuarioRenderer(
                 val axGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
                 GLES30.glUniform3fv(axolotlGlowColorHandle, 1, axGlow, 0)
                 GLES30.glUniform1f(axolotlShinyTypeHandle, ax.shinyType.toFloat())
+
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
+        }
+    }
+
+    private fun syncStarfishCount() {
+        val desired = configProvider.getStarfishCount().coerceIn(0, kMaxStarfish)
+        synchronized(starfishes) {
+            when {
+                desired > starfishes.size -> {
+                    repeat(desired - starfishes.size) {
+                        val s = Starfish()
+                        val maxMarginX = (aspectRatio - 0.14f).coerceIn(0.05f, (aspectRatio * 0.75f).coerceAtLeast(0.05f))
+                        val rx = when (starfishes.size) {
+                            0 -> -maxMarginX * 0.5f
+                            1 -> maxMarginX * 0.5f
+                            else -> 0f
+                        }
+                        val ry = when (starfishes.size) {
+                            0 -> -0.30f
+                            1 -> 0.25f
+                            else -> -0.05f
+                        }
+                        s.setInitialPosition(rx, ry)
+                        starfishes.add(s)
+                    }
+                }
+                desired < starfishes.size -> {
+                    while (starfishes.size > desired) {
+                        starfishes.removeAt(starfishes.size - 1)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun drawStarfish(deepColor: FloatArray) {
+        if (starfishProgram == 0) return
+        synchronized(starfishes) {
+            if (starfishes.isEmpty()) return
+            GLES30.glUseProgram(starfishProgram)
+            GLES30.glUniform1f(starfishDayNightHandle, dayNight)
+            GLES30.glUniform1f(starfishTimeHandle, time)
+
+            for (i in starfishes.indices) {
+                val s = starfishes[i]
+
+                Matrix.setIdentityM(modelMatrix, 0)
+                // Positioned on the glass, shifts naturally with front parallax
+                Matrix.translateM(modelMatrix, 0, s.x + getParallaxX(0f), s.y, 0f)
+                Matrix.rotateM(modelMatrix, 0, s.rotationDegrees, 0f, 0f, 1f)
+                Matrix.scaleM(modelMatrix, 0, kStarfishScale, kStarfishScale, 1f)
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+
+                GLES30.glUniformMatrix4fv(starfishMVPHandle, 1, false, mvpMatrix, 0)
+                GLES30.glUniform1f(starfishCrawlPhaseHandle, s.crawlPhase)
+                GLES30.glUniform1f(starfishTouchReactHandle, s.touchReact)
+                GLES30.glUniform1f(starfishShinyTypeHandle, s.shinyType.toFloat())
+
+                // Ambient light calculation (depth is 0.0f at the glass, so no water tint, just dayNight ambient)
+                val ambientFactor = 0.40f + 0.60f * dayNight
+                val palette = s.palette
+                mixColorInto(scratchStarfishBodyColor, palette.bodyColor, deepColor, 0f, ambientFactor)
+                mixColorInto(scratchStarfishDetailColor, palette.detailColor, deepColor, 0f, ambientFactor)
+                mixColorInto(scratchStarfishSuctionColor, palette.suctionColor, deepColor, 0f, ambientFactor)
+
+                GLES30.glUniform3fv(starfishBodyColorHandle, 1, scratchStarfishBodyColor, 0)
+                GLES30.glUniform3fv(starfishDetailColorHandle, 1, scratchStarfishDetailColor, 0)
+                GLES30.glUniform3fv(starfishSuctionColorHandle, 1, scratchStarfishSuctionColor, 0)
+
+                val sfGlow = if (configProvider.getBioluminescenceEnabled()) palette.glowColor else kZeroGlow
+                GLES30.glUniform3fv(starfishGlowColorHandle, 1, sfGlow, 0)
 
                 GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
             }
@@ -2114,46 +2836,96 @@ class AcuarioRenderer(
         // requested density instead of possibly dropping a plant to rounding error.
         val coralCount = desired - kelpCount - anemoneCount - seaGrassCount
 
+        var plantIndex = 0
+
+        // 3 stepped tiers (escalones de fondo marino con perspectiva de profundidad pronunciada):
+        // Tier 0: Escalón superior / fondo (depth 0.74..0.86, y ≈ -0.60f, scaleMultiplier 0.55..0.70)
+        // Tier 1: Escalón intermedio (depth 0.45..0.55, y ≈ -0.75f, nivel del cofre, scaleMultiplier 0.90..1.05)
+        // Tier 2: Escalón inferior / frente (depth 0.12..0.22, y ≈ -0.90f, scaleMultiplier 1.35..1.60)
+        data class PlantStepSpec(val tier: Int, val y: Float, val depth: Float, val scaleMultiplier: Float)
+
+        fun getPlantStepTier(index: Int): PlantStepSpec {
+            val tier = index % 3
+            return when (tier) {
+                0 -> PlantStepSpec(
+                    tier = 0,
+                    y = -0.60f + (Random.nextFloat() - 0.5f) * 0.03f,
+                    depth = 0.74f + Random.nextFloat() * 0.12f,
+                    scaleMultiplier = 0.55f + Random.nextFloat() * 0.15f
+                )
+                1 -> PlantStepSpec(
+                    tier = 1,
+                    y = -0.75f + (Random.nextFloat() - 0.5f) * 0.03f,
+                    depth = 0.45f + Random.nextFloat() * 0.10f,
+                    scaleMultiplier = 0.95f + Random.nextFloat() * 0.15f
+                )
+                else -> PlantStepSpec(
+                    tier = 2,
+                    y = -0.90f + (Random.nextFloat() - 0.5f) * 0.02f,
+                    depth = 0.12f + Random.nextFloat() * 0.10f,
+                    scaleMultiplier = 1.35f + Random.nextFloat() * 0.25f
+                )
+            }
+        }
+
+        fun getTierX(tier: Int): Float {
+            var x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f
+            // En el escalón intermedio (Tier 1), separar ligeramente del cofre para no taparlo en su misma repisa
+            val chestX = treasureChest.x * aspectRatio
+            if (tier == 1 && kotlin.math.abs(x - chestX) < 0.20f) {
+                x += if (x < chestX) -0.20f else 0.20f
+            }
+            return x
+        }
+
         kelps.clear()
         repeat(kelpCount) {
+            val spec = getPlantStepTier(plantIndex++)
             val kelp = Kelp()
             kelp.placeAt(
-                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
-                depth = Random.nextFloat(),
-                heightScale = 0.7f + Random.nextFloat() * 0.6f
+                x = getTierX(spec.tier),
+                depth = spec.depth,
+                heightScale = spec.scaleMultiplier * (0.85f + Random.nextFloat() * 0.30f),
+                y = spec.y
             )
             kelps.add(kelp)
         }
 
         anemones.clear()
         repeat(anemoneCount) {
+            val spec = getPlantStepTier(plantIndex++)
             val anemone = Anemone()
             anemone.placeAt(
-                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
-                depth = Random.nextFloat(),
-                scale = 0.65f + Random.nextFloat() * 0.5f
+                x = getTierX(spec.tier),
+                depth = spec.depth,
+                scale = spec.scaleMultiplier * (0.85f + Random.nextFloat() * 0.30f),
+                y = spec.y
             )
             anemones.add(anemone)
         }
 
         seaGrasses.clear()
         repeat(seaGrassCount) {
+            val spec = getPlantStepTier(plantIndex++)
             val seaGrass = SeaGrass()
             seaGrass.placeAt(
-                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
-                depth = Random.nextFloat(),
-                heightScale = 0.75f + Random.nextFloat() * 0.5f
+                x = getTierX(spec.tier),
+                depth = spec.depth,
+                heightScale = spec.scaleMultiplier * (0.85f + Random.nextFloat() * 0.30f),
+                y = spec.y
             )
             seaGrasses.add(seaGrass)
         }
 
         corals.clear()
         repeat(coralCount) {
+            val spec = getPlantStepTier(plantIndex++)
             val coral = Coral()
             coral.placeAt(
-                x = Random.nextFloat() * (aspectRatio * 1.8f) - aspectRatio * 0.9f,
-                depth = Random.nextFloat(),
-                scale = 0.7f + Random.nextFloat() * 0.5f
+                x = getTierX(spec.tier),
+                depth = spec.depth,
+                scale = spec.scaleMultiplier * (0.85f + Random.nextFloat() * 0.30f),
+                y = spec.y
             )
             corals.add(coral)
         }
@@ -2162,10 +2934,18 @@ class AcuarioRenderer(
         anemones.sortByDescending { it.depth }
         seaGrasses.sortByDescending { it.depth }
         corals.sortByDescending { it.depth }
-        kelpBackCount = kelps.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) kelps.size else it }
-        anemoneBackCount = anemones.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) anemones.size else it }
-        seaGrassBackCount = seaGrasses.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) seaGrasses.size else it }
-        coralBackCount = corals.indexOfFirst { it.depth < kPlantLayerSplitDepth }.let { if (it == -1) corals.size else it }
+
+        kelpTier1Index = kelps.indexOfFirst { it.depth < kTier0DepthThreshold }.let { if (it == -1) kelps.size else it }
+        kelpTier2Index = kelps.indexOfFirst { it.depth < kTier1DepthThreshold }.let { if (it == -1) kelps.size else it }
+
+        anemoneTier1Index = anemones.indexOfFirst { it.depth < kTier0DepthThreshold }.let { if (it == -1) anemones.size else it }
+        anemoneTier2Index = anemones.indexOfFirst { it.depth < kTier1DepthThreshold }.let { if (it == -1) anemones.size else it }
+
+        seaGrassTier1Index = seaGrasses.indexOfFirst { it.depth < kTier0DepthThreshold }.let { if (it == -1) seaGrasses.size else it }
+        seaGrassTier2Index = seaGrasses.indexOfFirst { it.depth < kTier1DepthThreshold }.let { if (it == -1) seaGrasses.size else it }
+
+        coralTier1Index = corals.indexOfFirst { it.depth < kTier0DepthThreshold }.let { if (it == -1) corals.size else it }
+        coralTier2Index = corals.indexOfFirst { it.depth < kTier1DepthThreshold }.let { if (it == -1) corals.size else it }
 
         currentPlantDensity = desired
         plantLayoutAspectRatio = aspectRatio
@@ -2262,9 +3042,9 @@ class AcuarioRenderer(
         GLES30.glUniform1f(sandBioluminescenceHandle, if (configProvider.getBioluminescenceEnabled()) 1.0f else 0.0f)
 
         val sandWidth = aspectRatio * 4.5f
-        val sandHeight = 0.33f
-        val sandCenterY = -0.915f
-        val sandDepth = 0.08f
+        val sandHeight = 0.28f
+        val sandCenterY = -0.96f
+        val sandDepth = 0.12f
 
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.translateM(
@@ -2287,6 +3067,8 @@ class AcuarioRenderer(
             GLES30.glUseProgram(rockProgram)
             GLES30.glUniform1f(rockDayNightHandle, dayNight)
             GLES30.glUniform1f(rockTimeHandle, time)
+            GLES30.glUniform1f(rockAspectHandle, aspectRatio)
+            GLES30.glUniform1f(rockBioluminescenceHandle, if (configProvider.getBioluminescenceEnabled()) 1.0f else 0.0f)
 
             for (i in rocks.indices) {
                 val r = rocks[i]
@@ -2327,24 +3109,27 @@ class AcuarioRenderer(
     }
 
     /**
-     * Draws vegetation split into two calls around the creatures (see [onDrawFrame]) so fish/
-     * turtles/mantas can pass in front of some plants and behind others instead of always being
-     * layered on top of every plant. Each plant's own [Kelp.depth]/[Anemone.depth]/etc (already
-     * used for the water's near-glass/deep-background parallax tint) doubles as its layer
-     * assignment: anything shallower than [kPlantLayerSplitDepth] (nearer the glass) belongs in
-     * the front layer, drawn after the creatures; anything deeper belongs in the back layer,
-     * drawn before them. [backLayer] selects which half this call draws.
+     * Draws vegetation split into 3 stepped tiers (Escalón 0 = Fondo, Escalón 1 = Medio,
+     * Escalón 2 = Frente / Primer plano) around the seabed terraces, treasure chest, and creatures.
      */
-    private fun drawPlants(backLayer: Boolean, deepColor: FloatArray) {
-        drawCorals(backLayer, deepColor)
-        drawKelp(backLayer, deepColor)
-        drawSeaGrass(backLayer, deepColor)
-        drawAnemones(backLayer, deepColor)
+    private fun drawPlants(tier: Int, deepColor: FloatArray) {
+        drawCorals(tier, deepColor)
+        drawKelp(tier, deepColor)
+        drawSeaGrass(tier, deepColor)
+        drawAnemones(tier, deepColor)
     }
 
-    private fun drawKelp(backLayer: Boolean, deepColor: FloatArray) {
-        val startIndex = if (backLayer) 0 else kelpBackCount
-        val endIndex = if (backLayer) kelpBackCount else kelps.size
+    private fun drawKelp(tier: Int, deepColor: FloatArray) {
+        val startIndex = when (tier) {
+            0 -> 0
+            1 -> kelpTier1Index
+            else -> kelpTier2Index
+        }
+        val endIndex = when (tier) {
+            0 -> kelpTier1Index
+            1 -> kelpTier2Index
+            else -> kelps.size
+        }
         if (kelpProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(kelpProgram)
         GLES30.glUniform1f(kelpDayNightHandle, dayNight)
@@ -2358,11 +3143,8 @@ class AcuarioRenderer(
             val height = kKelpBaseHeight * k.heightScale * depthScale
 
             Matrix.setIdentityM(modelMatrix, 0)
-            // Anchored at the floor: translate to the clump's vertical center (half its own
-            // height above kPlantFloorY) rather than to kPlantFloorY itself, so the *local* quad
-            // bottom edge (y = -1 in kelp.frag) lands exactly on the floor instead of the quad's
-            // center sitting there.
-            Matrix.translateM(modelMatrix, 0, k.x + getParallaxX(k.depth), kPlantFloorY + height * 0.5f + getParallaxY(k.depth), 0f)
+            // Anchored at individual plant seabed floor position:
+            Matrix.translateM(modelMatrix, 0, k.x + getParallaxX(k.depth), k.y + height * 0.5f + getParallaxY(k.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, width, height, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(kelpMVPHandle, 1, false, mvpMatrix, 0)
@@ -2389,9 +3171,17 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawAnemones(backLayer: Boolean, deepColor: FloatArray) {
-        val startIndex = if (backLayer) 0 else anemoneBackCount
-        val endIndex = if (backLayer) anemoneBackCount else anemones.size
+    private fun drawAnemones(tier: Int, deepColor: FloatArray) {
+        val startIndex = when (tier) {
+            0 -> 0
+            1 -> anemoneTier1Index
+            else -> anemoneTier2Index
+        }
+        val endIndex = when (tier) {
+            0 -> anemoneTier1Index
+            1 -> anemoneTier2Index
+            else -> anemones.size
+        }
         if (anemoneProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(anemoneProgram)
         GLES30.glUniform1f(anemoneDayNightHandle, dayNight)
@@ -2404,9 +3194,7 @@ class AcuarioRenderer(
             val size = kAnemoneSize * a.scale * depthScale
 
             Matrix.setIdentityM(modelMatrix, 0)
-            // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
-            // anemone.frag, where the foot/tentacle bases are anchored) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, a.x + getParallaxX(a.depth), kPlantFloorY + size * 0.5f + getParallaxY(a.depth), 0f)
+            Matrix.translateM(modelMatrix, 0, a.x + getParallaxX(a.depth), a.y + size * 0.5f + getParallaxY(a.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, size, size, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(anemoneMVPHandle, 1, false, mvpMatrix, 0)
@@ -2433,9 +3221,17 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawSeaGrass(backLayer: Boolean, deepColor: FloatArray) {
-        val startIndex = if (backLayer) 0 else seaGrassBackCount
-        val endIndex = if (backLayer) seaGrassBackCount else seaGrasses.size
+    private fun drawSeaGrass(tier: Int, deepColor: FloatArray) {
+        val startIndex = when (tier) {
+            0 -> 0
+            1 -> seaGrassTier1Index
+            else -> seaGrassTier2Index
+        }
+        val endIndex = when (tier) {
+            0 -> seaGrassTier1Index
+            1 -> seaGrassTier2Index
+            else -> seaGrasses.size
+        }
         if (seaGrassProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(seaGrassProgram)
         GLES30.glUniform1f(seaGrassDayNightHandle, dayNight)
@@ -2449,9 +3245,7 @@ class AcuarioRenderer(
             val height = kSeaGrassBaseHeight * g.heightScale * depthScale
 
             Matrix.setIdentityM(modelMatrix, 0)
-            // Same floor-anchoring as kelp: the local quad's bottom edge (y = -1 in
-            // seagrass.frag) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, g.x + getParallaxX(g.depth), kPlantFloorY + height * 0.5f + getParallaxY(g.depth), 0f)
+            Matrix.translateM(modelMatrix, 0, g.x + getParallaxX(g.depth), g.y + height * 0.5f + getParallaxY(g.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, width, height, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(seaGrassMVPHandle, 1, false, mvpMatrix, 0)
@@ -2478,9 +3272,17 @@ class AcuarioRenderer(
         }
     }
 
-    private fun drawCorals(backLayer: Boolean, deepColor: FloatArray) {
-        val startIndex = if (backLayer) 0 else coralBackCount
-        val endIndex = if (backLayer) coralBackCount else corals.size
+    private fun drawCorals(tier: Int, deepColor: FloatArray) {
+        val startIndex = when (tier) {
+            0 -> 0
+            1 -> coralTier1Index
+            else -> coralTier2Index
+        }
+        val endIndex = when (tier) {
+            0 -> coralTier1Index
+            1 -> coralTier2Index
+            else -> corals.size
+        }
         if (coralProgram == 0 || startIndex >= endIndex) return
         GLES30.glUseProgram(coralProgram)
         GLES30.glUniform1f(coralDayNightHandle, dayNight)
@@ -2493,9 +3295,7 @@ class AcuarioRenderer(
             val size = kCoralSize * c.scale * depthScale
 
             Matrix.setIdentityM(modelMatrix, 0)
-            // Same floor-anchoring as anemone: the local quad's bottom edge (y = -1 in
-            // coral.frag, where the base/branches are anchored) lands on kPlantFloorY.
-            Matrix.translateM(modelMatrix, 0, c.x + getParallaxX(c.depth), kPlantFloorY + size * 0.5f + getParallaxY(c.depth), 0f)
+            Matrix.translateM(modelMatrix, 0, c.x + getParallaxX(c.depth), c.y + size * 0.5f + getParallaxY(c.depth), 0f)
             Matrix.scaleM(modelMatrix, 0, size, size, 1f)
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
             GLES30.glUniformMatrix4fv(coralMVPHandle, 1, false, mvpMatrix, 0)

@@ -16,6 +16,8 @@ class Coral {
 
     var x = 0f
         private set
+    var y = -0.80f
+        private set
     var depth = 0f
         private set
     var scale = 1f
@@ -27,14 +29,18 @@ class Coral {
     private val swaySpeed = 0.25f + Random.nextFloat() * 0.15f
 
     /** Assigns this coral's fixed position/size - see [AcuarioRenderer]'s plant layout. */
-    fun placeAt(x: Float, depth: Float, scale: Float) {
+    fun placeAt(x: Float, depth: Float, scale: Float, y: Float = -0.80f) {
         this.x = x
+        this.y = y
         this.depth = depth
         this.scale = scale
     }
 
     fun update(deltaTime: Float) {
         swayPhase += deltaTime * swaySpeed
+        if (swayPhase > 1000f) {
+            swayPhase %= TWO_PI
+        }
     }
 
     private companion object {

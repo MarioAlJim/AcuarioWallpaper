@@ -1,807 +1,1032 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Settings for the Acuario effect: environment (theme), turtle/fish/manta ray/seahorse/
-    jellyfish/bubble count selectors. Grouped logically into compact cards for a cleaner, modern user
-    experience with minimal unused space.
--->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="8dp"
-    android:paddingBottom="12dp"
-    android:clipToPadding="false"
-    android:background="?attr/colorSurface">
+    android:layout_height="wrap_content"
+    android:background="@android:color/transparent">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:clipToPadding="false">
 
-        <!-- TÍTULO DE LA PANTALLA -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_title"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="10dp"
-            android:layout_marginTop="4dp" />
-
-        <!-- SECCIÓN 0: AYUDA E INTERACCIONES -->
+        <!-- ============================================== -->
+        <!-- 1. ACORDEÓN: ENTORNO E ILUMINACIÓN            -->
+        <!-- ============================================== -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardAcuarioEnvironment"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            app:cardCornerRadius="10dp"
-            app:cardElevation="1dp"
-            app:cardBackgroundColor="?attr/colorSurface">
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="16dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/settings_stroke"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/settings_card_bg">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="10dp">
+                android:orientation="vertical">
 
-                <LinearLayout
+                <!-- Header Acordeón -->
+                <RelativeLayout
+                    android:id="@+id/headerAcuarioEnvironment"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="6dp">
+                    android:padding="16dp"
+                    android:background="?android:attr/selectableItemBackground">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📖"
-                        android:textSize="16sp"
-                        android:layout_marginEnd="6dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Guía de Interacciones"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Aprende cómo interactuar con los animales y gestos del acuario."
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11.5sp"
-                    android:layout_marginBottom="8dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/buttonHelpInteractions"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="36dp"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:paddingTop="0dp"
-                    android:paddingBottom="0dp"
-                    android:text="Ver Guía Completa"
-                    android:textAllCaps="false"
-                    android:textSize="12sp"
-                    android:textColor="?attr/colorPrimary"
-                    app:icon="@android:drawable/ic_dialog_info"
-                    app:iconSize="16dp"
-                    app:iconTint="?attr/colorPrimary"
-                    app:cornerRadius="6dp"
-                    app:strokeColor="?attr/colorPrimary" />
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- SECCIÓN 1: ENTORNO Y LUZ -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            app:cardCornerRadius="10dp"
-            app:cardElevation="1dp"
-            app:cardBackgroundColor="?attr/colorSurface">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="10dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🌅"
-                        android:textSize="16sp"
-                        android:layout_marginEnd="6dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Entorno e Iluminación"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Tema / Ambiente -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_environment"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/badgeAcuarioEnvironment"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        app:cardCornerRadius="19dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp"
+                        app:cardBackgroundColor="@color/settings_chip_bg_active"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="🌊"
+                            android:textSize="18sp" />
+                    </com.google.android.material.card.MaterialCardView>
 
                     <LinearLayout
-                        android:id="@+id/containerAcuarioTheme"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
+                        android:orientation="vertical"
+                        android:layout_toEndOf="@id/badgeAcuarioEnvironment"
+                        android:layout_toStartOf="@id/arrowAcuarioEnvironment"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_centerVertical="true">
 
-                <!-- Custom Color Selectors Layout -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_section_environment_title"
+                            android:textColor="@color/settings_text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/summaryAcuarioEnvironment"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_section_environment_desc"
+                            android:textColor="@color/settings_text_secondary"
+                            android:textSize="11sp"
+                            android:layout_marginTop="2dp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/arrowAcuarioEnvironment"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_arrow_down"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        app:tint="@color/settings_text_secondary" />
+                </RelativeLayout>
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/dividerAcuarioEnvironment"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/settings_stroke"
+                    android:visibility="gone" />
+
+                <!-- Content Area -->
                 <LinearLayout
-                    android:id="@+id/layoutCustomColors"
+                    android:id="@+id/contentAcuarioEnvironment"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
+                    android:padding="16dp"
                     android:visibility="gone">
 
-                    <!-- Divisor -->
+                    <!-- Tema / Ambiente -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_environment"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerAcuarioTheme"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <!-- Custom Color Selectors Layout -->
+                    <LinearLayout
+                        android:id="@+id/layoutCustomColors"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/settings_stroke"
+                            android:layout_marginTop="10dp"
+                            android:layout_marginBottom="10dp" />
+
+                        <!-- Configuración: Color Superior -->
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_shallow_color"
+                            android:textColor="@color/settings_text_primary"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="4dp" />
+
+                        <HorizontalScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fillViewport="true"
+                            android:scrollbars="none">
+
+                            <LinearLayout
+                                android:id="@+id/containerCustomShallowColor"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical" />
+                        </HorizontalScrollView>
+
+                        <!-- Configuración: Color Inferior -->
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_deep_color"
+                            android:textColor="@color/settings_text_primary"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:layout_marginTop="10dp"
+                            android:layout_marginBottom="4dp" />
+
+                        <HorizontalScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fillViewport="true"
+                            android:scrollbars="none">
+
+                            <LinearLayout
+                                android:id="@+id/containerCustomDeepColor"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical" />
+                        </HorizontalScrollView>
+                    </LinearLayout>
+
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="#1F000000"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginBottom="6dp" />
+                        android:background="@color/settings_stroke"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="10dp" />
 
-                    <!-- Configuración: Color Superior -->
+                    <!-- Ciclo Día y Noche -->
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Color Superior (Superficie)"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="12.5sp"
+                        android:text="@string/settings_section_day_night_cycle"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
                         android:textStyle="bold"
                         android:layout_marginBottom="4dp" />
 
                     <HorizontalScrollView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:scrollbars="none"
-                        android:requiresFadingEdge="horizontal"
-                        android:fadingEdgeLength="16dp">
+                        android:fillViewport="true"
+                        android:scrollbars="none">
 
                         <LinearLayout
-                            android:id="@+id/containerCustomShallowColor"
-                            android:layout_width="wrap_content"
+                            android:id="@+id/containerDayNightCycle"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:paddingBottom="2dp"
-                            android:paddingTop="0dp" />
+                            android:orientation="vertical" />
                     </HorizontalScrollView>
 
-                    <!-- Configuración: Color Inferior -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Bioluminiscencia -->
+                    <!-- Switch Bioluminiscencia -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardBioluminescence"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="4dp"
+                        app:cardCornerRadius="12dp"
+                        app:strokeWidth="1dp"
+                        app:strokeColor="@color/settings_stroke"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="@color/settings_card_bg_alt">
+
+                        <LinearLayout
+                            android:id="@+id/rowBioluminescence"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:padding="12dp"
+                            android:background="?android:attr/selectableItemBackground">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardIconBioluminescence"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                app:cardCornerRadius="10dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="1dp"
+                                app:strokeColor="@color/settings_stroke"
+                                app:cardBackgroundColor="@color/settings_card_bg_alt">
+                                <ImageView
+                                    android:id="@+id/iconBioluminescence"
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:layout_gravity="center"
+                                    android:src="@drawable/ic_bioluminescence"
+                                    app:tint="@color/settings_accent"
+                                    android:contentDescription="@null" />
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:layout_marginStart="12dp"
+                                android:layout_marginEnd="8dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/bioluminescence_title"
+                                    android:textColor="@color/settings_text_primary"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/bioluminescence_desc"
+                                    android:textColor="@color/settings_text_secondary"
+                                    android:textSize="11sp"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/statusBioluminescence"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:text="@string/touch_interaction_disabled"
+                                android:textColor="@color/settings_text_muted"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <com.google.android.material.switchmaterial.SwitchMaterial
+                                android:id="@+id/switchBioluminescence"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                app:useMaterialThemeColors="true" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ============================================== -->
+        <!-- 2. ACORDEÓN: FAUNA MARINA                     -->
+        <!-- ============================================== -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardAcuarioFauna"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="16dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/settings_stroke"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/settings_card_bg">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- Header Acordeón -->
+                <RelativeLayout
+                    android:id="@+id/headerAcuarioFauna"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/badgeAcuarioFauna"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        app:cardCornerRadius="19dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp"
+                        app:cardBackgroundColor="@color/settings_chip_bg_active"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="🐠"
+                            android:textSize="18sp" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_toEndOf="@id/badgeAcuarioFauna"
+                        android:layout_toStartOf="@id/arrowAcuarioFauna"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_centerVertical="true">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_section_fauna_title"
+                            android:textColor="@color/settings_text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/summaryAcuarioFauna"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_section_fauna_desc"
+                            android:textColor="@color/settings_text_secondary"
+                            android:textSize="11sp"
+                            android:layout_marginTop="2dp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/arrowAcuarioFauna"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_arrow_down"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        app:tint="@color/settings_text_secondary" />
+                </RelativeLayout>
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/dividerAcuarioFauna"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/settings_stroke"
+                    android:visibility="gone" />
+
+                <!-- Content Area -->
+                <LinearLayout
+                    android:id="@+id/contentAcuarioFauna"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <!-- Switch Modo Realista -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardRealisticMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:cardCornerRadius="12dp"
+                        app:strokeWidth="1dp"
+                        app:strokeColor="@color/settings_stroke"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="@color/settings_card_bg_alt">
+
+                        <LinearLayout
+                            android:id="@+id/rowRealisticMode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:padding="12dp"
+                            android:background="?android:attr/selectableItemBackground">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardIconRealisticMode"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                app:cardCornerRadius="10dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="1dp"
+                                app:strokeColor="@color/settings_stroke"
+                                app:cardBackgroundColor="@color/settings_card_bg_alt">
+                                <ImageView
+                                    android:id="@+id/iconRealisticMode"
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:layout_gravity="center"
+                                    android:src="@drawable/ic_shark_hunt"
+                                    app:tint="#FF5722"
+                                    android:contentDescription="@null" />
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:layout_marginStart="12dp"
+                                android:layout_marginEnd="8dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/settings_realistic_mode_title"
+                                    android:textColor="@color/settings_text_primary"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/settings_realistic_mode_desc"
+                                    android:textColor="@color/settings_text_secondary"
+                                    android:textSize="11sp"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/statusRealisticMode"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:text="@string/touch_interaction_disabled"
+                                android:textColor="@color/settings_text_muted"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <com.google.android.material.switchmaterial.SwitchMaterial
+                                android:id="@+id/switchRealisticMode"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                app:useMaterialThemeColors="true" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="12dp" />
+
+                    <!-- Peces -->
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Color Inferior (Fondo)"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="12.5sp"
+                        android:text="@string/settings_section_fish_count"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
                         android:textStyle="bold"
-                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="4dp" />
 
                     <HorizontalScrollView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:scrollbars="none"
-                        android:requiresFadingEdge="horizontal"
-                        android:fadingEdgeLength="16dp">
+                        android:fillViewport="true"
+                        android:scrollbars="none">
 
                         <LinearLayout
-                            android:id="@+id/containerCustomDeepColor"
+                            android:id="@+id/containerFishCount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_fish_color_note"
+                        android:textColor="@color/settings_text_tertiary"
+                        android:textSize="11sp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Tortugas -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_turtle_count"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerTurtleCount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_turtle_color_note"
+                        android:textColor="@color/settings_text_tertiary"
+                        android:textSize="11sp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Mantarrayas -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_manta_count"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerMantaCount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_manta_color_note"
+                        android:textColor="@color/settings_text_tertiary"
+                        android:textSize="11sp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Medusas -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_jellyfish_count"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerJellyfishCount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_jellyfish_color_note"
+                        android:textColor="@color/settings_text_tertiary"
+                        android:textSize="11sp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Ajolotes -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_axolotl_count"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerAxolotlCount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_axolotl_color_note"
+                        android:textColor="@color/settings_text_tertiary"
+                        android:textSize="11sp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Estrellas de Mar -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_starfish_count"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerStarfishCount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_starfish_color_note"
+                        android:textColor="@color/settings_text_tertiary"
+                        android:textSize="11sp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Presencia del Tiburón -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_shark_presence"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerSharkPresence"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Color del Tiburón -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_shark_color"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerSharkColor"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ============================================== -->
+        <!-- 3. ACORDEÓN: PAISAJE Y DETALLES               -->
+        <!-- ============================================== -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardAcuarioLandscape"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/settings_stroke"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@color/settings_card_bg">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- Header Acordeón -->
+                <RelativeLayout
+                    android:id="@+id/headerAcuarioLandscape"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp"
+                    android:background="?android:attr/selectableItemBackground">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/badgeAcuarioLandscape"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        app:cardCornerRadius="19dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp"
+                        app:cardBackgroundColor="@color/settings_chip_bg_active"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true">
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:paddingBottom="2dp"
-                            android:paddingTop="0dp" />
+                            android:layout_gravity="center"
+                            android:text="🌿"
+                            android:textSize="18sp" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_toEndOf="@id/badgeAcuarioLandscape"
+                        android:layout_toStartOf="@id/arrowAcuarioLandscape"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_centerVertical="true">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_section_landscape_title"
+                            android:textColor="@color/settings_text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/summaryAcuarioLandscape"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/settings_section_landscape_desc"
+                            android:textColor="@color/settings_text_secondary"
+                            android:textSize="11sp"
+                            android:layout_marginTop="2dp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/arrowAcuarioLandscape"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_arrow_down"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        app:tint="@color/settings_text_secondary" />
+                </RelativeLayout>
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/dividerAcuarioLandscape"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/settings_stroke"
+                    android:visibility="gone" />
+
+                <!-- Content Area -->
+                <LinearLayout
+                    android:id="@+id/contentAcuarioLandscape"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <!-- Plantas -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_plant_density"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerPlantDensity"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
                     </HorizontalScrollView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_plant_color_note"
+                        android:textColor="@color/settings_text_tertiary"
+                        android:textSize="11sp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Burbujas -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_bubble_count"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerBubbleCount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Color del submarino -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_submarine_color"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerSubmarineColor"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/settings_stroke"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginBottom="10dp" />
+
+                    <!-- Color/Estilo del cofre -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_section_chest_color"
+                        android:textColor="@color/settings_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fillViewport="true"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerChestColor"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </HorizontalScrollView>
+
                 </LinearLayout>
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Ciclo Día y Noche -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_day_night_cycle"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerDayNightCycle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Bioluminiscencia -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_bioluminescence"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerBioluminescence"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-
-        <!-- SECCIÓN 2: FAUNA MARINA -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            app:cardCornerRadius="10dp"
-            app:cardElevation="1dp"
-            app:cardBackgroundColor="?attr/colorSurface">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="10dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🐠"
-                        android:textSize="16sp"
-                        android:layout_marginEnd="6dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Fauna Marina"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Peces -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_fish_count"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerFishCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_fish_color_note"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Tortugas -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_turtle_count"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerTurtleCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_turtle_color_note"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Mantarrayas -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_manta_count"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerMantaCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_manta_color_note"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Medusas -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_jellyfish_count"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerJellyfishCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_jellyfish_color_note"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Ajolotes -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_axolotl_count"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerAxolotlCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_axolotl_color_note"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Presencia del Tiburón -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_shark_presence"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerSharkPresence"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Color del Tiburón -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_shark_color"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerSharkColor"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- SECCIÓN 3: PAISAJE Y DETALLES -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            app:cardCornerRadius="10dp"
-            app:cardElevation="1dp"
-            app:cardBackgroundColor="?attr/colorSurface">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="10dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🌿"
-                        android:textSize="16sp"
-                        android:layout_marginEnd="6dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Paisaje y Detalles"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Plantas -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_plant_density"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerPlantDensity"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_plant_color_note"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Burbujas -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_bubble_count"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerBubbleCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <!-- Divisor -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#1F000000"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Color del submarino -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_submarine_color"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerSubmarineColor"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/colorOutlineVariant"
-                    android:alpha="0.25"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp" />
-
-                <!-- Color/Estilo del cofre -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_section_chest_color"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp" />
-
-                <HorizontalScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="none"
-                    android:requiresFadingEdge="horizontal"
-                    android:fadingEdgeLength="16dp">
-
-                    <LinearLayout
-                        android:id="@+id/containerChestColor"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"
-                        android:paddingTop="0dp" />
-                </HorizontalScrollView>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Placeholder/Nota al final -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_placeholder"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="11sp"
-            android:gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="12dp" />
 
     </LinearLayout>
-</ScrollView>
+</FrameLayout>

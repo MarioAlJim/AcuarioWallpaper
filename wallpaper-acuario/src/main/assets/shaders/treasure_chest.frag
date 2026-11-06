@@ -7,6 +7,7 @@ uniform highp float uTime;
 uniform float uLidOpen;      // 0.0 = fully closed, 1.0 = fully open
 uniform float uGlowIntensity;// 0.0 = dark inside, 1.0 = radiant gold glow
 uniform float uDayNight;     // 0.0 = night, 1.0 = day
+uniform float uBeaconGlow;   // 0.0 = normal, >0.0 = special ready-to-restore pulsing beacon
 
 uniform vec3 uWoodColor;
 uniform vec3 uMetalColor;
@@ -101,8 +102,14 @@ void main() {
     float beamGlow = beamX * beamY * uGlowIntensity * uLidOpen * (0.8 + 0.2 * sin(uTime * 3.5));
     vec3 beamColor = mix(uGoldColor, vec3(1.0, 0.95, 0.70), 0.5);
 
+    // Special beacon aura when chest is ready to restore depleted fauna
+    float beaconPulse = 0.5 + 0.5 * sin(uTime * 4.5);
+    float dChest = min(dBox, dLid);
+    float beaconAura = smoothstep(0.35, -0.05, dChest) * uBeaconGlow * (0.55 + 0.45 * beaconPulse);
+    vec3 auraColor = mix(vec3(1.0, 0.85, 0.25), vec3(1.0, 0.98, 0.70), beaconPulse);
+
     // --- COMPOSITING ---
-    float totalAlpha = max(max(aBox, aLid), beamGlow * 0.8);
+    float totalAlpha = max(max(aBox, aLid), max(beamGlow * 0.8, beaconAura * 0.75));
     if (totalAlpha <= 0.001) {
         discard;
     }
@@ -117,11 +124,17 @@ void main() {
     vec3 lidCol = lidWood;
     lidCol = mix(lidCol, uMetalColor, lidMetalBands);
 
-    // Combine layers: Body -> Interior Treasure -> Lid on top -> Light Beam
+    // Combine layers: Body -> Interior Treasure -> Lid on top -> Light Beam + Beacon Glow
     vec3 finalColor = bodyCol;
     finalColor = mix(finalColor, treasureContent, interiorMask);
     finalColor = mix(finalColor, lidCol, aLid);
     finalColor += beamColor * beamGlow * 0.65;
+    finalColor += auraColor * beaconAura * 0.85;
+
+    // Golden shimmer over the chest when ready
+    if (aBox > 0.0 || aLid > 0.0) {
+        finalColor += uGoldColor * (uBeaconGlow * beaconPulse * 0.40);
+    }
 
     // Ambient lighting & underwater shading
     float ambient = 0.45 + 0.55 * uDayNight;

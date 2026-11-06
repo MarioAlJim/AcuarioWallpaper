@@ -1,10 +1,48 @@
 <resources>
     <string name="app_name">AcuarioWallpaper</string>
     <string name="wallpaper_label">Acuario OpenGL</string>
-    <string name="wallpaper_description">Fondo de pantalla animado de un acuario (en desarrollo).</string>
-    <string name="settings_title">Configuración de Acuario</string>
-    <string name="settings_placeholder">Más ajustes (peces, fondo…) próximamente.</string>
+    <string name="wallpaper_description">Fondo de pantalla animado de un acuario marino 3D en tiempo real.</string>
+    <string name="settings_title">Acuario OpenGL</string>
+    <string name="settings_subtitle">Fondo de pantalla interactivo</string>
+    <string name="settings_placeholder">Configuraciones adicionales y efectos próximamente.</string>
     <string name="settings_apply_wallpaper">Establecer fondo de pantalla</string>
+
+    <!-- Temas de la app -->
+    <string name="act_auto">Auto</string>
+    <string name="act_claro">Claro</string>
+    <string name="act_oscuro">Oscuro</string>
+
+    <!-- Diálogos y Bottom Sheets -->
+    <string name="help_button_description">Ayuda e interacciones táctiles</string>
+    <string name="help_button_dismiss">Entendido</string>
+    <string name="help_button_tutorial">Ver tutorial interactivo</string>
+    <string name="acuario_help_dialog_title">Guía de Interacciones</string>
+
+    <string name="color_mixer_title">Personalizar color</string>
+    <string name="color_mixer_presets_label">Colores existentes</string>
+    <string name="color_mixer_mixer_label">Mezclador</string>
+    <string name="color_mixer_hue">Tono</string>
+    <string name="color_mixer_saturation">Saturación</string>
+    <string name="color_mixer_brightness">Brillo</string>
+    <string name="color_mixer_accept">Aplicar</string>
+    <string name="color_mixer_cancel">Cancelar</string>
+
+    <string name="touch_interaction_enabled">Activado</string>
+    <string name="touch_interaction_disabled">Desactivado</string>
+
+    <!-- Modo Realista -->
+    <string name="settings_realistic_mode_title">Modo Realista (Ecosistema)</string>
+    <string name="settings_realistic_mode_desc">El tiburón caza al tocarlo y los animales necesitan alimento para sobrevivir.</string>
+
+    <!-- Secciones de Ajustes -->
+    <string name="settings_section_environment_title">Entorno e Iluminación</string>
+    <string name="settings_section_environment_desc">Ambiente oceánico, degradados de agua y ciclo temporal.</string>
+    <string name="settings_section_fauna_title">Fauna Marina</string>
+    <string name="settings_section_fauna_desc">Población de peces, tortugas, mantas, medusas y tiburón.</string>
+    <string name="settings_section_landscape_title">Paisaje y Elementos</string>
+    <string name="settings_section_landscape_desc">Vegetación marina, burbujas, submarino y tesoros.</string>
+
+    <!-- Sección 1: Entorno -->
     <string name="settings_section_environment">Ambiente</string>
     <string name="acuario_theme_turquesa">Turquesa</string>
     <string name="acuario_theme_azul_profundo">Azul Profundo</string>
@@ -12,6 +50,22 @@
     <string name="acuario_theme_abisal">Fosa Abisal</string>
     <string name="acuario_theme_arrecife">Arrecife Coral</string>
     <string name="acuario_theme_personalizado">Personalizado</string>
+    <string name="settings_shallow_color">Color Superior (Superficie)</string>
+    <string name="settings_deep_color">Color Inferior (Fondo)</string>
+
+    <string name="settings_section_day_night_cycle">Velocidad del ciclo día y noche</string>
+    <string name="day_night_cycle_rapido">Rápido (60s)</string>
+    <string name="day_night_cycle_normal">Normal (3 min)</string>
+    <string name="day_night_cycle_lento">Lento (10 min)</string>
+    <string name="day_night_cycle_real">Tiempo real (24h)</string>
+
+    <string name="settings_section_bioluminescence">Bioluminiscencia (Brillo Nocturno)</string>
+    <string name="bioluminescence_title">Bioluminiscencia</string>
+    <string name="bioluminescence_desc">Efecto de brillo y resplandor luminoso en criaturas y plantas durante la noche</string>
+    <string name="bioluminescence_enabled">Activado</string>
+    <string name="bioluminescence_disabled">Desactivado</string>
+
+    <!-- Sección 2: Fauna -->
     <string name="settings_section_turtle_count">Cantidad de tortugas</string>
     <string name="settings_turtle_color_note">Cada tortuga toma un color de una especie real al azar.</string>
     <string name="settings_section_fish_count">Cantidad de peces</string>
@@ -22,6 +76,8 @@
     <string name="settings_jellyfish_color_note">Cada medusa toma un color de una especie real al azar.</string>
     <string name="settings_section_axolotl_count">Cantidad de ajolotes</string>
     <string name="settings_axolotl_color_note">Cada ajolote toma una paleta de color (leucístico, dorado, salvaje…) al azar.</string>
+    <string name="settings_section_starfish_count">Estrellas de mar en pantalla</string>
+    <string name="settings_starfish_color_note">Adheridas al cristal frontal con desplazamiento lento y respuesta táctil.</string>
     <string name="settings_section_shark_presence">Presencia del tiburón</string>
     <string name="settings_section_shark_color">Color del tiburón</string>
     <string name="shark_presence_disabled">Desactivado</string>
@@ -31,6 +87,8 @@
     <string name="shark_color_blue">Azul</string>
     <string name="shark_color_white">Albino</string>
     <string name="shark_color_gold">Dorado</string>
+
+    <!-- Sección 3: Paisaje -->
     <string name="settings_section_plant_density">Vegetación</string>
     <string name="settings_plant_color_note">Cada planta toma un color de una especie real al azar.</string>
     <string name="plant_density_poca">Poca</string>
@@ -42,11 +100,6 @@
     <string name="bubble_density_medio">Medio</string>
     <string name="bubble_density_alto">Alto</string>
     <string name="bubble_density_muy_alto">Muy alto</string>
-    <string name="settings_section_day_night_cycle">Velocidad del ciclo día y noche</string>
-    <string name="day_night_cycle_rapido">Rápido (60s)</string>
-    <string name="day_night_cycle_normal">Normal (3 min)</string>
-    <string name="day_night_cycle_lento">Lento (10 min)</string>
-    <string name="day_night_cycle_real">Tiempo real (24h)</string>
     <string name="settings_section_submarine_color">Color del submarino</string>
     <string name="submarine_color_amarillo">Amarillo</string>
     <string name="submarine_color_rojo">Rojo</string>
@@ -58,7 +111,15 @@
     <string name="chest_color_pirate">Pirata Clásico</string>
     <string name="chest_color_royal">Bóveda Real</string>
     <string name="chest_color_ancient">Reliquia Antigua</string>
-    <string name="settings_section_bioluminescence">Bioluminiscencia (Brillo Nocturno)</string>
-    <string name="bioluminescence_enabled">Activado</string>
-    <string name="bioluminescence_disabled">Desactivado</string>
+
+    <!-- Vista previa en vivo -->
+    <string name="preview_badge">EN VIVO</string>
+    <string name="preview_title">Vista previa</string>
+    <string name="preview_hint">Toca para interactuar y desliza para recorrer el fondo. Los cambios se aplican al instante.</string>
+    <string name="preview_bubble_storm">Tormenta de burbujas</string>
+    <string name="preview_content_description">Vista previa en vivo del acuario</string>
+    <string name="preview_summary_creatures">%1$d criaturas</string>
+    <string name="preview_shark_off">Sin tiburón</string>
+    <string name="preview_shark_random">Tiburón ocasional</string>
+    <string name="preview_shark_always">Tiburón siempre</string>
 </resources>

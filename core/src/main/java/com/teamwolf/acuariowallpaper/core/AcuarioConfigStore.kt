@@ -29,6 +29,9 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     fun getAxolotlCount(): Int = cachedInt(ConfigManager.KEY_AXOLOTL_COUNT, ConfigManager.DEFAULT_AXOLOTL_COUNT)
     fun setAxolotlCount(count: Int) = putInt(ConfigManager.KEY_AXOLOTL_COUNT, count.coerceIn(0, 4))
 
+    fun getStarfishCount(): Int = cachedInt(ConfigManager.KEY_STARFISH_COUNT, ConfigManager.DEFAULT_STARFISH_COUNT)
+    fun setStarfishCount(count: Int) = putInt(ConfigManager.KEY_STARFISH_COUNT, count.coerceIn(0, 3))
+
     fun getSharkPresence(): Int = cachedInt(ConfigManager.KEY_SHARK_PRESENCE, ConfigManager.DEFAULT_SHARK_PRESENCE)
     fun setSharkPresence(presence: Int) = putInt(ConfigManager.KEY_SHARK_PRESENCE, presence.coerceIn(0, 2))
 
@@ -36,7 +39,7 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
     fun setSharkColor(color: Int) = putInt(ConfigManager.KEY_SHARK_COLOR, color.coerceIn(0, 3))
 
     fun getPlantDensity(): Int = cachedInt(ConfigManager.KEY_PLANT_DENSITY, ConfigManager.DEFAULT_PLANT_DENSITY)
-    fun setPlantDensity(count: Int) = putInt(ConfigManager.KEY_PLANT_DENSITY, count.coerceIn(0, 24))
+    fun setPlantDensity(count: Int) = putInt(ConfigManager.KEY_PLANT_DENSITY, count.coerceIn(0, 28))
 
     fun getBubbleCount(): Int = cachedInt(ConfigManager.KEY_BUBBLE_COUNT, ConfigManager.DEFAULT_BUBBLE_COUNT)
     fun setBubbleCount(count: Int) = putInt(ConfigManager.KEY_BUBBLE_COUNT, count.coerceIn(4, 45))
@@ -61,4 +64,7 @@ internal class AcuarioConfigStore(prefs: SharedPreferences) : CachedPrefStore(pr
 
     fun getBioluminescenceEnabled(): Boolean = cachedBoolean(ConfigManager.KEY_BIOLUMINESCENCE_ENABLED, ConfigManager.DEFAULT_BIOLUMINESCENCE_ENABLED)
     fun setBioluminescenceEnabled(enabled: Boolean) = putBoolean(ConfigManager.KEY_BIOLUMINESCENCE_ENABLED, enabled)
+
+    fun getRealisticModeEnabled(): Boolean = cachedBoolean(ConfigManager.KEY_REALISTIC_MODE, ConfigManager.DEFAULT_REALISTIC_MODE)
+    fun setRealisticModeEnabled(enabled: Boolean) = putBoolean(ConfigManager.KEY_REALISTIC_MODE, enabled)
 }

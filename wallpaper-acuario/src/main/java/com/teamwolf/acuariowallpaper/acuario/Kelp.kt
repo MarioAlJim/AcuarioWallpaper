@@ -18,6 +18,8 @@ class Kelp {
 
     var x = 0f
         private set
+    var y = -0.80f
+        private set
     var depth = 0f
         private set
     var heightScale = 1f
@@ -29,14 +31,18 @@ class Kelp {
     private val swaySpeed = 0.35f + Random.nextFloat() * 0.25f
 
     /** Assigns this clump's fixed position/size - see [AcuarioRenderer]'s plant layout. */
-    fun placeAt(x: Float, depth: Float, heightScale: Float) {
+    fun placeAt(x: Float, depth: Float, heightScale: Float, y: Float = -0.80f) {
         this.x = x
+        this.y = y
         this.depth = depth
         this.heightScale = heightScale
     }
 
     fun update(deltaTime: Float) {
         swayPhase += deltaTime * swaySpeed
+        if (swayPhase > 1000f) {
+            swayPhase %= TWO_PI
+        }
     }
 
     private companion object {

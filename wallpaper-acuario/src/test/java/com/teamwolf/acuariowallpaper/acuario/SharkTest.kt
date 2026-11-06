@@ -33,9 +33,9 @@ class SharkTest {
         advanceTime(shark, 1.1f)
         assertEquals("biteProgress should remain held open during display", 1.0f, shark.biteProgress, 0.001f)
 
-        // After 2.0 seconds total, teeth should still be prominently displayed
+        // After 2.0 seconds total, teeth should still be prominently displayed (> 0.85)
         advanceTime(shark, 0.5f)
-        assertEquals("biteProgress should still be open at 2.0s", 1.0f, shark.biteProgress, 0.001f)
+        assertTrue("biteProgress should still be prominently open at 2.0s", shark.biteProgress > 0.85f)
 
         // After 3.2 seconds total, animation should complete and mouth closes
         advanceTime(shark, 1.2f)

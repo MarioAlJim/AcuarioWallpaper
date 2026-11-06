@@ -7,11 +7,10 @@ import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.RelativeLayout
+import androidx.core.widget.NestedScrollView
 
 /**
- * Shared UI helpers for the settings screen fragments, ported as-is from the "wallpaper"
- * reference project so future settings sections (once the Acuario effect grows more knobs)
- * can reuse the same accordion/card-scroll behavior instead of duplicating it.
+ * Shared UI helpers for the settings screen fragments.
  */
 object SettingsAccordionHelper {
 
@@ -48,6 +47,7 @@ object SettingsAccordionHelper {
                         }
                     }
                     setExpanded(entry, true)
+                    scrollToHeaderTop(header, root)
                 }
             }
         }
@@ -71,5 +71,43 @@ object SettingsAccordionHelper {
                 0
             )
         }
+    }
+
+    /**
+     * Scrolls the nearest vertical ScrollView / NestedScrollView so that the expanded section's card/header
+     * aligns right at the top of the viewport.
+     */
+    private fun scrollToHeaderTop(header: View, root: View) {
+        val targetCard = (header.parent as? com.google.android.material.card.MaterialCardView) ?: header
+
+        var current: View? = targetCard.parent as? View
+        var scrollView: View? = null
+        while (current != null) {
+            if (current is NestedScrollView || current is android.widget.ScrollView) {
+                scrollView = current
+                break
+            }
+            current = current.parent as? View
+        }
+        if (scrollView == null) {
+            scrollView = (root as? NestedScrollView)
+                ?: (root as? android.widget.ScrollView)
+                ?: root.rootView.findViewById(R.id.settingsScrollView)
+        }
+
+        val scrollContainer = scrollView ?: return
+
+        scrollContainer.postDelayed({
+            val rect = android.graphics.Rect()
+            targetCard.getDrawingRect(rect)
+            (scrollContainer as ViewGroup).offsetDescendantRectToMyCoords(targetCard, rect)
+
+            val targetY = (scrollContainer.scrollY + rect.top).coerceAtLeast(0)
+            if (scrollContainer is NestedScrollView) {
+                scrollContainer.smoothScrollTo(0, targetY)
+            } else if (scrollContainer is android.widget.ScrollView) {
+                scrollContainer.smoothScrollTo(0, targetY)
+            }
+        }, 280)
     }
 }

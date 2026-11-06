@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Settings screen card-selector tokens (dark palette), used by SettingsCardSelectorHelper -->
-    <color name="settings_card_bg_alt">#21212A</color>
-    <color name="settings_card_bg_alt2">#15151A</color>
-    <color name="settings_chip_bg_inactive">#3A3A4A</color>
-    <color name="settings_chip_bg_active">#2D2D3D</color>
-    <color name="settings_text_primary">#E0E0E6</color>
-    <color name="settings_text_muted">#B0B0BA</color>
+    <!-- Settings screen color tokens (dark palette) -->
+    <color name="settings_bg">#0E1418</color>
+    <color name="settings_card_bg">#162026</color>
+    <color name="settings_card_bg_alt">#1E2C33</color>
+    <color name="settings_card_bg_alt2">#19242B</color>
+    <color name="settings_card_bg_alt3">#2C3E47</color>
+    <color name="settings_card_pressed">#253740</color>
+    <color name="settings_card_selected">#183B44</color>
+    <color name="settings_chip_bg_inactive">#1E2C33</color>
+    <color name="settings_chip_bg_active">#183B44</color>
+    <color name="settings_stroke">#2C3E47</color>
+    <color name="settings_text_primary">#EEF4F6</color>
+    <color name="settings_text_secondary">#9EACB2</color>
+    <color name="settings_text_tertiary">#60717A</color>
+    <color name="settings_text_muted">#9EACB2</color>
+    <color name="settings_text_disabled">#60717A</color>
     <color name="settings_accent">#00E5FF</color>
     <color name="settings_accent_text">#00E5FF</color>
+    <color name="settings_accent_ripple">#2200E5FF</color>
+    <color name="settings_section_warning">#FF9800</color>
+    <color name="settings_section_info">#29B6F6</color>
 </resources>

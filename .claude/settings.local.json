@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew.bat :wallpaper-acuario:compileDebugKotlin :app:assembleDebug --console=plain)",
+      "Bash(./gradlew :wallpaper-acuario:testDebugUnitTest -q)"
+    ]
+  }
+}

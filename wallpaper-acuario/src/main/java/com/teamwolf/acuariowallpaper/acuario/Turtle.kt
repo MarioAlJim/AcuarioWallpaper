@@ -52,7 +52,7 @@ import kotlin.random.Random
  * own regardless of state once the startle sequence is behind it, so turtle.frag (which reads
  * it as uRetraction) always shows a smooth pose whether the turtle is mid-flee or long done.
  */
-class Turtle {
+class Turtle(customPalette: TurtlePalette? = null) {
     /** Randomly assigned at construction and fixed for the turtle's lifetime - not user-selectable. */
     val shinyType: Int
     val palette: TurtlePalette
@@ -66,7 +66,7 @@ class Turtle {
         palette = when (shinyType) {
             1 -> TurtlePalette.SHINY_GOLD
             2 -> TurtlePalette.SHINY_DIAMOND
-            else -> TurtlePalette.PALETTES.random()
+            else -> customPalette ?: FaunaVariationManager.nextTurtlePalette()
         }
     }
 
@@ -119,6 +119,30 @@ class Turtle {
     private var exhalePending = false
     private var powerStrokePending = false
 
+    var hungerTimer = 65f
+    var isStarving = false
+        private set
+
+    fun feed() {
+        hungerTimer = 65f
+        isStarving = false
+    }
+
+    fun isOutOfBounds(aspectRatio: Float): Boolean =
+        kotlin.math.abs(x) > aspectRatio + 0.45f
+
+    fun spawnFromEdge(aspectRatio: Float) {
+        val fromLeft = Random.nextBoolean()
+        x = if (fromLeft) -aspectRatio - 0.4f else aspectRatio + 0.4f
+        y = -0.5f + Random.nextFloat() * 0.8f
+        depth = Random.nextFloat()
+        hungerTimer = 65f
+        isStarving = false
+        targetX = if (fromLeft) -aspectRatio * 0.2f else aspectRatio * 0.2f
+        targetY = y
+        hasTarget = true
+    }
+
     private enum class StartleState { NONE, RETRACTING, HIDING, FLEEING }
     private var startleState = StartleState.NONE
     private var startleTimer = 0f
@@ -137,7 +161,22 @@ class Turtle {
     var retraction = 0f
         private set
 
-    fun update(deltaTime: Float, aspectRatio: Float) {
+    fun update(deltaTime: Float, aspectRatio: Float, realisticMode: Boolean = false) {
+        if (realisticMode) {
+            hungerTimer -= deltaTime
+            if (hungerTimer <= 0f && !isStarving) {
+                isStarving = true
+                targetX = if (x >= 0f) aspectRatio + 0.9f else -aspectRatio - 0.9f
+                targetY = y
+                hasTarget = true
+                breathPhase = BreathPhase.SWIMMING
+                startleState = StartleState.NONE
+            }
+        } else {
+            hungerTimer = 65f
+            isStarving = false
+        }
+
         if (startleState == StartleState.RETRACTING || startleState == StartleState.HIDING) {
             updateStartled(deltaTime)
             return
@@ -258,6 +297,9 @@ class Turtle {
         val strokesAfter = kotlin.math.floor((swimPhase - PI) / TWO_PI)
         if (strokesAfter > strokesBefore) {
             powerStrokePending = true
+        }
+        if (swimPhase > 1000f) {
+            swimPhase %= TWO_PI
         }
     }
 

@@ -67,6 +67,9 @@ class ConfigManager(private val context: Context) : ConfigProvider {
         const val KEY_AXOLOTL_COUNT = "axolotl_count"
         const val DEFAULT_AXOLOTL_COUNT = 2
 
+        const val KEY_STARFISH_COUNT = "starfish_count"
+        const val DEFAULT_STARFISH_COUNT = 1
+
         const val KEY_SHARK_PRESENCE = "shark_presence"
         const val DEFAULT_SHARK_PRESENCE = 1 // 1 = Sometimes (Random)
 
@@ -75,7 +78,7 @@ class ConfigManager(private val context: Context) : ConfigProvider {
 
 
         const val KEY_PLANT_DENSITY = "plant_density"
-        const val DEFAULT_PLANT_DENSITY = 6 // "Media" tier - see AcuarioSettingsFragment's values array
+        const val DEFAULT_PLANT_DENSITY = 8 // "Media" tier - see AcuarioSettingsFragment's values array
 
         const val KEY_BUBBLE_COUNT = "bubble_count"
         const val DEFAULT_BUBBLE_COUNT = 28
@@ -97,6 +100,9 @@ class ConfigManager(private val context: Context) : ConfigProvider {
 
         const val KEY_BIOLUMINESCENCE_ENABLED = "bioluminescence_enabled"
         const val DEFAULT_BIOLUMINESCENCE_ENABLED = true
+
+        const val KEY_REALISTIC_MODE = "realistic_mode"
+        const val DEFAULT_REALISTIC_MODE = false
     }
 
     override fun getAcuarioTheme(): Int = acuario.getAcuarioTheme()
@@ -133,6 +139,12 @@ class ConfigManager(private val context: Context) : ConfigProvider {
     fun setAxolotlCount(count: Int) {
         acuario.setAxolotlCount(count)
         notifySettingsChanged(KEY_AXOLOTL_COUNT)
+    }
+
+    override fun getStarfishCount(): Int = acuario.getStarfishCount()
+    fun setStarfishCount(count: Int) {
+        acuario.setStarfishCount(count)
+        notifySettingsChanged(KEY_STARFISH_COUNT)
     }
 
     override fun getSharkPresence(): Int = acuario.getSharkPresence()
@@ -193,5 +205,11 @@ class ConfigManager(private val context: Context) : ConfigProvider {
     fun setBioluminescenceEnabled(enabled: Boolean) {
         acuario.setBioluminescenceEnabled(enabled)
         notifySettingsChanged(KEY_BIOLUMINESCENCE_ENABLED)
+    }
+
+    override fun getRealisticModeEnabled(): Boolean = acuario.getRealisticModeEnabled()
+    fun setRealisticModeEnabled(enabled: Boolean) {
+        acuario.setRealisticModeEnabled(enabled)
+        notifySettingsChanged(KEY_REALISTIC_MODE)
     }
 }

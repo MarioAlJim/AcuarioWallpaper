@@ -13,9 +13,9 @@ import kotlin.random.Random
 class TreasureChest {
     var x = 0.55f // Relative to aspectRatio (* aspectRatio at draw time)
         private set
-    var y = -0.78f // Seabed floor anchor
+    var y = -0.76f // Seabed floor anchor
         private set
-    var depth = 0.15f // Slightly behind foreground sand rim, sitting on sand bed
+    var depth = 0.48f // Seabed shelf depth, respecting plant layer tiers (Escalón 1 - Medio)
         private set
 
     var palette: TreasureChestPalette = TreasureChestPalette.CLASSIC_PIRATE
@@ -28,6 +28,9 @@ class TreasureChest {
     var glowIntensity = 0f
         private set
 
+    /** Special beacon glow shown when ready to restore depleted fauna. */
+    var beaconGlow = 0f
+
     /** Set to true when bubbles should be emitted this frame by AcuarioRenderer. */
     var shouldSpawnBubbles = false
 
@@ -37,8 +40,7 @@ class TreasureChest {
     private var bubbleSpawnTimer = 0f
 
     fun update(deltaTime: Float, aspectRatio: Float) {
-        // Adjust horizontal placement based on aspect ratio so it stays on the right-side seabed
-        x = 0.42f * max(aspectRatio, 0.5f)
+        x = 0.55f
 
         if (!isOpen) {
             // Counting down to next auto-open

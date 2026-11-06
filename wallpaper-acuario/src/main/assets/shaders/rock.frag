@@ -11,6 +11,8 @@ uniform vec3 uSpotColor;
 uniform float uDayNight;
 uniform vec3 uGlowColor;
 uniform highp float uTime;
+uniform float uAspect;
+uniform float uBioluminescence;
 
 out vec4 fragColor;
 
@@ -108,6 +110,16 @@ void main() {
     col = mix(col, uSpotColor, spot);
     col += uHighlightColor * strata * 0.3;
 
+    // --- Sunlight caustics (identical to seabed sand lighting) ---
+    if (uDayNight > 0.02) {
+        vec2 cUV = vUV * vec2(max(uAspect, 0.5) * 4.0, 3.0) + vec2(safeTime * 0.06, safeTime * 0.03);
+        float c1 = sin(cUV.x * 5.0 + sin(cUV.y * 4.0 + safeTime * 0.8));
+        float c2 = cos(cUV.y * 6.0 + sin(cUV.x * 5.0 + safeTime * 0.6));
+        float cVal = clamp(c1 * c2 + 0.3, 0.0, 1.0);
+        float caustic = pow(cVal, 2.5) * 0.28 * uDayNight * (0.5 + 0.5 * topHighlight);
+        col += vec3(caustic * 0.90, caustic * 0.95, caustic * 1.0);
+    }
+
     // --- Night Bioluminescent Moss Glow ---
     float nightGlow = (1.0 - uDayNight);
     float glowPulse = 0.85 + 0.15 * sin(safeTime * 1.4 + p.x * 3.0);
@@ -115,6 +127,27 @@ void main() {
     float mossMask = smoothstep(0.0, 0.5, p.y + n) * (0.6 + 0.4 * spot);
     vec3 glowEmissive = uGlowColor * nightGlow * glowPulse * mossMask * 0.75;
     col += glowEmissive;
+
+    // --- Night Bioluminescent / mineral sparkles (identical to seabed sand lighting) ---
+    float nightFactor = (1.0 - uDayNight) * uBioluminescence;
+    if (nightFactor > 0.05) {
+        vec2 spCoord = (vUV + vec2(uShapeType * 2.3, uShapeType * 1.7)) * 24.0;
+        vec2 spUV = floor(spCoord);
+        vec2 spFrac = fract(spCoord);
+        float spHash = hash(spUV);
+        if (spHash > 0.96) {
+            vec2 center = vec2(fract(spHash * 31.41), fract(spHash * 73.17)) * 0.5 + 0.25;
+            float distSp = length(spFrac - center);
+            float spotMask = smoothstep(0.24, 0.0, distSp);
+            float sparklePhase = sin(safeTime * 2.5 + spHash * 62.83) * 0.5 + 0.5;
+            float sparkleIntensity = pow(sparklePhase, 3.0) * (spHash - 0.96) * 45.0 * spotMask;
+            vec3 sparkleColor = mix(vec3(0.35, 0.85, 0.95), vec3(0.55, 0.95, 0.65), fract(spHash * 19.0));
+            col += sparkleColor * sparkleIntensity * nightFactor;
+        }
+    }
+
+    // Floor ambient enforcement so rock is never completely black
+    col = max(col, uShadowColor * 0.45);
 
     fragColor = vec4(col, alpha);
 }

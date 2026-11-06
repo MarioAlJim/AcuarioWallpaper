@@ -17,7 +17,7 @@ import kotlin.random.Random
  * facing direction doesn't read, so jellyfish.frag draws the same silhouette regardless of
  * drift direction.
  */
-class Jellyfish {
+class Jellyfish(customPalette: JellyfishPalette? = null) {
     val shinyType: Int
     val palette: JellyfishPalette
 
@@ -30,7 +30,7 @@ class Jellyfish {
         palette = when (shinyType) {
             1 -> JellyfishPalette.SHINY_GOLD
             2 -> JellyfishPalette.SHINY_DIAMOND
-            else -> JellyfishPalette.PALETTES.random()
+            else -> customPalette ?: FaunaVariationManager.nextJellyfishPalette()
         }
     }
 
@@ -78,8 +78,8 @@ class Jellyfish {
     }
 
     fun update(deltaTime: Float, aspectRatio: Float) {
-        pulsePhase += deltaTime * pulseSpeed
-        currentPhase += deltaTime * currentSpeed
+        pulsePhase = (pulsePhase + deltaTime * pulseSpeed) % TWO_PI
+        currentPhase = (currentPhase + deltaTime * currentSpeed) % TWO_PI
 
         if (electricTimer > 0f) {
             electricTimer -= deltaTime

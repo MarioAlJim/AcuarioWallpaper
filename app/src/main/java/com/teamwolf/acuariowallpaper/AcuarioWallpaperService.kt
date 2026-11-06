@@ -1,5 +1,6 @@
 package com.teamwolf.acuariowallpaper
 
+import android.animation.ValueAnimator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,10 +13,13 @@ import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
+import android.view.VelocityTracker
+import android.view.animation.DecelerateInterpolator
 import androidx.core.content.ContextCompat
 import com.teamwolf.acuariowallpaper.core.ConfigManager
 import com.teamwolf.acuariowallpaper.core.GLRenderThread
 import com.teamwolf.acuariowallpaper.core.GLRenderer
+import kotlin.math.abs
 
 // "Bubble Pop" shake gesture tuning - see AcuarioEngine.detectShake()'s doc. Module-level (not a
 // companion object) because AcuarioEngine is an `inner class`, which Kotlin doesn't allow to
@@ -53,6 +57,14 @@ class AcuarioWallpaperService : WallpaperService() {
         private var sensorManager: SensorManager? = null
         private var accelerometer: Sensor? = null
 
+        // Touch-drag lateral scroll and fling animation (matches SolYLuna reference behavior)
+        private var isDragging = false
+        private var startX = 0f
+        private var virtualXOffset = 0.5f
+        private var startOffset = 0.5f
+        private var velocityTracker: VelocityTracker? = null
+        private var flingAnimator: ValueAnimator? = null
+
         // "Bubble Pop" shake gesture: needs SHAKES_REQUIRED separate acceleration peaks within
         // SHAKE_WINDOW_MS of each other (not just one hard jolt) before it counts as a deliberate
         // shake, so a single bump/pocket knock can't trigger it. Timestamps (elapsedRealtime, ms)
@@ -81,8 +93,64 @@ class AcuarioWallpaperService : WallpaperService() {
 
         override fun onTouchEvent(event: MotionEvent?) {
             super.onTouchEvent(event)
-            if (event != null && event.action == MotionEvent.ACTION_DOWN) {
-                renderThread?.queueTouch(event.x, event.y)
+            if (event != null) {
+                if (velocityTracker == null) {
+                    velocityTracker = VelocityTracker.obtain()
+                }
+                velocityTracker?.addMovement(event)
+
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        flingAnimator?.cancel()
+                        isDragging = true
+                        startX = event.x
+                        startOffset = virtualXOffset
+                        renderThread?.queueTouch(event.x, event.y)
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (isDragging) {
+                            val diffX = event.x - startX
+                            val screenWidth = currentWidth.toFloat()
+                            if (screenWidth > 0f) {
+                                val deltaOffset = -diffX / screenWidth
+                                virtualXOffset = (startOffset + deltaOffset).coerceIn(0f, 1f)
+                                renderThread?.queueOffsets(virtualXOffset, 0.5f)
+                            }
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        if (isDragging) {
+                            velocityTracker?.computeCurrentVelocity(1000)
+                            val xVelocity = velocityTracker?.xVelocity ?: 0f
+                            val screenWidth = currentWidth.toFloat()
+
+                            if (screenWidth > 0f && abs(xVelocity) > 250f) {
+                                val offsetVelocity = -xVelocity / screenWidth
+                                val targetOffset = (virtualXOffset + offsetVelocity * 0.45f).coerceIn(0f, 1f)
+                                val duration = (abs(offsetVelocity) * 650f).toLong().coerceIn(250L, 900L)
+
+                                flingAnimator?.cancel()
+                                flingAnimator = ValueAnimator.ofFloat(virtualXOffset, targetOffset).apply {
+                                    this.duration = duration
+                                    interpolator = DecelerateInterpolator(1.6f)
+                                    addUpdateListener { animator ->
+                                        virtualXOffset = animator.animatedValue as Float
+                                        renderThread?.queueOffsets(virtualXOffset, 0.5f)
+                                    }
+                                    start()
+                                }
+                            }
+                        }
+                        isDragging = false
+                        velocityTracker?.recycle()
+                        velocityTracker = null
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        isDragging = false
+                        velocityTracker?.recycle()
+                        velocityTracker = null
+                    }
+                }
             }
         }
 
@@ -95,11 +163,17 @@ class AcuarioWallpaperService : WallpaperService() {
             yPixels: Int
         ) {
             super.onOffsetsChanged(xOffset, yOffset, xStep, yStep, xPixels, yPixels)
-            renderThread?.queueOffsets(xOffset.coerceIn(0f, 1f), yOffset)
+            val clampedX = xOffset.coerceIn(0f, 1f)
+            virtualXOffset = clampedX
+            renderThread?.queueOffsets(clampedX, yOffset)
         }
 
         override fun onDestroy() {
             super.onDestroy()
+            flingAnimator?.cancel()
+            flingAnimator = null
+            velocityTracker?.recycle()
+            velocityTracker = null
             try {
                 applicationContext.unregisterReceiver(settingsReceiver)
             } catch (e: Exception) {

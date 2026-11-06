@@ -22,7 +22,7 @@ import kotlin.random.Random
  * [legPhase]: Drives limb/paw crawling animation in axolotl.frag.
  * [depth]: 0 (near glass) to 1 (deep in tank) for depth ordering and parallax tinting.
  */
-class Axolotl {
+class Axolotl(customPalette: AxolotlPalette? = null) {
     val shinyType: Int
     val palette: AxolotlPalette
 
@@ -35,7 +35,7 @@ class Axolotl {
         palette = when (shinyType) {
             1 -> AxolotlPalette.SHINY_GOLD
             2 -> AxolotlPalette.SHINY_DIAMOND
-            else -> AxolotlPalette.PALETTES.random()
+            else -> customPalette ?: FaunaVariationManager.nextAxolotlPalette()
         }
     }
 
@@ -89,9 +89,51 @@ class Axolotl {
     var isRestingOnRock = false
         private set
 
-    fun update(deltaTime: Float, aspectRatio: Float) {
+    var hungerTimer = 65f
+    var isStarving = false
+        private set
+
+    fun feed() {
+        hungerTimer = 65f
+        isStarving = false
+    }
+
+    fun isOutOfBounds(aspectRatio: Float): Boolean =
+        kotlin.math.abs(x) > aspectRatio + 0.45f
+
+    fun spawnFromEdge(aspectRatio: Float) {
+        val fromLeft = Random.nextBoolean()
+        x = if (fromLeft) -aspectRatio - 0.4f else aspectRatio + 0.4f
+        y = -0.68f + Random.nextFloat() * 0.06f
+        depth = Random.nextFloat()
+        hungerTimer = 65f
+        isStarving = false
+        hasTarget = false
+        pauseTimer = 0f
+        isSeekingRock = false
+        isRestingOnRock = false
+        isStartled = false
+    }
+
+    fun update(deltaTime: Float, aspectRatio: Float, realisticMode: Boolean = false) {
         // Clamp deltaTime to prevent spring destabilization or massive phase jumps
         val dt = deltaTime.coerceIn(0f, 0.05f)
+
+        if (realisticMode) {
+            hungerTimer -= dt
+            if (hungerTimer <= 0f && !isStarving) {
+                isStarving = true
+                targetX = if (x >= 0f) aspectRatio + 0.8f else -aspectRatio - 0.8f
+                targetY = y
+                hasTarget = true
+                pauseTimer = 0f
+                isSeekingRock = false
+                isRestingOnRock = false
+            }
+        } else {
+            hungerTimer = 65f
+            isStarving = false
+        }
 
         // Gills flutter continuously whether moving or stationary (wrapped to prevent float overflow)
         val gillSpeed = if (isStartled) 6.0f else 2.5f
@@ -137,6 +179,9 @@ class Axolotl {
         val dist = sqrt(dx * dx + dy * dy)
 
         if (dist < 0.04f) {
+            if (isStarving) {
+                return
+            }
             if (isSeekingRock) {
                 isSeekingRock = false
                 isRestingOnRock = true
@@ -161,9 +206,11 @@ class Axolotl {
         x += (dx / safeDist) * effectiveSpeed * dt
         y += (dy / safeDist) * effectiveSpeed * dt
 
-        // Keep position safely bounded within the aquarium
-        val halfWidth = aspectRatio * 0.95f
-        x = x.coerceIn(-halfWidth, halfWidth)
+        // Keep position safely bounded within the aquarium (unless exiting screen due to hunger)
+        if (!isStarving) {
+            val halfWidth = aspectRatio * 0.95f
+            x = x.coerceIn(-halfWidth, halfWidth)
+        }
         y = y.coerceIn(-0.72f, 0.68f)
 
         // Steer heading toward target angle with smooth turning arc
@@ -203,6 +250,7 @@ class Axolotl {
      * stay resting there for a couple of seconds, and then resume its normal wandering behavior.
      */
     fun touch(touchX: Float, touchY: Float, availableRocks: List<Rock> = emptyList()) {
+        if (isStarving) return
         isSeekingRock = true
         isRestingOnRock = false
         isStartled = true

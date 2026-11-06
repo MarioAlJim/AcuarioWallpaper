@@ -15,7 +15,7 @@ import kotlin.random.Random
  * whole-body wing undulation (rather than a fish's sharp tail wag). Like [Fish] and unlike
  * [Turtle], mantas are gill-breathing elasmobranchs with no need to surface for air.
  */
-class Manta {
+class Manta(customPalette: MantaPalette? = null) {
     val shinyType: Int
     val palette: MantaPalette
 
@@ -28,7 +28,7 @@ class Manta {
         palette = when (shinyType) {
             1 -> MantaPalette.SHINY_GOLD
             2 -> MantaPalette.SHINY_DIAMOND
-            else -> MantaPalette.PALETTES.random()
+            else -> customPalette ?: FaunaVariationManager.nextMantaPalette()
         }
     }
 
@@ -82,7 +82,45 @@ class Manta {
     private var speedMultiplier = 1f
     private var targetSpeedMultiplier = 1f
 
-    fun update(deltaTime: Float, aspectRatio: Float) {
+    var hungerTimer = 65f
+    var isStarving = false
+        private set
+
+    fun feed() {
+        hungerTimer = 65f
+        isStarving = false
+    }
+
+    fun isOutOfBounds(aspectRatio: Float): Boolean =
+        kotlin.math.abs(x) > aspectRatio + 0.5f
+
+    fun spawnFromEdge(aspectRatio: Float) {
+        val fromLeft = Random.nextBoolean()
+        x = if (fromLeft) -aspectRatio - 0.45f else aspectRatio + 0.45f
+        y = -0.4f + Random.nextFloat() * 0.8f
+        depth = Random.nextFloat()
+        hungerTimer = 65f
+        isStarving = false
+        targetX = if (fromLeft) -aspectRatio * 0.2f else aspectRatio * 0.2f
+        targetY = y
+        hasTarget = true
+    }
+
+    fun update(deltaTime: Float, aspectRatio: Float, realisticMode: Boolean = false) {
+        if (realisticMode) {
+            hungerTimer -= deltaTime
+            if (hungerTimer <= 0f && !isStarving) {
+                isStarving = true
+                targetX = if (x >= 0f) aspectRatio + 1.0f else -aspectRatio - 1.0f
+                targetY = y
+                hasTarget = true
+                loopTimer = 0f
+            }
+        } else {
+            hungerTimer = 65f
+            isStarving = false
+        }
+
         if (loopTimer > 0f) {
             loopTimer -= deltaTime
             if (loopTimer < 0f) {
@@ -159,10 +197,10 @@ class Manta {
         // Swim phase drives manta.frag's slow, whole-body wing undulation - much gentler than a
         // fish's tail-wag frequency. Flaps 3.5x faster during loop.
         val phaseSpeed = (1.6f + speed * 2.5f) * speedMultiplier
-        if (loopTimer > 0f) {
-            swimPhase += deltaTime * phaseSpeed * 3.5f
-        } else {
-            swimPhase += deltaTime * phaseSpeed
+        val phaseMultiplier = if (loopTimer > 0f) 3.5f else 1.0f
+        swimPhase += deltaTime * phaseSpeed * phaseMultiplier
+        if (swimPhase > 1000f) {
+            swimPhase %= TWO_PI
         }
 
         // Loop circular path offsets
